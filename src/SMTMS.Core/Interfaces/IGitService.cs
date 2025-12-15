@@ -14,4 +14,6 @@ public interface IGitService
     void AddRemote(string path, string name, string url);
     // Returns a list of changed files
     IEnumerable<string> GetStatus(string path);
+    IEnumerable<SMTMS.Core.Models.GitCommitModel> GetHistory(string path);
+    void Reset(string path, string commitHash);
 }

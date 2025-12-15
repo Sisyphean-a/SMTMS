@@ -96,4 +96,31 @@ public class GitService : IGitService
         var status = repo.RetrieveStatus();
         return status.Where(s => s.State != FileStatus.Ignored).Select(s => s.FilePath).ToList();
     }
+
+    public IEnumerable<SMTMS.Core.Models.GitCommitModel> GetHistory(string path)
+    {
+        using var repo = new Repository(path);
+        return repo.Commits.Take(50).Select(c => new SMTMS.Core.Models.GitCommitModel
+        {
+            ShortHash = c.Sha.Substring(0, 7),
+            FullHash = c.Sha,
+            Message = c.MessageShort,
+            Author = c.Author.Name,
+            Date = c.Author.When
+        }).ToList();
+    }
+
+    public void Reset(string path, string commitHash)
+    {
+        using var repo = new Repository(path);
+        var commit = repo.Lookup<Commit>(commitHash);
+        if (commit != null)
+        {
+             repo.Reset(ResetMode.Hard, commit);
+        }
+        else
+        {
+             throw new Exception($"Commit '{commitHash}' not found.");
+        }
+    }
 }

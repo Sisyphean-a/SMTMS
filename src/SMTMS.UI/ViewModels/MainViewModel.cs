@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using SMTMS.Core.Interfaces;
 
 using SMTMS.Core.Aspects;
+using SMTMS.Core.Models;
 
 namespace SMTMS.UI.ViewModels;
 
@@ -29,7 +30,13 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private ModViewModel? _selectedMod;
 
+
+
+    [ObservableProperty]
+    private GitCommitModel? _selectedCommit;
+
     public ObservableCollection<ModViewModel> Mods { get; } = new();
+    public ObservableCollection<GitCommitModel> CommitHistory { get; } = new();
 
     public MainViewModel(IModService modService, IGitService gitService, IGamePathService gamePathService)
     {
@@ -123,6 +130,9 @@ public partial class MainViewModel : ObservableObject
                 return;
             }
 
+            // Fix: Stage all changes before committing
+            _gitService.StageAll(ModsDirectory);
+
             // Hardcoded author for now
             _gitService.Commit(ModsDirectory, CommitMessage, "SMTMS User", "user@smtms.local");
             GitStatusLog = "Commit successful.";
@@ -146,6 +156,47 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             GitStatusLog = $"Pull Error: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private void LoadHistory()
+    {
+        try
+        {
+            var history = _gitService.GetHistory(ModsDirectory);
+            CommitHistory.Clear();
+            foreach (var commit in history)
+            {
+                CommitHistory.Add(commit);
+            }
+            GitStatusLog = "History loaded.";
+        }
+        catch (Exception ex)
+        {
+            GitStatusLog = $"History Error: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private void GitRollback()
+    {
+        if (SelectedCommit == null)
+        {
+             GitStatusLog = "Rollback Error: No commit selected.";
+             return;
+        }
+
+        try
+        {
+            _gitService.Reset(ModsDirectory, SelectedCommit.FullHash);
+            GitStatusLog = $"Rolled back to '{SelectedCommit.ShortHash}'.";
+            // Refresh logic if needed
+            LoadHistory();
+        }
+        catch (Exception ex)
+        {
+            GitStatusLog = $"Rollback Error: {ex.Message}";
         }
     }
 }
