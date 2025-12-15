@@ -24,6 +24,7 @@ public partial class App : Application
                 services.AddDbContext<AppDbContext>(options => 
                     options.UseSqlite("Data Source=smtms.db"));
                 
+                services.AddSingleton<IGitService, SMTMS.GitProvider.Services.GitService>();
                 services.AddSingleton<IModService, ModService>();
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();

@@ -5,7 +5,7 @@ SMTMS 是一个基于 .NET 8 WPF 构建的现代化模组管理工具，旨在�
 
 ## 功能特性
 - **现代化 UI**：基于 WPF 的高性能列表展示。
-- **Git 集成**：内置版本控制，保障数据安全（TODO）。
+- **Git 集成**：内置版本控制，保障数据安全（基础功能已实现）。
 - **自动化元数据**：自动从 Nexus Mods 获取信息（TODO）。
 - **AI 辅助翻译**：集成机器翻译 API（TODO）。
 
@@ -32,8 +32,8 @@ SMTMS 是一个基于 .NET 8 WPF 构建的现代化模组管理工具，旨在�
 ## 后续开发计划 (Roadmap)
 
 ### 1. Git 集成完善
-- [ ] 在 `LoadModsAsync` 中，为每个模组检查 Git 状态。
-- [ ] 实现 `Stage` 和 `Commit` 按钮功能。
+- [x] 在 `LoadModsAsync` 中，为每个模组检查 Git 状态 (手动触发)。
+- [x] 实现 `Stage` 和 `Commit` 按钮功能。
 - [ ] 添加历史版本回滚 UI。
 
 ### 2. Nexus API 对接
