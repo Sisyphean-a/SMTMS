@@ -34,6 +34,9 @@ public class ModManifest
 
     [JsonProperty("UpdateKeys")]
     public string[]? UpdateKeys { get; set; }
+
+    [JsonIgnore]
+    public string? ManifestPath { get; set; }
 }
 
 public class ContentPackFor

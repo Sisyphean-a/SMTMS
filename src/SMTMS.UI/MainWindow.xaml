@@ -30,14 +30,79 @@
             <TextBlock Text="{Binding GitStatusLog}" VerticalAlignment="Center" Foreground="Gray"/>
         </StackPanel>
 
-        <DataGrid Grid.Row="1" ItemsSource="{Binding Mods}" AutoGenerateColumns="False" IsReadOnly="True" Margin="10">
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="200"/>
-                <DataGridTextColumn Header="Author" Binding="{Binding Author}" Width="150"/>
-                <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="80"/>
-                <DataGridTextColumn Header="ID" Binding="{Binding UniqueID}" Width="200"/>
-                <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
-            </DataGrid.Columns>
-        </DataGrid>
+        <Grid Grid.Row="1" Margin="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*"/>
+                <ColumnDefinition Width="10"/>
+                <ColumnDefinition Width="1*"/>
+            </Grid.ColumnDefinitions>
+
+            <DataGrid Grid.Column="0" ItemsSource="{Binding Mods}" SelectedItem="{Binding SelectedMod}" AutoGenerateColumns="False" IsReadOnly="True" BorderThickness="1" BorderBrush="LightGray">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="200"/>
+                    <DataGridTextColumn Header="Author" Binding="{Binding Author}" Width="150"/>
+                    <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="80"/>
+                    <DataGridTextColumn Header="ID" Binding="{Binding UniqueID}" Width="200"/>
+                    <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Center" VerticalAlignment="Stretch" Background="Transparent" ShowsPreview="True"/>
+
+            <Border Grid.Column="2" BorderBrush="LightGray" BorderThickness="1" CornerRadius="3" Padding="15" Background="White">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Visibility" Value="Visible"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SelectedMod}" Value="{x:Null}">
+                                <Setter Property="Visibility" Value="Hidden"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="Edit Mod Details" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,15"/>
+
+                        <TextBlock Text="Name" FontWeight="Medium" Foreground="DimGray"/>
+                        <TextBox Text="{Binding SelectedMod.Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,5,0,15" Padding="5"/>
+
+                        <TextBlock Text="Author" FontWeight="Medium" Foreground="DimGray"/>
+                        <TextBox Text="{Binding SelectedMod.Author, UpdateSourceTrigger=PropertyChanged}" Margin="0,5,0,15" Padding="5"/>
+
+                        <TextBlock Text="Version" FontWeight="Medium" Foreground="DimGray"/>
+                        <TextBox Text="{Binding SelectedMod.Version, UpdateSourceTrigger=PropertyChanged}" Margin="0,5,0,15" Padding="5"/>
+
+                        <TextBlock Text="Unique ID" FontWeight="Medium" Foreground="DimGray"/>
+                        <TextBox Text="{Binding SelectedMod.UniqueID, UpdateSourceTrigger=PropertyChanged}" Margin="0,5,0,15" Padding="5" IsReadOnly="True" Background="#F5F5F5" ToolTip="Mod ID cannot be changed safely."/>
+
+                        <TextBlock Text="Description" FontWeight="Medium" Foreground="DimGray"/>
+                        <TextBox Text="{Binding SelectedMod.Description, UpdateSourceTrigger=PropertyChanged}" Height="120" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" Margin="0,5,0,15" Padding="5"/>
+
+                        <Button Content="Save Changes" Command="{Binding SaveModCommand}" HorizontalAlignment="Right" Padding="20,8" Background="#007ACC" Foreground="White" BorderThickness="0" Cursor="Hand">
+                            <Button.Resources>
+                                <Style TargetType="Border">
+                                    <Setter Property="CornerRadius" Value="3"/>
+                                </Style>
+                            </Button.Resources>
+                        </Button>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+            
+            <TextBlock Grid.Column="2" Text="Select a mod to edit details" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="Gray" FontSize="14" FontStyle="Italic">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Visibility" Value="Hidden"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SelectedMod}" Value="{x:Null}">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+        </Grid>
     </Grid>
 </Window>

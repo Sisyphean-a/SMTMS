@@ -59,7 +59,12 @@ public class ModService : IModService
         try
         {
             var json = await File.ReadAllTextAsync(manifestPath);
-            return JsonConvert.DeserializeObject<ModManifest>(json, _jsonSettings);
+            var manifest = JsonConvert.DeserializeObject<ModManifest>(json, _jsonSettings);
+            if (manifest != null)
+            {
+                manifest.ManifestPath = manifestPath;
+            }
+            return manifest;
         }
         catch (Exception)
         {

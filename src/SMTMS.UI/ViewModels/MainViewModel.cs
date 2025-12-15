@@ -12,6 +12,7 @@ public partial class MainViewModel : ObservableObject
 {
     private readonly IModService _modService;
     private readonly IGitService _gitService;
+    private readonly IGamePathService _gamePathService;
 
     [ObservableProperty]
     private string _applicationTitle = "SMTMS - Stardew Mod Translation & Management System";
@@ -25,12 +26,23 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _commitMessage = "";
 
+    [ObservableProperty]
+    private ModViewModel? _selectedMod;
+
     public ObservableCollection<ModViewModel> Mods { get; } = new();
 
-    public MainViewModel(IModService modService, IGitService gitService)
+    public MainViewModel(IModService modService, IGitService gitService, IGamePathService gamePathService)
     {
         _modService = modService;
         _gitService = gitService;
+        _gamePathService = gamePathService;
+
+        // Auto-detect mods path
+        var detectedPath = _gamePathService.GetModsPath();
+        if (!string.IsNullOrEmpty(detectedPath))
+        {
+            ModsDirectory = detectedPath;
+        }
     }
 
     [RelayCommand]
@@ -42,6 +54,33 @@ public partial class MainViewModel : ObservableObject
         foreach (var manifest in manifests)
         {
             Mods.Add(new ModViewModel(manifest));
+        }
+
+    }
+
+    [RelayCommand]
+    private async Task SaveModAsync()
+    {
+        if (SelectedMod == null)
+        {
+             GitStatusLog = "Save Error: No mod selected.";
+             return;
+        }
+
+        if (string.IsNullOrEmpty(SelectedMod.ManifestPath))
+        {
+             GitStatusLog = "Save Error: Invalid manifest path.";
+             return;
+        }
+
+        try
+        {
+            await _modService.WriteManifestAsync(SelectedMod.ManifestPath, SelectedMod.Manifest);
+            GitStatusLog = $"Saved '{SelectedMod.Name}' successfully.";
+        }
+        catch (Exception ex)
+        {
+            GitStatusLog = $"Save Error: {ex.Message}";
         }
     }
     
