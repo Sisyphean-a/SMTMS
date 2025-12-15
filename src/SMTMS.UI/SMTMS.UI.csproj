@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\SMTMS.Core\SMTMS.Core.csproj" />
+    <ProjectReference Include="..\SMTMS.Data\SMTMS.Data.csproj" />
+    <ProjectReference Include="..\SMTMS.GitProvider\SMTMS.GitProvider.csproj" />
+    <ProjectReference Include="..\SMTMS.NexusClient\SMTMS.NexusClient.csproj" />
+    <ProjectReference Include="..\SMTMS.Translation\SMTMS.Translation.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.1" />
+    <PackageReference Include="WPF-UI" Version="4.1.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+</Project>
