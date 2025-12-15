@@ -8,6 +8,24 @@
         Title="{Binding ApplicationTitle}" Height="800" Width="1200"
         WindowStartupLocation="CenterScreen">
     <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
 
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="10">
+            <Button Content="Load Mods" Command="{Binding LoadModsCommand}" Margin="0,0,10,0" Padding="10,5"/>
+            <TextBox Text="{Binding ModsDirectory}" Width="400" VerticalContentAlignment="Center"/>
+        </StackPanel>
+
+        <DataGrid Grid.Row="1" ItemsSource="{Binding Mods}" AutoGenerateColumns="False" IsReadOnly="True" Margin="10">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="200"/>
+                <DataGridTextColumn Header="Author" Binding="{Binding Author}" Width="150"/>
+                <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="80"/>
+                <DataGridTextColumn Header="ID" Binding="{Binding UniqueID}" Width="200"/>
+                <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
+            </DataGrid.Columns>
+        </DataGrid>
     </Grid>
 </Window>
