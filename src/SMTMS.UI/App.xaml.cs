@@ -27,6 +27,7 @@ public partial class App : Application
                 services.AddSingleton<IGitService, SMTMS.GitProvider.Services.GitService>();
                 services.AddSingleton<IModService, ModService>();
                 services.AddSingleton<IGamePathService, RegistryGamePathService>();
+                services.AddSingleton<ITranslationService, TranslationService>();
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();
             })

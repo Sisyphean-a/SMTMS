@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
+using System.IO;
 using SMTMS.Core.Interfaces;
 
 using SMTMS.Core.Aspects;
@@ -14,6 +15,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IModService _modService;
     private readonly IGitService _gitService;
     private readonly IGamePathService _gamePathService;
+    private readonly ITranslationService _translationService;
 
     [ObservableProperty]
     private string _applicationTitle = "SMTMS - Stardew Mod Translation & Management System";
@@ -38,11 +40,12 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<ModViewModel> Mods { get; } = new();
     public ObservableCollection<GitCommitModel> CommitHistory { get; } = new();
 
-    public MainViewModel(IModService modService, IGitService gitService, IGamePathService gamePathService)
+    public MainViewModel(IModService modService, IGitService gitService, IGamePathService gamePathService, ITranslationService translationService)
     {
         _modService = modService;
         _gitService = gitService;
         _gamePathService = gamePathService;
+        _translationService = translationService;
 
         // Auto-detect mods path
         var detectedPath = _gamePathService.GetModsPath();
@@ -197,6 +200,53 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             GitStatusLog = $"Rollback Error: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task BackupTranslationsAsync()
+    {
+        try
+        {
+            GitStatusLog = "Backing up translations...";
+            string backupPath = Path.Combine(ModsDirectory, "xlgChineseBack.json");
+            var result = await _translationService.BackupTranslationsAsync(ModsDirectory, backupPath);
+            
+            if (result.successCount > 0)
+            {
+                 GitStatusLog = result.message;
+            }
+            else
+            {
+                 GitStatusLog = $"Backup Warning: {result.message}";
+            }
+        }
+        catch (Exception ex)
+        {
+            GitStatusLog = $"Backup Error: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task RestoreTranslationsAsync()
+    {
+         try
+        {
+            GitStatusLog = "Restoring translations...";
+            string backupPath = Path.Combine(ModsDirectory, "xlgChineseBack.json");
+            var result = await _translationService.RestoreTranslationsAsync(ModsDirectory, backupPath);
+
+            GitStatusLog = result.message;
+            
+            // Reload mods to show changes
+            if (result.restoredCount > 0)
+            {
+                await LoadModsAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            GitStatusLog = $"Restore Error: {ex.Message}";
         }
     }
 }
