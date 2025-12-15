@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <PackageReference Include="LibGit2Sharp" Version="0.31.0" />
+    <PackageReference Include="Rougamo.Fody" Version="5.0.2" />
   </ItemGroup>
 
   <PropertyGroup>

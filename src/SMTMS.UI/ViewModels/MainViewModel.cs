@@ -3,8 +3,11 @@ using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
 using SMTMS.Core.Interfaces;
 
+using SMTMS.Core.Aspects;
+
 namespace SMTMS.UI.ViewModels;
 
+[Log]
 public partial class MainViewModel : ObservableObject
 {
     private readonly IModService _modService;

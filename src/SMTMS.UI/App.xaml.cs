@@ -35,6 +35,9 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         await _host!.StartAsync();
+        
+        // Initialize ServiceLocator
+        SMTMS.Core.Infrastructure.ServiceLocator.Initialize(_host.Services);
 
         var mainWindow = _host.Services.GetRequiredService<MainWindow>();
         mainWindow.Show();

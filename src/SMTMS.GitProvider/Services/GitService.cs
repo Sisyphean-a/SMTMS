@@ -1,8 +1,11 @@
 using LibGit2Sharp;
 using SMTMS.Core.Interfaces;
 
+using SMTMS.Core.Aspects;
+
 namespace SMTMS.GitProvider.Services;
 
+[Log]
 public class GitService : IGitService
 {
     public bool IsRepository(string path)
