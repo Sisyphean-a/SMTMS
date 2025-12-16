@@ -5,19 +5,16 @@ namespace SMTMS.Core.Interfaces;
 public interface ITranslationService
 {
     /// <summary>
-    /// Scans mods for Chinese translations and backs them up to a JSON file.
+    /// Imports translations from a legacy backup JSON file into the database.
     /// </summary>
-    /// <param name="modsRootPath">The root directory containing mods.</param>
-    /// <param name="backupPath">The path where the backup JSON file should be saved.</param>
-    /// <returns>A result summary of the backup operation.</returns>
-    Task<(int successCount, int errorCount, string message)> BackupTranslationsAsync(string modsRootPath, string backupPath);
+    /// <param name="jsonPath">The path to the backup JSON file.</param>
+    /// <returns>A result summary of the import operation.</returns>
+    Task<(int successCount, int errorCount, string message)> ImportFromLegacyJsonAsync(string jsonPath);
 
     /// <summary>
-    /// Restores translations from a backup JSON file to the mods' manifest.json files.
-    /// Uses Regex to preserve comments and formatting.
+    /// Applies all translations from the database to the actual manifest.json files in the mods directory.
     /// </summary>
     /// <param name="modsRootPath">The root directory containing mods.</param>
-    /// <param name="backupPath">The path to the backup JSON file.</param>
-    /// <returns>A result summary of the restore operation.</returns>
-    Task<(int restoredCount, int failedCount, int skippedCount, string message)> RestoreTranslationsAsync(string modsRootPath, string backupPath);
+    /// <returns>A result summary of the apply operation.</returns>
+    Task<(int appliedCount, int errorCount, string message)> ApplyTranslationsAsync(string modsRootPath);
 }

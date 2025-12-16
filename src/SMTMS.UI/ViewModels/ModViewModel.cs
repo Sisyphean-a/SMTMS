@@ -1,6 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using SMTMS.Core.Models;
-using SMTMS.Data.Entities;
+
 
 namespace SMTMS.UI.ViewModels;
 

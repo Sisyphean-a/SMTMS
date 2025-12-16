@@ -1,4 +1,5 @@
 ﻿using System.Windows;
+using System.IO;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -21,13 +22,24 @@ public partial class App : Application
         _host = Host.CreateDefaultBuilder()
             .ConfigureServices((context, services) =>
             {
+                var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                var smtmsPath = Path.Combine(appDataPath, "SMTMS");
+                if (!Directory.Exists(smtmsPath))
+                {
+                    Directory.CreateDirectory(smtmsPath);
+                }
+                var dbPath = Path.Combine(smtmsPath, "smtms.db");
+
                 services.AddDbContext<AppDbContext>(options => 
-                    options.UseSqlite("Data Source=smtms.db"));
+                    options.UseSqlite($"Data Source={dbPath}"));
                 
                 services.AddSingleton<IGitService, SMTMS.GitProvider.Services.GitService>();
                 services.AddSingleton<IModService, ModService>();
                 services.AddSingleton<IGamePathService, RegistryGamePathService>();
+                services.AddScoped<IModRepository, SMTMS.Data.Repositories.ModRepository>(); // Scoped for EF
                 services.AddSingleton<ITranslationService, TranslationService>();
+                
+                // ViewModels are usually Transient or Singleton depending on navigation
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();
             })

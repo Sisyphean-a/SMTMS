@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace SMTMS.Data.Entities;
+namespace SMTMS.Core.Models;
 
 public class ModMetadata
 {
@@ -16,4 +16,15 @@ public class ModMetadata
     public long? NexusDownloadCount { get; set; }
     public long? NexusEndorsementCount { get; set; }
     public DateTime? LastNexusCheck { get; set; }
+
+    // Translation Data
+    public string? OriginalName { get; set; } // Name from manifest when first scanned (likely English)
+    public string? OriginalDescription { get; set; }
+    
+    public string? TranslatedName { get; set; }
+    public string? TranslatedDescription { get; set; }
+    
+    public string? RelativePath { get; set; } // Path relative to Mods folder
+    public bool IsMachineTranslated { get; set; }
+    public DateTime? LastTranslationUpdate { get; set; }
 }

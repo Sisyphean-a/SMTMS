@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using SMTMS.Data.Entities;
+using SMTMS.Core.Models;
 
 namespace SMTMS.Data.Context;
 
@@ -16,8 +16,14 @@ public class AppDbContext : DbContext
     {
         if (!optionsBuilder.IsConfigured)
         {
-            // Default usage for design-time tools if needed
-            optionsBuilder.UseSqlite("Data Source=smtms.db");
+            var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            var smtmsPath = Path.Combine(appDataPath, "SMTMS");
+            if (!Directory.Exists(smtmsPath))
+            {
+                Directory.CreateDirectory(smtmsPath);
+            }
+            var dbPath = Path.Combine(smtmsPath, "smtms.db");
+            optionsBuilder.UseSqlite($"Data Source={dbPath}");
         }
     }
 }

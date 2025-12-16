@@ -15,24 +15,16 @@
 
         <StackPanel Grid.Row="0" Margin="10">
             <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                <Button Content="Load Mods" Command="{Binding LoadModsCommand}" Margin="0,0,10,0" Padding="10,5" ToolTip="Reloads the list of mods from the directory."/>
+                <Button Content="Scan Mods" Command="{Binding LoadModsCommand}" Margin="0,0,10,0" Padding="10,5" ToolTip="Reloads the list of mods from the directory."/>
                 <TextBox Text="{Binding ModsDirectory}" Width="400" VerticalContentAlignment="Center" ToolTip="Path to the Mods directory."/>
             </StackPanel>
             
             <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                <Button Content="Git Status" Command="{Binding GitStatusCommand}" Margin="0,0,10,0" Padding="10,5" ToolTip="Checks for modified files in the mods directory."/>
-                <Button Content="Git Pull" Command="{Binding GitPullCommand}" Margin="0,0,10,0" Padding="10,5" ToolTip="Downloads recent changes from the remote repository."/>
-                <Button Content="Stage All" Command="{Binding GitStageCommand}" Margin="0,0,10,0" Padding="10,5" ToolTip="Stages all current changes for commit."/>
-                <TextBox Text="{Binding CommitMessage, UpdateSourceTrigger=PropertyChanged}" Width="300" Margin="0,0,10,0" VerticalContentAlignment="Center" ToolTip="Enter a brief description of your changes."/> 
-                <Button Content="Commit" Command="{Binding GitCommitCommand}" Margin="0,0,10,0" Padding="10,5" ToolTip="Saves staged changes with a message."/>
-            </StackPanel>
-
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                <Button Content="Backup Translations" Command="{Binding BackupTranslationsCommand}" Margin="0,0,10,0" Padding="10,5" Background="#2196F3" Foreground="White" BorderThickness="0" ToolTip="Extracts Chinese translations to a backup file."/>
-                <Button Content="Restore Translations" Command="{Binding RestoreTranslationsCommand}" Margin="0,0,10,0" Padding="10,5" Background="#FF9800" Foreground="White" BorderThickness="0" ToolTip="Restores Chinese translations from the backup file."/>
+                <Button Content="Import Legacy JSON" Command="{Binding ImportLegacyDataCommand}" Margin="0,0,10,0" Padding="10,5" Background="#FF9800" Foreground="White" BorderThickness="0" ToolTip="Import translations from old xlgChineseBack.json backup."/>
+                <Button Content="Apply All Translations" Command="{Binding ApplyTranslationsCommand}" Margin="0,0,10,0" Padding="10,5" Background="#2196F3" Foreground="White" BorderThickness="0" ToolTip="Write all translations to manifest.json files."/>
             </StackPanel>
             
-            <TextBlock Text="{Binding GitStatusLog}" VerticalAlignment="Center" Foreground="Gray"/>
+            <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" Foreground="Gray"/>
         </StackPanel>
 
         <TabControl Grid.Row="1" Margin="10">

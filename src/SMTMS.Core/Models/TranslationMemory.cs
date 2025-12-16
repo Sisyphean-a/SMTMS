@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace SMTMS.Data.Entities;
+namespace SMTMS.Core.Models;
 
 public class TranslationMemory
 {
