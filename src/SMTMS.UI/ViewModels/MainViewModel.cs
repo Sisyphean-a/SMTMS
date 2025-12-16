@@ -199,7 +199,7 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void GitRollback()
+    private async Task GitRollback()
     {
         if (SelectedCommit == null)
         {
@@ -209,17 +209,20 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
+            // Release DB locks
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            
             var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
-            _gitService.Reset(appDataPath, SelectedCommit.FullHash);
+            
+            // Run on background thread to avoid UI freeze if git takes time, 
+            // though Reset is fast, file IO might lag.
+            await Task.Run(() => _gitService.Reset(appDataPath, SelectedCommit.FullHash));
+            
             StatusMessage = $"Rolled back to '{SelectedCommit.ShortHash}'.";
             
-            // Reload mods from DB to reflect rollback
-            // Trigger LoadModsAsync? Or just refresh current view?
-            // LoadModsAsync requires async, RelayCommand(void) can't await easily unless async void. 
-            // Better to refresh manually or just notify user. 
-            // Ideally call LoadModsAsync();
-            
-            // Simplified: User must click "Scan Mods" to refresh UI data for now, or we force it if changed to Task.
+            // Re-initialize DB context/ensure created if reset wiped it (unlikely for reset, but safety)
+            // And reload data
+            await LoadModsAsync();
         }
         catch (Exception ex)
         {

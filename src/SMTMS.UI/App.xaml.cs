@@ -53,6 +53,19 @@ public partial class App : Application
         // Initialize ServiceLocator
         SMTMS.Core.Infrastructure.ServiceLocator.Initialize(_host.Services);
 
+        // Ensure database is created
+        using (var scope = _host.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            // This will create the database and tables if they don't exist.
+            // If the database exists but tables are missing, it might not work as intended if it thinks it's already created, 
+            // but for SQLite EnsureCreated checks if the tables exist too (mostly). 
+            // Actually EnsureCreated returns true if it created the database, false if it already exists.
+            // If the file exists but tables are empty, it might need to be handled. 
+            // But usually EnsureCreated is enough for initial persistent checks.
+            await dbContext.Database.EnsureCreatedAsync();
+        }
+
         var mainWindow = _host.Services.GetRequiredService<MainWindow>();
         mainWindow.Show();
 
