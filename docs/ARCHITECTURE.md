@@ -30,7 +30,7 @@ flowchart LR
 - **SMTMS.Core**：领域与接口层
   - 定义接口：`IModService`, `IModRepository`, `IGitService`, `INexusClient`, `ITranslationService`, `IGamePathService`。
   - 定义模型：`ModManifest`, `ModMetadata`, `TranslationMemory`, `GitCommitModel`, `NexusModDto` 等。
-  - 提供服务实现：`ModService`, `TranslationService`, `RegistryGamePathService`。
+  - `ModService`, `TranslationService` (负责提取/恢复翻译), `RegistryGamePathService`。
   - 提供横切基础设施：`LogAttribute`（AOP 日志）、`ServiceLocator`。
 
 - **SMTMS.Data**：数据访问层
@@ -43,8 +43,8 @@ flowchart LR
 - **SMTMS.NexusClient**：Nexus API 客户端
   - `NexusClient : INexusClient`，占位实现，后续连接 Nexus Mods REST/GraphQL API。
 
-- **SMTMS.Translation**：外部翻译引擎集成（预留）
-  - 当前仅引用 Core/Data；未来承载 `ITranslationService` 的具体远程翻译实现及翻译记忆相关逻辑。
+- **SMTMS.Translation**：翻译服务实现
+  - 核心实现 `TranslationService`，负责在 "本地 manifest.json" 与 "SQLite 数据库" 之间双向同步翻译数据 (Extract/Restore)。
 
 - **SMTMS.UI**：WPF 前端 & 组合根
   - 使用 `Host.CreateDefaultBuilder` 配置 DI、数据库、服务与 ViewModel。
@@ -213,63 +213,73 @@ sequenceDiagram
     VM->>VM: Status = "Saved '...' successfully."
 ```
 
-### 3.3 导入旧版 xlgChineseBack.json
+### 3.3 把本地翻译提取到数据库 (Extract/Save)
 
 ```mermaid
 sequenceDiagram
     participant U as User
     participant VM as MainViewModel
-    participant TS as ITranslationService(TranslationService)
-    participant Scope as IServiceScopeFactory
-    participant Repo as IModRepository
-    participant DB as SQLite
-    participant Git as IGitService
-
-    U->>VM: 点击 "Import Legacy Data"
-    VM->>TS: ImportFromLegacyJsonAsync(backupPath)
-
-    TS->>FS: 读取 xlgChineseBack.json
-    TS->>Scope: CreateScope()
-    Scope-->>TS: IServiceScope
-
-    TS->>Repo: GetModAsync/UpsertModAsync(基于 UniqueID)
-    Repo->>DB: 插入/更新 ModMetadata (TranslatedName/Description)
-
-    TS-->>VM: (successCount, errorCount, message)
-    VM->>Git: Commit(appDataPath, "Import legacy translations")
-    VM->>VM: LoadHistory(), LoadModsAsync()
-```
-
-### 3.4 将数据库翻译应用到 manifest.json
-
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant VM as MainViewModel
-    participant TS as ITranslationService(TranslationService)
+    participant TS as ITranslationService
     participant Scope as IServiceScopeFactory
     participant Repo as IModRepository
     participant DB as SQLite
     participant FS as FileSystem
 
-    U->>VM: 点击 "Apply Translations"
-    VM->>TS: ApplyTranslationsAsync(ModsDirectory)
+    U->>VM: 点击 "Extract Translations" (提取翻译)
+    VM->>TS: SaveTranslationsToDbAsync(ModsDirectory)
+
+    TS->>FS: 遍历目录寻找 manifest.json
+    TS->>Scope: CreateScope()
+    Scope-->>TS: IServiceScope
+    TS->>Repo: GetModAsync(UniqueID)
+
+    loop 每个 Manifest 文件
+        TS->>TS: 解析 JSON, 检查是否包含中文
+        alt 包含中文翻译
+            TS->>Repo: UpsertModAsync (更新 TranslatedName/Description)
+            Repo->>DB: 保存到数据库
+        end
+    end
+
+    TS-->>VM: 完成
+    VM->>VM: Status = "已将本地翻译保存到数据库。"
+    VM->>VM: LoadModsAsync() (刷新列表)
+```
+
+### 3.4 从数据库恢复翻译到模组 (Restore/Apply)
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant VM as MainViewModel
+    participant TS as ITranslationService
+    participant Scope as IServiceScopeFactory
+    participant Repo as IModRepository
+    participant DB as SQLite
+    participant FS as FileSystem
+
+    U->>VM: 点击 "Restore Translations" (恢复翻译)
+    VM->>TS: RestoreTranslationsFromDbAsync(ModsDirectory)
 
     TS->>Scope: CreateScope()
     Scope-->>TS: IServiceScope
     TS->>Repo: GetAllModsAsync()
-    Repo->>DB: 查询所有 ModMetadata
-    DB-->>Repo: 列表
-    Repo-->>TS: IEnumerable<ModMetadata>
+    Repo->>DB: 获取所有带翻译的 Mod
+    DB-->>Repo: List<ModMetadata>
 
-    loop 每个有翻译的 Mod
-        TS->>FS: 读取 manifest.json 原始文本
-        TS->>TS: 使用 Regex 替换 "Name"/"Description" 的值
-        TS->>FS: 写回 manifest.json
+    TS->>FS: 遍历目录寻找 manifest.json
+    loop 每个 Manifest 文件
+        TS->>TS: 匹配 UniqueID
+        alt 数据库中有翻译且与本地不同
+            TS->>FS: 读取 manifest.json 内容
+            TS->>TS: 正则替换 Name/Description
+            TS->>FS: 写入更新后的 manifest.json
+        end
     end
 
-    TS-->>VM: (appliedCount, errorCount, message)
-    VM->>VM: Status = message
+    TS-->>VM: 完成
+    VM->>VM: Status = "已从数据库恢复翻译。"
+    VM->>VM: LoadModsAsync()
 ```
 
 ### 3.5 Git 回滚
@@ -286,6 +296,6 @@ sequenceDiagram
     Git->>Git: 使用 LibGit2Sharp Reset(ResetMode.Hard)
 
     VM->>VM: Status = $"Rolled back to '{ShortHash}'."
-    note over VM: 当前实现中，用户需再次点击 Scan Mods 刷新 UI 数据
+    VM->>VM: LoadModsAsync() (自动刷新 UI)
 ```
 

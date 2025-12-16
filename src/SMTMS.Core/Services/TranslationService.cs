@@ -120,99 +120,13 @@ public class TranslationService : ITranslationService
         }
     }
 
-    public async Task<(int appliedCount, int errorCount, string message)> ApplyTranslationsAsync(string modsRootPath)
+    public async Task SaveTranslationsToDbAsync(string modDirectory)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
-
-        var allMods = await modRepo.GetAllModsAsync();
-        int appliedCount = 0;
-        int errorCount = 0;
-
-        foreach (var mod in allMods)
-        {
-            // Skip if no translations
-            if (string.IsNullOrEmpty(mod.TranslatedName) && string.IsNullOrEmpty(mod.TranslatedDescription))
-            {
-                continue;
-            }
-            
-            // We need to resolve the path. 
-            // If RelativePath is stored, use it. But RelativePath might be just the folder name or empty if not set.
-            // If we don't have a reliable path, we might need to scan again or rely on ModService to finding it?
-            // For now, assume RelativePath is correct if it exists. 
-            // The scan logic should update RelativePath.
-            
-            if (string.IsNullOrEmpty(mod.RelativePath))
-            {
-                // Can't apply if we don't know where it is
-                // Potentially log this
-                continue;
-            }
-
-            var manifestPath = Path.Combine(modsRootPath, mod.RelativePath, "manifest.json");
-            if (!File.Exists(manifestPath))
-            {
-                // Try searching? Or just error.
-                errorCount++;
-                continue;
-            }
-
-            try
-            {
-                string content = await File.ReadAllTextAsync(manifestPath);
-                bool updated = false;
-
-                // Update Name
-                if (!string.IsNullOrEmpty(mod.TranslatedName))
-                {
-                    // Escape for JSON
-                    string escapedName = JsonConvert.ToString(mod.TranslatedName).Trim('"');
-                    if (Regex.IsMatch(content, @"""Name""\s*:\s*""[^""]*"""))
-                    {
-                        string newContent = Regex.Replace(content, @"(""Name""\s*:\s*"")[^""]*("")", $"${{1}}{escapedName}${{2}}");
-                        if (content != newContent)
-                        {
-                            content = newContent;
-                            updated = true;
-                        }
-                    }
-                }
-
-                // Update Description
-                if (!string.IsNullOrEmpty(mod.TranslatedDescription))
-                {
-                     string escapedDesc = JsonConvert.ToString(mod.TranslatedDescription).Trim('"');
-                     if (Regex.IsMatch(content, @"""Description""\s*:\s*""[^""]*"""))
-                    {
-                        string newContent = Regex.Replace(content, @"(""Description""\s*:\s*"")[^""]*("")", $"${{1}}{escapedDesc}${{2}}");
-                        if (content != newContent)
-                        {
-                            content = newContent;
-                            updated = true;
-                        }
-                    }
-                }
-
-                if (updated)
-                {
-                    await File.WriteAllTextAsync(manifestPath, content);
-                    appliedCount++;
-                }
-            }
-            catch (Exception)
-            {
-                errorCount++;
-            }
-        }
-
-        return (appliedCount, errorCount, $"Applied {appliedCount} translations.");
-    }
-    public async Task ExtractTranslationsAsync(string modDirectory, string outputFilePath)
-    {
-        var translations = new List<TranslationBackupEntry>();
         var modFiles = Directory.GetFiles(modDirectory, "manifest.json", SearchOption.AllDirectories);
         var chineseRegex = new Regex(@"[\u4e00-\u9fa5]");
+
+        using var scope = _scopeFactory.CreateScope();
+        var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
 
         foreach (var file in modFiles)
         {
@@ -224,47 +138,59 @@ public class TranslationService : ITranslationService
                 if (manifest == null || string.IsNullOrWhiteSpace(manifest.UniqueID))
                     continue;
 
-                // Check for Chinese content
-                bool hasChinese = false;
-                if (!string.IsNullOrEmpty(manifest.Name) && chineseRegex.IsMatch(manifest.Name)) hasChinese = true;
-                if (!string.IsNullOrEmpty(manifest.Description) && chineseRegex.IsMatch(manifest.Description)) hasChinese = true;
+                bool hasChineseName = !string.IsNullOrEmpty(manifest.Name) && chineseRegex.IsMatch(manifest.Name);
+                bool hasChineseDesc = !string.IsNullOrEmpty(manifest.Description) && chineseRegex.IsMatch(manifest.Description);
 
-                if (hasChinese)
+                if (hasChineseName || hasChineseDesc)
                 {
-                    translations.Add(new TranslationBackupEntry
+                    var mod = await modRepo.GetModAsync(manifest.UniqueID);
+                     if (mod == null)
                     {
-                        UniqueID = manifest.UniqueID,
-                        Name = manifest.Name,
-                        Description = manifest.Description,
-                        Path = Path.GetRelativePath(modDirectory, file),
-                        IsChinese = true,
-                        Version = manifest.Version
-                    });
+                        mod = new ModMetadata
+                        {
+                            UniqueID = manifest.UniqueID,
+                            RelativePath = Path.GetRelativePath(modDirectory, file),
+                            OriginalName = manifest.Name, // If it's already Chinese, this might be conceptually wrong but practically okay
+                            OriginalDescription = manifest.Description
+                        };
+                    }
+
+                    bool updated = false;
+                    if (hasChineseName && mod.TranslatedName != manifest.Name)
+                    {
+                        mod.TranslatedName = manifest.Name;
+                        updated = true;
+                    }
+                    if (hasChineseDesc && mod.TranslatedDescription != manifest.Description)
+                    {
+                        mod.TranslatedDescription = manifest.Description;
+                        updated = true;
+                    }
+
+                    if (updated)
+                    {
+                        mod.LastTranslationUpdate = DateTime.Now;
+                        await modRepo.UpsertModAsync(mod);
+                    }
                 }
             }
             catch (Exception ex)
             {
-                // Log error but continue
-                Console.WriteLine($"Error extracting from {file}: {ex.Message}");
+                Console.WriteLine($"Error saving to DB from {file}: {ex.Message}");
             }
         }
-
-        var outputJson = JsonConvert.SerializeObject(translations, Formatting.Indented);
-        await File.WriteAllTextAsync(outputFilePath, outputJson);
     }
 
-    public async Task RestoreTranslationsAsync(string modDirectory, string backupFilePath)
+    public async Task RestoreTranslationsFromDbAsync(string modDirectory)
     {
-        if (!File.Exists(backupFilePath)) return;
+        using var scope = _scopeFactory.CreateScope();
+        var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
+        var allTranslatedMods = (await modRepo.GetAllModsAsync())
+                                .Where(m => !string.IsNullOrEmpty(m.TranslatedName) || !string.IsNullOrEmpty(m.TranslatedDescription))
+                                .ToList();
 
-        var json = await File.ReadAllTextAsync(backupFilePath);
-        var backups = JsonConvert.DeserializeObject<List<TranslationBackupEntry>>(json);
-
-        if (backups == null || !backups.Any()) return;
-
-        var backupDict = backups
-            .GroupBy(b => b.UniqueID)
-            .ToDictionary(g => g.Key, g => g.First()); 
+        // Map UniqueID to Metadata for fast lookup
+        var translationMap = allTranslatedMods.ToDictionary(m => m.UniqueID);
 
         var modFiles = Directory.GetFiles(modDirectory, "manifest.json", SearchOption.AllDirectories);
 
@@ -278,18 +204,17 @@ public class TranslationService : ITranslationService
                 if (manifest == null || string.IsNullOrWhiteSpace(manifest.UniqueID))
                     continue;
 
-                if (backupDict.TryGetValue(manifest.UniqueID, out var backup))
+                if (translationMap.TryGetValue(manifest.UniqueID, out var dbMod))
                 {
                     bool changed = false;
-                    
-                    // We use Regex replacement (like ApplyTranslations) to preserve formatting
-                    if (!string.IsNullOrEmpty(backup.Name) && manifest.Name != backup.Name)
+
+                    // Restore Name
+                    if (!string.IsNullOrEmpty(dbMod.TranslatedName) && manifest.Name != dbMod.TranslatedName)
                     {
-                        string escapedName = JsonConvert.ToString(backup.Name).Trim('"');
-                        // Simple regex for Name property
+                        string escapedName = JsonConvert.ToString(dbMod.TranslatedName).Trim('"');
                         if (Regex.IsMatch(content, @"""Name""\s*:\s*""[^""]*"""))
                         {
-                            var newContent = Regex.Replace(content, @"(""Name""\s*:\s*"")[^""]*("")", $"${{1}}{escapedName}${{2}}");
+                            string newContent = Regex.Replace(content, @"(""Name""\s*:\s*"")[^""]*("")", $"${{1}}{escapedName}${{2}}");
                             if (content != newContent)
                             {
                                 content = newContent;
@@ -298,12 +223,13 @@ public class TranslationService : ITranslationService
                         }
                     }
 
-                    if (!string.IsNullOrEmpty(backup.Description) && manifest.Description != backup.Description)
+                    // Restore Description
+                    if (!string.IsNullOrEmpty(dbMod.TranslatedDescription) && manifest.Description != dbMod.TranslatedDescription)
                     {
-                         string escapedDesc = JsonConvert.ToString(backup.Description).Trim('"');
+                         string escapedDesc = JsonConvert.ToString(dbMod.TranslatedDescription).Trim('"');
                          if (Regex.IsMatch(content, @"""Description""\s*:\s*""[^""]*"""))
                         {
-                            var newContent = Regex.Replace(content, @"(""Description""\s*:\s*"")[^""]*("")", $"${{1}}{escapedDesc}${{2}}");
+                            string newContent = Regex.Replace(content, @"(""Description""\s*:\s*"")[^""]*("")", $"${{1}}{escapedDesc}${{2}}");
                             if (content != newContent)
                             {
                                 content = newContent;

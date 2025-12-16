@@ -124,11 +124,15 @@ public partial class MainViewModel : ObservableObject
                 // Current ModViewModel likely uses ModManifest. We might need to update ModViewModel to support metadata.
                 // For now, let's inject valid data into ModViewModel
                 
-                var viewModel = new ModViewModel(manifest);
-                // Apply overrides from DB
-                if (!string.IsNullOrEmpty(mod.TranslatedName)) viewModel.Name = mod.TranslatedName; // ModViewModel should notify
-                if (!string.IsNullOrEmpty(mod.TranslatedDescription)) viewModel.Description = mod.TranslatedDescription;
-
+                var viewModel = new ModViewModel(manifest, mod);
+                
+                // Do NOT overwrite Name with translation here. 
+                // ModViewModel.UpdateStatus() will handle the comparison status.
+                // Logic:
+                // 1. Manifest is from Disk (Actual state)
+                // 2. Mod (Metadata) is from DB (Stored Translation)
+                // ViewModel will check if they match.
+                
                 Mods.Add(viewModel);
             }
         }
@@ -142,22 +146,13 @@ public partial class MainViewModel : ObservableObject
     {
         if (SelectedMod == null)
         {
-             StatusMessage = "Save Error: No mod selected.";
+             StatusMessage = "保存错误: 未选择模组。";
              return;
         }
 
-        // Original manifest writing logic (if still needed, but DB is primary now)
-        // if (string.IsNullOrEmpty(SelectedMod.ManifestPath))
-        // {
-        //      StatusMessage = "Save Error: Invalid manifest path.";
-        //      return;
-        // }
-
         try
         {
-            // await _modService.WriteManifestAsync(SelectedMod.ManifestPath, SelectedMod.Manifest); // This is for writing to mod folder, not DB
-            
-            // Update DB
+             // Update DB
              using (var scope = _scopeFactory.CreateScope())
             {
                 var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
@@ -169,19 +164,36 @@ public partial class MainViewModel : ObservableObject
                     mod.TranslatedDescription = SelectedMod.Description;
                     mod.LastTranslationUpdate = DateTime.Now;
                     await modRepo.UpsertModAsync(mod);
+                    
+                    // Update VM metadata to reflect that DB is now synced
+                    SelectedMod.UpdateMetadata(mod);
                 }
+            }
+            
+            // Also write to disk (manifest.json)
+            // Ideally we do this via TranslationService logic or helper, but for now we write directly if we want to "Apply" immediately.
+            // But the user workflow might be "Edit -> Save to DB" then "Restore/Apply".
+            // However, usually "Save" implies saving to disk too.
+            // Let's assume this Edit is for the DB + Disk.
+            
+            // Re-use logic or simple write? 
+            // Let's just update the manifest on disk to match.
+            if (!string.IsNullOrEmpty(SelectedMod.ManifestPath))
+            {
+                var json = Newtonsoft.Json.JsonConvert.SerializeObject(SelectedMod.Manifest, Newtonsoft.Json.Formatting.Indented);
+                await File.WriteAllTextAsync(SelectedMod.ManifestPath, json);
             }
 
             // Auto-Commit
             var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
             _gitService.Commit(appDataPath, $"Update translation for {SelectedMod.Name}");
 
-            StatusMessage = $"Saved '{SelectedMod.Name}' successfully.";
+            StatusMessage = $"已保存 '{SelectedMod.Name}'。";
             LoadHistory();
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Save Error: {ex.Message}";
+            StatusMessage = $"保存错误: {ex.Message}";
         }
     }
     
@@ -199,7 +211,6 @@ public partial class MainViewModel : ObservableObject
                 {
                     CommitHistory.Add(commit);
                 }
-                // StatusMessage = "History loaded."; // Too spammy if called often
             }
         }
         catch (Exception ex)
@@ -224,14 +235,9 @@ public partial class MainViewModel : ObservableObject
             
             var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
             
-            // Run on background thread to avoid UI freeze if git takes time, 
-            // though Reset is fast, file IO might lag.
             await Task.Run(() => _gitService.Reset(appDataPath, SelectedCommit.FullHash));
             
             StatusMessage = $"Rolled back to '{SelectedCommit.ShortHash}'.";
-            
-            // Re-initialize DB context/ensure created if reset wiped it (unlikely for reset, but safety)
-            // And reload data
             await LoadModsAsync();
         }
         catch (Exception ex)
@@ -243,80 +249,50 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task ImportLegacyDataAsync()
     {
-        StatusMessage = "Importing legacy data...";
-        try 
-        {
-            // Look for xlgChineseBack.json in mods dir
-            string backupPath = Path.Combine(ModsDirectory, "xlgChineseBack.json");
-            var result = await _translationService.ImportFromLegacyJsonAsync(backupPath);
-            StatusMessage = result.message;
-            
-            if (result.successCount > 0)
-            {
-                // Commit the import
-                var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
-                _gitService.Commit(appDataPath, "Import legacy translations");
-                LoadHistory();
-                await LoadModsAsync(); // Refresh UI
-            }
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = $"Import Error: {ex.Message}";
-        }
+       // Deprecated or redirect to SaveTranslationsToDbAsync (Sync)
+       // Let's repurpose this or remove it. User said "Use Data replace Json".
+       // Maybe "Scan to DB" is the new actions.
+       // Let's just call SaveTranslationsToDbAsync essentially syncing Local -> DB.
+       await ExtractTranslationsAsync();
     }
 
     [RelayCommand]
     private async Task ApplyTranslationsAsync()
     {
-        StatusMessage = "Applying translations to manifests...";
-        try
-        {
-            var result = await _translationService.ApplyTranslationsAsync(ModsDirectory);
-            StatusMessage = result.message;
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = $"Apply Error: {ex.Message}";
-        }
+        // This command was "Apply All Translations". 
+        // In new logic, "RestoreTranslationsFromDbAsync" does exactly this: DB -> Disk.
+        await RestoreTranslationsAsync();
     }
 
     [RelayCommand]
     private async Task ExtractTranslationsAsync()
     {
-        StatusMessage = "Extracting translations...";
+        StatusMessage = "正在保存翻译到数据库...";
         try
         {
-            string backupPath = Path.Combine(ModsDirectory, "smtms_backup.json");
-            await _translationService.ExtractTranslationsAsync(ModsDirectory, backupPath);
-            StatusMessage = $"Extracted to {backupPath}";
+            await _translationService.SaveTranslationsToDbAsync(ModsDirectory);
+            StatusMessage = "已将本地翻译保存到数据库。";
+            await LoadModsAsync(); // Refresh status
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Extract Error: {ex.Message}";
+            StatusMessage = $"保存错误: {ex.Message}";
         }
     }
 
     [RelayCommand]
     private async Task RestoreTranslationsAsync()
     {
-        StatusMessage = "Restoring translations...";
+        StatusMessage = "正在从数据库恢复翻译...";
         try
         {
-            string backupPath = Path.Combine(ModsDirectory, "smtms_backup.json");
-            if (!File.Exists(backupPath))
-            {
-                 // Try legacy
-                 backupPath = Path.Combine(ModsDirectory, "xlgChineseBack.json");
-            }
-            
-            await _translationService.RestoreTranslationsAsync(ModsDirectory, backupPath);
-            StatusMessage = "Restored translations from backup.";
+            await _translationService.RestoreTranslationsFromDbAsync(ModsDirectory);
+            StatusMessage = "已从数据库恢复翻译。";
             await LoadModsAsync(); // Refresh UI
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Restore Error: {ex.Message}";
+            StatusMessage = $"恢复错误: {ex.Message}";
         }
     }
 }

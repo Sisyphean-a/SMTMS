@@ -20,10 +20,8 @@
             </StackPanel>
             
             <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                <Button Content="导入旧版数据" Command="{Binding ImportLegacyDataCommand}" Margin="0,0,10,0" Padding="10,5" Background="#FF9800" Foreground="White" BorderThickness="0" ToolTip="从旧版 xlgChineseBack.json 备份导入翻译。"/>
-                <Button Content="应用所有翻译" Command="{Binding ApplyTranslationsCommand}" Margin="0,0,10,0" Padding="10,5" Background="#2196F3" Foreground="White" BorderThickness="0" ToolTip="将所有翻译写入 manifest.json 文件。"/>
-                <Button Content="提取翻译备份" Command="{Binding ExtractTranslationsCommand}" Margin="0,0,10,0" Padding="10,5" Background="#9C27B0" Foreground="White" BorderThickness="0" ToolTip="提取翻译到 smtms_backup.json。"/>
-                <Button Content="恢复翻译备份" Command="{Binding RestoreTranslationsCommand}" Margin="0,0,10,0" Padding="10,5" Background="#4CAF50" Foreground="White" BorderThickness="0" ToolTip="从 smtms_backup.json 恢复翻译。"/>
+                <Button Content="同步到数据库" Command="{Binding ExtractTranslationsCommand}" Margin="0,0,10,0" Padding="10,5" Background="#9C27B0" Foreground="White" BorderThickness="0" ToolTip="扫描本地模组，将中文翻译保存到数据库。"/>
+                <Button Content="从数据库恢复" Command="{Binding RestoreTranslationsCommand}" Margin="0,0,10,0" Padding="10,5" Background="#4CAF50" Foreground="White" BorderThickness="0" ToolTip="从数据库读取翻译并应用到本地文件。"/>
             </StackPanel>
             
             <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" Foreground="Gray"/>
@@ -40,6 +38,7 @@
 
                     <DataGrid Grid.Column="0" ItemsSource="{Binding Mods}" SelectedItem="{Binding SelectedMod}" AutoGenerateColumns="False" IsReadOnly="True" BorderThickness="1" BorderBrush="LightGray">
                         <DataGrid.Columns>
+                            <DataGridTextColumn Header="状态" Binding="{Binding TranslationStatus}" Width="180" Foreground="Red"/>
                             <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="200"/>
                             <DataGridTextColumn Header="作者" Binding="{Binding Author}" Width="150"/>
                             <DataGridTextColumn Header="版本" Binding="{Binding Version}" Width="80"/>
