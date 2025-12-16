@@ -72,6 +72,16 @@ public partial class MainViewModel : ObservableObject
         {
             _gitService.Init(smtmsPath);
         }
+
+        // Auto-scan if mods directory exists
+        if (!string.IsNullOrEmpty(ModsDirectory) && Directory.Exists(ModsDirectory))
+        {
+            if (Directory.GetFiles(ModsDirectory).Length > 0 || Directory.GetDirectories(ModsDirectory).Length > 0)
+            {
+                // Fire and forget auto-scan safely
+                _ = LoadModsAsync();
+            }
+        }
     }
 
     [RelayCommand]
@@ -268,6 +278,45 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             StatusMessage = $"Apply Error: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task ExtractTranslationsAsync()
+    {
+        StatusMessage = "Extracting translations...";
+        try
+        {
+            string backupPath = Path.Combine(ModsDirectory, "smtms_backup.json");
+            await _translationService.ExtractTranslationsAsync(ModsDirectory, backupPath);
+            StatusMessage = $"Extracted to {backupPath}";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Extract Error: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task RestoreTranslationsAsync()
+    {
+        StatusMessage = "Restoring translations...";
+        try
+        {
+            string backupPath = Path.Combine(ModsDirectory, "smtms_backup.json");
+            if (!File.Exists(backupPath))
+            {
+                 // Try legacy
+                 backupPath = Path.Combine(ModsDirectory, "xlgChineseBack.json");
+            }
+            
+            await _translationService.RestoreTranslationsAsync(ModsDirectory, backupPath);
+            StatusMessage = "Restored translations from backup.";
+            await LoadModsAsync(); // Refresh UI
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Restore Error: {ex.Message}";
         }
     }
 }

@@ -24,4 +24,7 @@ public class TranslationBackupEntry
 
     [JsonProperty("Nurl")]
     public string? Nurl { get; set; }
+
+    [JsonProperty("Version")]
+    public string? Version { get; set; }
 }

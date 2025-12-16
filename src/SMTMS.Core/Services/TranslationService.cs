@@ -208,4 +208,120 @@ public class TranslationService : ITranslationService
 
         return (appliedCount, errorCount, $"Applied {appliedCount} translations.");
     }
+    public async Task ExtractTranslationsAsync(string modDirectory, string outputFilePath)
+    {
+        var translations = new List<TranslationBackupEntry>();
+        var modFiles = Directory.GetFiles(modDirectory, "manifest.json", SearchOption.AllDirectories);
+        var chineseRegex = new Regex(@"[\u4e00-\u9fa5]");
+
+        foreach (var file in modFiles)
+        {
+            try
+            {
+                var json = await File.ReadAllTextAsync(file);
+                var manifest = JsonConvert.DeserializeObject<ModManifest>(json);
+
+                if (manifest == null || string.IsNullOrWhiteSpace(manifest.UniqueID))
+                    continue;
+
+                // Check for Chinese content
+                bool hasChinese = false;
+                if (!string.IsNullOrEmpty(manifest.Name) && chineseRegex.IsMatch(manifest.Name)) hasChinese = true;
+                if (!string.IsNullOrEmpty(manifest.Description) && chineseRegex.IsMatch(manifest.Description)) hasChinese = true;
+
+                if (hasChinese)
+                {
+                    translations.Add(new TranslationBackupEntry
+                    {
+                        UniqueID = manifest.UniqueID,
+                        Name = manifest.Name,
+                        Description = manifest.Description,
+                        Path = Path.GetRelativePath(modDirectory, file),
+                        IsChinese = true,
+                        Version = manifest.Version
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error but continue
+                Console.WriteLine($"Error extracting from {file}: {ex.Message}");
+            }
+        }
+
+        var outputJson = JsonConvert.SerializeObject(translations, Formatting.Indented);
+        await File.WriteAllTextAsync(outputFilePath, outputJson);
+    }
+
+    public async Task RestoreTranslationsAsync(string modDirectory, string backupFilePath)
+    {
+        if (!File.Exists(backupFilePath)) return;
+
+        var json = await File.ReadAllTextAsync(backupFilePath);
+        var backups = JsonConvert.DeserializeObject<List<TranslationBackupEntry>>(json);
+
+        if (backups == null || !backups.Any()) return;
+
+        var backupDict = backups
+            .GroupBy(b => b.UniqueID)
+            .ToDictionary(g => g.Key, g => g.First()); 
+
+        var modFiles = Directory.GetFiles(modDirectory, "manifest.json", SearchOption.AllDirectories);
+
+        foreach (var file in modFiles)
+        {
+            try
+            {
+                var content = await File.ReadAllTextAsync(file);
+                var manifest = JsonConvert.DeserializeObject<ModManifest>(content);
+
+                if (manifest == null || string.IsNullOrWhiteSpace(manifest.UniqueID))
+                    continue;
+
+                if (backupDict.TryGetValue(manifest.UniqueID, out var backup))
+                {
+                    bool changed = false;
+                    
+                    // We use Regex replacement (like ApplyTranslations) to preserve formatting
+                    if (!string.IsNullOrEmpty(backup.Name) && manifest.Name != backup.Name)
+                    {
+                        string escapedName = JsonConvert.ToString(backup.Name).Trim('"');
+                        // Simple regex for Name property
+                        if (Regex.IsMatch(content, @"""Name""\s*:\s*""[^""]*"""))
+                        {
+                            var newContent = Regex.Replace(content, @"(""Name""\s*:\s*"")[^""]*("")", $"${{1}}{escapedName}${{2}}");
+                            if (content != newContent)
+                            {
+                                content = newContent;
+                                changed = true;
+                            }
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(backup.Description) && manifest.Description != backup.Description)
+                    {
+                         string escapedDesc = JsonConvert.ToString(backup.Description).Trim('"');
+                         if (Regex.IsMatch(content, @"""Description""\s*:\s*""[^""]*"""))
+                        {
+                            var newContent = Regex.Replace(content, @"(""Description""\s*:\s*"")[^""]*("")", $"${{1}}{escapedDesc}${{2}}");
+                            if (content != newContent)
+                            {
+                                content = newContent;
+                                changed = true;
+                            }
+                        }
+                    }
+
+                    if (changed)
+                    {
+                        await File.WriteAllTextAsync(file, content);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error restoring to {file}: {ex.Message}");
+            }
+        }
+    }
 }
