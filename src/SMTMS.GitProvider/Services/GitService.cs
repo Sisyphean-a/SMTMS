@@ -92,4 +92,28 @@ public class GitService : IGitService
         var options = new CheckoutOptions { CheckoutModifiers = CheckoutModifiers.Force };
         repo.CheckoutPaths(commit.Sha, new[] { relativeFilePath }, options);
     }
+    public void DeleteRepository(string path)
+    {
+        var gitDir = System.IO.Path.Combine(path, ".git");
+        if (System.IO.Directory.Exists(gitDir))
+        {
+            DeleteDirectory(gitDir);
+        }
+    }
+
+    private void DeleteDirectory(string path)
+    {
+        foreach (var file in System.IO.Directory.GetFiles(path))
+        {
+            System.IO.File.SetAttributes(file, System.IO.FileAttributes.Normal);
+            System.IO.File.Delete(file);
+        }
+
+        foreach (var dir in System.IO.Directory.GetDirectories(path))
+        {
+            DeleteDirectory(dir);
+        }
+
+        System.IO.Directory.Delete(path, false);
+    }
 }

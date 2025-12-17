@@ -40,7 +40,7 @@ public partial class ModViewModel : ObservableObject
         UpdateStatus();
     }
 
-    private void UpdateStatus()
+    public void UpdateStatus()
     {
         if (_metadata == null)
         {

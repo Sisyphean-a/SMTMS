@@ -28,22 +28,27 @@ flowchart LR
 ### 1.1 模块职责简述
 
 - **SMTMS.Core**：领域与接口层
+
   - 定义接口：`IModService`, `IModRepository`, `IGitService`, `INexusClient`, `ITranslationService`, `IGamePathService`。
   - 定义模型：`ModManifest`, `ModMetadata`, `TranslationMemory`, `GitCommitModel`, `NexusModDto` 等。
   - `ModService`, `TranslationService` (负责提取/恢复翻译), `RegistryGamePathService`。
   - 提供横切基础设施：`LogAttribute`（AOP 日志）、`ServiceLocator`。
 
 - **SMTMS.Data**：数据访问层
+
   - `AppDbContext`（EF Core + SQLite）。
   - `ModRepository : IModRepository`，负责 `ModMetadata` / `TranslationMemory` 的 CRUD。
 
 - **SMTMS.GitProvider**：Git 集成
+
   - `GitService : IGitService`，基于 LibGit2Sharp 对 `%APPDATA%/SMTMS` 仓库进行 `Init/Commit/Reset/GetHistory` 等操作。
 
 - **SMTMS.NexusClient**：Nexus API 客户端
+
   - `NexusClient : INexusClient`，占位实现，后续连接 Nexus Mods REST/GraphQL API。
 
 - **SMTMS.Translation**：翻译服务实现
+
   - 核心实现 `TranslationService`，负责在 "本地 manifest.json" 与 "SQLite 数据库" 之间双向同步翻译数据 (Extract/Restore)。
 
 - **SMTMS.UI**：WPF 前端 & 组合根
@@ -81,6 +86,7 @@ flowchart TD
 ```
 
 要点：
+
 - **接口全部定义在 Core 中**，实现分别在 Core/Data/GitProvider/NexusClient 等模块中。
 - `TranslationService` 通过 `IServiceScopeFactory` 动态获取 `IModRepository`，避免直接依赖 SMTMS.Data。
 - `LogAttribute` 通过 `ServiceLocator` 拿到 `ILogger&lt;T&gt;`，对带 `[Log]` 的类/方法织入统一日志。
@@ -183,67 +189,45 @@ sequenceDiagram
     VM->>VM: Status = $"Loaded {count} mods."
 ```
 
-### 3.2 保存当前 Mod 的翻译并自动提交 Git
+### 3.2 保存当前 Mod 的翻译 (Save Local Only)
 
 ```mermaid
 sequenceDiagram
     participant U as User
     participant VM as MainViewModel
-    participant Scope as IServiceScopeFactory
-    participant Repo as IModRepository
-    participant DB as SQLite
-    participant Git as IGitService(GitService)
+    participant FS as FileSystem
 
     U->>VM: 点击 "Save" 当前选中 Mod
     VM->>VM: 检查 SelectedMod 是否为空
-    VM->>Scope: CreateScope()
-    Scope-->>VM: IServiceScope
 
-    VM->>Repo: GetModAsync(SelectedMod.UniqueID)
-    Repo->>DB: 查询 ModMetadata
-    DB-->>Repo: 返回记录
-    Repo-->>VM: ModMetadata
-
-    VM->>Repo: 更新 TranslatedName/TranslatedDescription, UpsertModAsync
-    Repo->>DB: 保存变更
-
-    VM->>Git: Commit(appDataPath, message)
-    Git->>Git: 使用 LibGit2Sharp 提交所有改动
-
-    VM->>VM: Status = "Saved '...' successfully."
+    VM->>FS: 写入 manifest.json (Newtonsoft.Json)
+    VM->>VM: Status = "已保存 '...' (本地)。"
+    note right of VM: 此时数据库未更新，Git 未创建提交
 ```
 
-### 3.3 把本地翻译提取到数据库 (Extract/Save)
+### 3.3 同步到数据库 & 创建版本 (Sync / Checkpoint)
 
 ```mermaid
 sequenceDiagram
     participant U as User
     participant VM as MainViewModel
     participant TS as ITranslationService
-    participant Scope as IServiceScopeFactory
-    participant Repo as IModRepository
+    participant GB as IGitService
     participant DB as SQLite
     participant FS as FileSystem
 
-    U->>VM: 点击 "Extract Translations" (提取翻译)
+    U->>VM: 点击 "Sync to Database"
     VM->>TS: SaveTranslationsToDbAsync(ModsDirectory)
+    TS->>DB: 更新 ModMetadata 表 (Source of Truth)
 
-    TS->>FS: 遍历目录寻找 manifest.json
-    TS->>Scope: CreateScope()
-    Scope-->>TS: IServiceScope
-    TS->>Repo: GetModAsync(UniqueID)
+    VM->>TS: ExportTranslationsToGitRepo(ModsDirectory, AppDataPath)
+    TS->>FS: 将 manifest.json 复制到 AppData/SMTMS/Mods (Shadow Copy)
 
-    loop 每个 Manifest 文件
-        TS->>TS: 解析 JSON, 检查是否包含中文
-        alt 包含中文翻译
-            TS->>Repo: UpsertModAsync (更新 TranslatedName/Description)
-            Repo->>DB: 保存到数据库
-        end
-    end
+    VM->>GB: CommitAll(AppDataPath, message)
+    GB->>GB: Stage * -> Commit
 
-    TS-->>VM: 完成
-    VM->>VM: Status = "已将本地翻译保存到数据库。"
-    VM->>VM: LoadModsAsync() (刷新列表)
+    VM->>VM: Status = "同步成功：已创建新版本。"
+    VM->>VM: LoadHistory()
 ```
 
 ### 3.4 从数据库恢复翻译到模组 (Restore/Apply)
@@ -289,13 +273,16 @@ sequenceDiagram
     participant U as User
     participant VM as MainViewModel
     participant Git as IGitService(GitService)
+    participant TS as ITranslationService
 
     U->>VM: 选中某个 Commit, 点击 "Rollback"
-    VM->>VM: 检查 SelectedCommit 是否为空
     VM->>Git: Reset(appDataPath, SelectedCommit.FullHash)
-    Git->>Git: 使用 LibGit2Sharp Reset(ResetMode.Hard)
+    Git->>Git: Reset(Hard) -> 恢复 smtms.db 和 Shadow Files 到旧版本
 
-    VM->>VM: Status = $"Rolled back to '{ShortHash}'."
-    VM->>VM: LoadModsAsync() (自动刷新 UI)
+    VM->>TS: RestoreTranslationsFromDbAsync(ModsDirectory)
+    TS->>TS: 从回滚后的 DB 读取数据
+    TS->>Game Dir: 覆盖游戏目录下的 manifest.json (应用变更)
+
+    VM->>VM: Status = $"Rolled back to '{ShortHash}' and applied to files."
+    VM->>VM: LoadModsAsync()
 ```
-

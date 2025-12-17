@@ -152,44 +152,23 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-             // Update DB
-             using (var scope = _scopeFactory.CreateScope())
-            {
-                var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
-                var mod = await modRepo.GetModAsync(SelectedMod.UniqueID);
-                
-                if (mod != null)
-                {
-                    mod.TranslatedName = SelectedMod.Name;
-                    mod.TranslatedDescription = SelectedMod.Description;
-                    mod.LastTranslationUpdate = DateTime.Now;
-                    await modRepo.UpsertModAsync(mod);
-                    
-                    // Update VM metadata to reflect that DB is now synced
-                    SelectedMod.UpdateMetadata(mod);
-                }
-            }
+            // Only write to disk (manifest.json). 
+            // The DB is updated ONLY when "Sync to Database" is clicked.
             
-            // Also write to disk (manifest.json)
-            // Ideally we do this via TranslationService logic or helper, but for now we write directly if we want to "Apply" immediately.
-            // But the user workflow might be "Edit -> Save to DB" then "Restore/Apply".
-            // However, usually "Save" implies saving to disk too.
-            // Let's assume this Edit is for the DB + Disk.
-            
-            // Re-use logic or simple write? 
-            // Let's just update the manifest on disk to match.
             if (!string.IsNullOrEmpty(SelectedMod.ManifestPath))
             {
                 var json = Newtonsoft.Json.JsonConvert.SerializeObject(SelectedMod.Manifest, Newtonsoft.Json.Formatting.Indented);
                 await File.WriteAllTextAsync(SelectedMod.ManifestPath, json);
             }
 
-            // REMOVED: Auto-Commit. Now using manual SyncToDatabase.
-            // var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
-            // _gitService.Commit(appDataPath, $"Update translation for {SelectedMod.Name}");
-
+            // Force update status to show "Changed"
+            SelectedMod.UpdateStatus(); // ModViewModel needs this method public or triggered
+            // Actually ModViewModel.Name setter calls UpdateStatus(), so if we updated properties it should have triggered.
+            // But if we just saved, we want to ensure UI reflects "Changed" if it was "Synced".
+            // Since we didn't touch DB, and we changed disk, "UpdateStatus" logic:
+            // DB has Old, Disk has New -> Differs -> "Changed". Correct.
+            
             StatusMessage = $"已保存 '{SelectedMod.Name}' (本地)。请点击 '同步到数据库' 以创建版本。";
-            // LoadHistory(); // History won't change
         }
         catch (Exception ex)
         {
@@ -211,6 +190,10 @@ public partial class MainViewModel : ObservableObject
                 {
                     CommitHistory.Add(commit);
                 }
+            }
+            else
+            {
+                 StatusMessage = "History Warning: No repository found.";
             }
         }
         catch (Exception ex)
@@ -237,12 +220,59 @@ public partial class MainViewModel : ObservableObject
             
             await Task.Run(() => _gitService.Reset(appDataPath, SelectedCommit.FullHash));
             
-            StatusMessage = $"Rolled back to '{SelectedCommit.ShortHash}'.";
+            // Auto-sync: Apply the restored DB state to game files
+            // Wait, Reset reverted the whole repo, including smtms.db (if tracked) or files in Mods/? 
+            // If smtms.db IS tracked, it reverted.
+            // Then RestoreFromDatabaseAsync reads the reverted DB and updates manifests.
+            // This syncs the Game Mods with the rolled-back state.
+            await RestoreFromDatabaseAsync();
+
+            StatusMessage = $"Rolled back to '{SelectedCommit.ShortHash}' and applied to files.";
             await LoadModsAsync();
         }
         catch (Exception ex)
         {
             StatusMessage = $"Rollback Error: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task HardResetAsync()
+    {
+        try
+        {
+             // Release DB locks
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            
+            var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
+            
+            // 1. Delete .git folder
+            await Task.Run(() => _gitService.DeleteRepository(appDataPath));
+
+            // 2. Delete DB file
+            var dbPath = Path.Combine(appDataPath, "smtms.db");
+            if (File.Exists(dbPath))
+            {
+                File.Delete(dbPath);
+            }
+            
+            // 3. Re-create DB Tables
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                 var context = scope.ServiceProvider.GetRequiredService<SMTMS.Data.Context.AppDbContext>();
+                 context.Database.EnsureCreated();
+            }
+
+            StatusMessage = "Initialization complete. All history and data cleared.";
+            CommitHistory.Clear();
+            await LoadModsAsync(); // Rescan, will treat as new/untracked
+            
+            // Re-init git
+             _gitService.Init(appDataPath);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Init Error: {ex.Message}";
         }
     }
 
