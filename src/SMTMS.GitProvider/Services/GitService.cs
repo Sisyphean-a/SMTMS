@@ -16,14 +16,32 @@ public class GitService : IGitService
     public void Init(string path)
     {
         Repository.Init(path);
+        
+        // Create .gitignore to exclude database files
+        var gitIgnorePath = Path.Combine(path, ".gitignore");
+        if (!File.Exists(gitIgnorePath))
+        {
+            File.WriteAllText(gitIgnorePath, "smtms.db\nsmtms.db-shm\nsmtms.db-wal\n");
+        }
     }
 
     public void CommitAll(string path, string message)
     {
         using var repo = new Repository(path);
         
-        // Auto-stage everything
+        // Ensure .gitignore is valid
+        var gitIgnorePath = Path.Combine(path, ".gitignore");
+        if (!File.Exists(gitIgnorePath))
+        {
+             File.WriteAllText(gitIgnorePath, "smtms.db\nsmtms.db-shm\nsmtms.db-wal\n");
+        }
+
+        // Auto-stage everything (respecting .gitignore)
         Commands.Stage(repo, "*");
+
+        // Check if there are changes to commit
+        var status = repo.RetrieveStatus();
+        if (!status.IsDirty) return;
 
         // Use a default signature for auto-commits
         var signature = new Signature("SMTMS Auto", "auto@smtms.local", DateTimeOffset.Now);
@@ -62,6 +80,65 @@ public class GitService : IGitService
             Author = c.Author.Name,
             Date = c.Author.When
         }).ToList();
+    }
+
+    public string GetDiff(string repoPath, string commitHash)
+    {
+         using var repo = new Repository(repoPath);
+         var commit = repo.Lookup<Commit>(commitHash);
+         if (commit == null) return "Commit not found.";
+
+         var sb = new System.Text.StringBuilder();
+         var parent = commit.Parents.FirstOrDefault();
+         var tree = commit.Tree;
+         var parentTree = parent?.Tree; 
+
+         var changes = repo.Diff.Compare<TreeChanges>(parentTree, tree);
+
+         if (!changes.Any()) return "No changes (Empty Commit)";
+
+         foreach (var change in changes)
+         {
+             // Debug: Show all paths to diagnose why filter failed
+             sb.AppendLine($"{change.Status}: {change.Path}");
+         }
+         
+         return sb.ToString();
+    }
+    
+    public IEnumerable<SMTMS.Core.Models.GitCommitModel> GetFileHistory(string repoPath, string relativeFilePath)
+    {
+        using var repo = new Repository(repoPath);
+        
+        // LibGit2Sharp expects forward slashes for paths in the repo
+        var normalizedPath = relativeFilePath.Replace("\\", "/");
+        
+        var entries = repo.Commits.QueryBy(normalizedPath);
+
+        return entries.Select(c => new SMTMS.Core.Models.GitCommitModel
+        {
+            ShortHash = c.Commit.Sha.Substring(0, 7),
+            FullHash = c.Commit.Sha,
+            Message = c.Commit.MessageShort,
+            Author = c.Commit.Author.Name,
+            Date = c.Commit.Author.When
+        }).ToList();
+    }
+
+
+    public string GetFileContentAtCommit(string repoPath, string commitHash, string relativeFilePath)
+    {
+        using var repo = new Repository(repoPath);
+        var commit = repo.Lookup<Commit>(commitHash);
+        if (commit == null) throw new Exception("Commit not found");
+
+        var treeEntry = commit[relativeFilePath];
+        if (treeEntry == null) return string.Empty;
+
+        var blob = treeEntry.Target as Blob;
+        if (blob == null) return string.Empty;
+
+        return blob.GetContentText();
     }
 
     public void Reset(string path, string commitHash)

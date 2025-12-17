@@ -217,6 +217,9 @@ sequenceDiagram
     participant FS as FileSystem
 
     U->>VM: 点击 "Sync to Database"
+    VM->>U: 弹出 CommitDialog
+    U->>VM: 输入提交信息 (Message) & 确认
+
     VM->>TS: SaveTranslationsToDbAsync(ModsDirectory)
     TS->>DB: 更新 ModMetadata 表 (Source of Truth)
 
@@ -228,6 +231,32 @@ sequenceDiagram
 
     VM->>VM: Status = "同步成功：已创建新版本。"
     VM->>VM: LoadHistory()
+```
+
+### 3.6 单模组回滚 (Single Mod Rollback)
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant ModVM as ModViewModel
+    participant Git as IGitService
+    participant FS as FileSystem
+
+    U->>ModVM: 点击 "查看历史 (History)"
+    ModVM->>Git: GetFileHistory(repoPath, modRelativePath)
+    Git-->>ModVM: List<GitCommitModel>
+
+    ModVM->>U: 显示历史列表弹窗 (ModHistoryDialog)
+    U->>ModVM: 选中版本并点击 "Rollback"
+
+    ModVM->>Git: RollbackFile(repoPath, commitHash, modRelativePath)
+    Git->>Git: Checkout specific file (Overwrite Local Shadow)
+
+    ModVM->>FS: Copy(ShadowFile, GameModPath)
+    note right of ModVM: 将 Git 也就是 Shadow Repo 中的文件覆盖回游戏目录
+
+    ModVM->>ModVM: 更新内存中的 Manifest 显示
+    ModVM->>U: 提示回滚成功
 ```
 
 ### 3.4 从数据库恢复翻译到模组 (Restore/Apply)

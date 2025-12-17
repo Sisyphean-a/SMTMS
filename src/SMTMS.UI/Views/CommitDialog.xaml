@@ -1,0 +1,24 @@
+<Window x:Class="SMTMS.UI.Views.CommitDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Commit to Database" Height="250" Width="400"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="Enter Commit Message:" FontWeight="Bold" Margin="0,0,0,5"/>
+        
+        <TextBox Grid.Row="1" x:Name="MessageTextBox" 
+                 AcceptsReturn="True" TextWrapping="Wrap" 
+                 VerticalScrollBarVisibility="Auto" Margin="0,0,0,10"/>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Commit" Width="80" Height="30" Margin="0,0,10,0" Click="Commit_Click" IsDefault="True"/>
+            <Button Content="Cancel" Width="80" Height="30" Click="Cancel_Click" IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</Window>

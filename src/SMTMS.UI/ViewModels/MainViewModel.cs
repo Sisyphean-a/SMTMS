@@ -290,11 +290,39 @@ public partial class MainViewModel : ObservableObject
         await RestoreFromDatabaseAsync();
     }
 
+    [ObservableProperty]
+    private string _diffText = "Select a commit to see changes.";
+
+    partial void OnSelectedCommitChanged(GitCommitModel? value)
+    {
+        if (value != null)
+        {
+            try
+            {
+                var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
+                DiffText = _gitService.GetDiff(appDataPath, value.FullHash);
+            }
+            catch (Exception ex)
+            {
+                DiffText = $"Error loading diff: {ex.Message}";
+            }
+        }
+        else
+        {
+            DiffText = "Select a commit to see changes.";
+        }
+    }
+
     [RelayCommand]
     private async Task SyncToDatabaseAsync()
     {
-        // TODO: Show Dialog to get Commit Message
-        string commitMessage = $"Sync update {DateTime.Now}";
+        var dialog = new SMTMS.UI.Views.CommitDialog($"Scan & Update {DateTime.Now:yyyy-MM-dd HH:mm}");
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        string commitMessage = dialog.CommitMessage;
 
         StatusMessage = "正在同步到数据库...";
         try

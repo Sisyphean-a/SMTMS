@@ -141,37 +141,48 @@ public class TranslationService : ITranslationService
                 bool hasChineseName = !string.IsNullOrEmpty(manifest.Name) && chineseRegex.IsMatch(manifest.Name);
                 bool hasChineseDesc = !string.IsNullOrEmpty(manifest.Description) && chineseRegex.IsMatch(manifest.Description);
 
-                if (hasChineseName || hasChineseDesc)
+                // Always update DB with found mods to ensure they are tracked
+                var mod = await modRepo.GetModAsync(manifest.UniqueID);
+                if (mod == null)
                 {
-                    var mod = await modRepo.GetModAsync(manifest.UniqueID);
-                     if (mod == null)
+                    mod = new ModMetadata
                     {
-                        mod = new ModMetadata
-                        {
-                            UniqueID = manifest.UniqueID,
-                            RelativePath = Path.GetRelativePath(modDirectory, file),
-                            OriginalName = manifest.Name, // If it's already Chinese, this might be conceptually wrong but practically okay
-                            OriginalDescription = manifest.Description
-                        };
-                    }
+                        UniqueID = manifest.UniqueID,
+                        RelativePath = Path.GetRelativePath(modDirectory, file),
+                        OriginalName = manifest.Name,
+                        OriginalDescription = manifest.Description
+                    };
+                }
+                else
+                {
+                     // Update RelativePath in case it moved
+                     mod.RelativePath = Path.GetRelativePath(modDirectory, file);
+                }
 
-                    bool updated = false;
-                    if (hasChineseName && mod.TranslatedName != manifest.Name)
-                    {
-                        mod.TranslatedName = manifest.Name;
-                        updated = true;
-                    }
-                    if (hasChineseDesc && mod.TranslatedDescription != manifest.Description)
-                    {
-                        mod.TranslatedDescription = manifest.Description;
-                        updated = true;
-                    }
+                bool updated = false;
 
-                    if (updated)
-                    {
-                        mod.LastTranslationUpdate = DateTime.Now;
-                        await modRepo.UpsertModAsync(mod);
-                    }
+                // Update translations if they differ (and effectively track current state as translation if meaningful)
+                // If we want to strictly separate "Original" vs "Translated", we need logic.
+                // For now, let's assume "Translated" fields hold the *Current* value if it's considered "worked on".
+                // But if I just changed English text?
+                // The architecture implies TranslatedName is what we restore.
+                
+                // Let's just save current state to TranslatedName/Description so it can be restored.
+                if (mod.TranslatedName != manifest.Name)
+                {
+                    mod.TranslatedName = manifest.Name;
+                    updated = true;
+                }
+                if (mod.TranslatedDescription != manifest.Description)
+                {
+                    mod.TranslatedDescription = manifest.Description;
+                    updated = true;
+                }
+
+                if (updated || mod.LastTranslationUpdate == null)
+                {
+                    mod.LastTranslationUpdate = DateTime.Now;
+                    await modRepo.UpsertModAsync(mod);
                 }
             }
             catch (Exception ex)

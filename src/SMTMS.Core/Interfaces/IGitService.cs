@@ -14,6 +14,9 @@ public interface IGitService
     // Returns a list of changed files
     IEnumerable<string> GetStatus(string path);
     IEnumerable<SMTMS.Core.Models.GitCommitModel> GetHistory(string path);
+    IEnumerable<SMTMS.Core.Models.GitCommitModel> GetFileHistory(string repoPath, string relativeFilePath);
+    string GetDiff(string repoPath, string commitHash);
+    string GetFileContentAtCommit(string repoPath, string commitHash, string relativeFilePath);
     void Reset(string path, string commitHash);
     void RollbackFile(string path, string commitHash, string relativeFilePath);
 }

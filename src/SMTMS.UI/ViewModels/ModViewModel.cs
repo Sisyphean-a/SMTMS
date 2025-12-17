@@ -140,77 +140,57 @@ public partial class ModViewModel : ObservableObject
     }
     
     [RelayCommand]
-    public async Task RollbackToVersionAsync(string commitHash)
+    public async Task ShowHistoryAsync()
+    {
+        if (_metadata == null || string.IsNullOrEmpty(_metadata.RelativePath))
+        {
+             // Fallback or warning
+             System.Windows.MessageBox.Show("Cannot show history: Mod metadata missing.", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+             return;
+        }
+
+        try
+        {
+            var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
+            // Based on architecture, files are in "Mods" subfolder in repo
+            var repoRelativePath = Path.Combine("Mods", _metadata.RelativePath); 
+
+            var history = await Task.Run(() => _gitService.GetFileHistory(appDataPath, repoRelativePath));
+
+            var dialog = new SMTMS.UI.Views.ModHistoryDialog(Name, history);
+            // dialog.Owner = System.Windows.Application.Current.MainWindow; // Optional
+
+            if (dialog.ShowDialog() == true && dialog.SelectedCommit != null)
+            {
+                await RollbackToVersionAsync(dialog.SelectedCommit.FullHash, repoRelativePath);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show($"Error loading history: {ex.Message}", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+        }
+    }
+
+    private async Task RollbackToVersionAsync(string commitHash, string repoRelativePath)
     {
         if (string.IsNullOrEmpty(ManifestPath)) return;
 
         try
         {
             var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
-            var relativePath = Path.GetRelativePath(appDataPath, ManifestPath); 
-            // Note: ManifestPath is likely absolute. GitService expects relative path from repo root?
-            // Wait, GitService Reset works on repo path. RollbackFile takes path, hash, relativeFilePath.
-            // But ManifestPath is usually outside AppData/SMTMS? 
-            // Ah, wait. The README says Git is in %APPDATA%/SMTMS.
-            // But Mods are in Steam folder.
-            // Current architecture: "Safety First... SMTMS 引入了企业级的 Git 版本控制 作为底层存储后端（位于 %APPDATA%\SMTMS）"
-            // So SMTMS *copies* data to %APPDATA%/SMTMS?
-            // Or does it init Git inside the Mods folder?
-            // README line 8: "位于 %APPDATA%\SMTMS".
-            // So we are NOT versioning the Steam Mods folder directly?
-            // "Extract Translations" scans Mods, but where does it save?
-            // Check MainViewModel SaveModAsync logic line 188: "appDataPath = ... SMTMS".
-            // So SMTMS effectively has a "Shadow Repo".
-            // But `SaveModAsync` line 184 writes to `SelectedMod.ManifestPath` which is in Steam Mods folder?
-            // So `Rollback` needs to restore to the Repo, and then we might need to "Apply" (Restore) to disk?
-            // If the user wants to rollback the Mod (Steam folder), we first rollback the DB/ShadowRepo, then Apply.
-            // Or does RollbackFile mean "Update my working copy (Steam)"?
-            // If Git is only in AppData, then `RollbackFile` updates the AppData file.
-            // Then we must sync AppData -> Steam.
-            // Let's assume `RollbackFile` updates the file in the repo.
-            // Since `ManifestPath` points to Steam folder, we need the RELATIVE path within the Repo?
-            // The Repo structure likely mirrors Mods folder? Or uses UniqueID?
-            // Let's assume standard structure for now or that `IGitService` handles it.
-            // But wait, `GitService` takes `path` (repo root). 
-            // I need to know the file structure in AppData.
-            // Assuming for now: The file in Repo is named/structured same as relative path or just flat?
-            // Let's look at `ModMetadata` in `MainViewModel`. `RelativePath`.
-            
-            // Re-reading logic:
-            // SyncToDatabase calls `SaveTranslationsToDbAsync`.
-            // Does `SaveTranslationsToDbAsync` write to the Git Repo?
-            // `TranslationService` implementation is key.
-            // If `TranslationService` only writes to DB, where do the files in Git come from?
-            // Maybe MainViewModel `SaveModAsync` wrote "Update translation for..." to Git?
-            // Previously `SaveModAsync` called `_gitService.Commit(appDataPath)`.
-            // But what files were there? Use `_gitService.GetStatus`.
-            // If I haven't written files to `appDataPath`, then `Commit` commits nothing.
-            // The Architecture implies "Git as backend".
-            // So `TranslationService` MUST be writing json files to `appDataPath`?
-            // I should double check `TranslationService`.
-            // User just gave me `IGitService` and `ModViewModel`.
-            // I'll assume for rollback, I call `_gitService.RollbackFile` on the AppData repo.
-            // Then I should probably update the real mod file (Restore).
-            
-            // Getting relative path from Metadata?
-            // I don't have Metadata's RelativePath easily here? 
-            // Oh I do, `_metadata.RelativePath`.
-            if (_metadata == null) return;
-            
-            // Rollback in Repo
-            _gitService.RollbackFile(appDataPath, commitHash, relativePath);
+           
+            // 1. Rollback in Repo (Update Shadow Copy to old version)
+            await Task.Run(() => _gitService.RollbackFile(appDataPath, commitHash, repoRelativePath));
              
-            // Sync back to Game Mods Directory
-            var repoFile = Path.Combine(appDataPath, "Mods", relativePath); 
-            // Note: in ExportTranslationsToGitRepo, we used Path.Combine(repoPath, "Mods", mod.RelativePath). 
-            // mod.RelativePath includes the mod folder and file name e.g. "ModA/manifest.json".
-            // So structure is AppData/SMTMS/Mods/ModA/manifest.json. (Assuming "Mods" subfolder).
+            // 2. Sync back to Game Mods Directory (Restore)
+            var repoFile = Path.Combine(appDataPath, repoRelativePath);
        
             if (File.Exists(repoFile))
             {
+                // Backup current? No, rollback is destructive/overwrite as per requirement.
                 File.Copy(repoFile, ManifestPath, true);
                 
-                // Update In-Memory Manifest to reflect change
+                // 3. Update In-Memory Manifest to reflect change
                 var json = await File.ReadAllTextAsync(ManifestPath);
                 var storedManifest = Newtonsoft.Json.JsonConvert.DeserializeObject<ModManifest>(json);
                 if (storedManifest != null)
@@ -219,14 +199,15 @@ public partial class ModViewModel : ObservableObject
                     Description = storedManifest.Description;
                     Author = storedManifest.Author;
                     Version = storedManifest.Version;
-                    // UpdateStatus() is called by setters
+                    UpdateStatus(); // Will likely show "Changed" because DB is still at HEAD (or different)
                 }
+                
+                System.Windows.MessageBox.Show($"Rolled back '{Name}' to version {commitHash.Substring(0,7)}.", "Success");
             }
         }
         catch (Exception ex)
         {
-           // Handle error
-           System.Diagnostics.Debug.WriteLine(ex);
+           System.Windows.MessageBox.Show($"Rollback Error: {ex.Message}", "Error");
         }
     }
 }
