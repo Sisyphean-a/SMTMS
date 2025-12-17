@@ -124,7 +124,7 @@ public partial class MainViewModel : ObservableObject
                 // Current ModViewModel likely uses ModManifest. We might need to update ModViewModel to support metadata.
                 // For now, let's inject valid data into ModViewModel
                 
-                var viewModel = new ModViewModel(manifest, mod);
+                var viewModel = new ModViewModel(manifest, _gitService, mod);
                 
                 // Do NOT overwrite Name with translation here. 
                 // ModViewModel.UpdateStatus() will handle the comparison status.
@@ -184,12 +184,12 @@ public partial class MainViewModel : ObservableObject
                 await File.WriteAllTextAsync(SelectedMod.ManifestPath, json);
             }
 
-            // Auto-Commit
-            var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
-            _gitService.Commit(appDataPath, $"Update translation for {SelectedMod.Name}");
+            // REMOVED: Auto-Commit. Now using manual SyncToDatabase.
+            // var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
+            // _gitService.Commit(appDataPath, $"Update translation for {SelectedMod.Name}");
 
-            StatusMessage = $"已保存 '{SelectedMod.Name}'。";
-            LoadHistory();
+            StatusMessage = $"已保存 '{SelectedMod.Name}' (本地)。请点击 '同步到数据库' 以创建版本。";
+            // LoadHistory(); // History won't change
         }
         catch (Exception ex)
         {
@@ -250,45 +250,66 @@ public partial class MainViewModel : ObservableObject
     private async Task ImportLegacyDataAsync()
     {
        // Deprecated or redirect to SaveTranslationsToDbAsync (Sync)
-       // Let's repurpose this or remove it. User said "Use Data replace Json".
-       // Maybe "Scan to DB" is the new actions.
-       // Let's just call SaveTranslationsToDbAsync essentially syncing Local -> DB.
-       await ExtractTranslationsAsync();
+       await SyncToDatabaseAsync();
     }
 
     [RelayCommand]
     private async Task ApplyTranslationsAsync()
     {
         // This command was "Apply All Translations". 
-        // In new logic, "RestoreTranslationsFromDbAsync" does exactly this: DB -> Disk.
-        await RestoreTranslationsAsync();
+        await RestoreFromDatabaseAsync();
     }
 
     [RelayCommand]
-    private async Task ExtractTranslationsAsync()
+    private async Task SyncToDatabaseAsync()
     {
-        StatusMessage = "正在保存翻译到数据库...";
+        // TODO: Show Dialog to get Commit Message
+        string commitMessage = $"Sync update {DateTime.Now}";
+
+        StatusMessage = "正在同步到数据库...";
         try
         {
+            // 1. Extract/Update DB
             await _translationService.SaveTranslationsToDbAsync(ModsDirectory);
-            StatusMessage = "已将本地翻译保存到数据库。";
+            
+            // 2. Export to Git Repo (Staging)
+            var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
+            await _translationService.ExportTranslationsToGitRepo(ModsDirectory, appDataPath);
+
+            // 3. Create Git Snapshot
+            _gitService.CommitAll(appDataPath, commitMessage);
+
+            StatusMessage = "同步成功：已创建新版本。";
+            LoadHistory(); 
             await LoadModsAsync(); // Refresh status
         }
         catch (Exception ex)
         {
-            StatusMessage = $"保存错误: {ex.Message}";
+            StatusMessage = $"同步错误: {ex.Message}";
         }
     }
 
     [RelayCommand]
-    private async Task RestoreTranslationsAsync()
+    private async Task RestoreFromDatabaseAsync()
     {
-        StatusMessage = "正在从数据库恢复翻译...";
+        // TODO: Show Dialog to select Version. Default to Latest.
+        // For now, restoring latest means:
+        // 1. Apply DB translations to manifests (RestoreTranslationsFromDbAsync)
+        // 2. Or Git Reset to HEAD?
+        // The user request says "Restore from Database -> manual select version -> default last".
+        // "Restore" in this context (sync/restore pair) usually means "Pull from storage to disk".
+        
+        StatusMessage = "正在从数据库恢复...";
         try
         {
+            // For now, act as "Apply latest translations from DB"
             await _translationService.RestoreTranslationsFromDbAsync(ModsDirectory);
-            StatusMessage = "已从数据库恢复翻译。";
-            await LoadModsAsync(); // Refresh UI
+            
+            // If we want to restore file state from Git (e.g. deleted files?), we might need Git Reset.
+            // _gitService.Reset(appDataPath, "HEAD"); 
+            
+            StatusMessage = "已恢复最新翻译。";
+            await LoadModsAsync(); 
         }
         catch (Exception ex)
         {

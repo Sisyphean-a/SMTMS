@@ -18,4 +18,8 @@ public interface ITranslationService
     /// <param name="modDirectory">The root directory containing mods.</param>
     Task RestoreTranslationsFromDbAsync(string modDirectory);
 
+    Task<(int successCount, int errorCount, string message)> ImportFromLegacyJsonAsync(string jsonPath);
+
+    Task ExportTranslationsToGitRepo(string modDirectory, string repoPath);
+
 }

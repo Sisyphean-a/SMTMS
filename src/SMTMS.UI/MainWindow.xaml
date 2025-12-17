@@ -20,8 +20,8 @@
             </StackPanel>
             
             <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                <Button Content="同步到数据库" Command="{Binding ExtractTranslationsCommand}" Margin="0,0,10,0" Padding="10,5" Background="#9C27B0" Foreground="White" BorderThickness="0" ToolTip="扫描本地模组，将中文翻译保存到数据库。"/>
-                <Button Content="从数据库恢复" Command="{Binding RestoreTranslationsCommand}" Margin="0,0,10,0" Padding="10,5" Background="#4CAF50" Foreground="White" BorderThickness="0" ToolTip="从数据库读取翻译并应用到本地文件。"/>
+                <Button Content="同步到数据库" Command="{Binding SyncToDatabaseCommand}" Margin="0,0,10,0" Padding="10,5" Background="#9C27B0" Foreground="White" BorderThickness="0" ToolTip="扫描本地模组，将中文翻译保存到数据库。"/>
+                <Button Content="从数据库恢复" Command="{Binding RestoreFromDatabaseCommand}" Margin="0,0,10,0" Padding="10,5" Background="#4CAF50" Foreground="White" BorderThickness="0" ToolTip="从数据库读取翻译并应用到本地文件。"/>
             </StackPanel>
             
             <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" Foreground="Gray"/>

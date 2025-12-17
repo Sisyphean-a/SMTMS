@@ -18,7 +18,7 @@ public class GitService : IGitService
         Repository.Init(path);
     }
 
-    public void Commit(string path, string message)
+    public void CommitAll(string path, string message)
     {
         using var repo = new Repository(path);
         
@@ -76,5 +76,20 @@ public class GitService : IGitService
         {
              throw new Exception($"Commit '{commitHash}' not found.");
         }
+    }
+
+    public void RollbackFile(string path, string commitHash, string relativeFilePath)
+    {
+        using var repo = new Repository(path);
+        var commit = repo.Lookup<Commit>(commitHash);
+        if (commit == null)
+        {
+            throw new Exception($"Commit '{commitHash}' not found.");
+        }
+
+        // Checkout the specific file from the given commit
+        // Force checkout to overwrite local changes
+        var options = new CheckoutOptions { CheckoutModifiers = CheckoutModifiers.Force };
+        repo.CheckoutPaths(commit.Sha, new[] { relativeFilePath }, options);
     }
 }

@@ -250,4 +250,49 @@ public class TranslationService : ITranslationService
             }
         }
     }
+    public async Task ExportTranslationsToGitRepo(string modDirectory, string repoPath)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
+        var allMods = await modRepo.GetAllModsAsync();
+        
+        // Ensure repo/mods folder exists
+        var repoModsPath = Path.Combine(repoPath, "Mods");
+        if (!Directory.Exists(repoModsPath))
+        {
+            Directory.CreateDirectory(repoModsPath);
+        }
+
+        // Clean up repo folder? 
+        // If we want exact mirror, we might want to delete stale files.
+        // But for now let's just overwrite existing.
+
+        foreach (var mod in allMods)
+        {
+            if (string.IsNullOrEmpty(mod.RelativePath)) continue;
+
+            var sourcePath = Path.Combine(modDirectory, mod.RelativePath);
+            if (!File.Exists(sourcePath)) continue; // Mod might have been deleted
+
+            // Read source
+            var json = await File.ReadAllTextAsync(sourcePath);
+            var manifest = JsonConvert.DeserializeObject<ModManifest>(json); 
+            if (manifest == null) continue;
+
+            // Apply translations from DB
+            if (!string.IsNullOrEmpty(mod.TranslatedName)) manifest.Name = mod.TranslatedName;
+            if (!string.IsNullOrEmpty(mod.TranslatedDescription)) manifest.Description = mod.TranslatedDescription;
+
+            // Write to Repo
+            var destPath = Path.Combine(repoModsPath, mod.RelativePath);
+            var destDir = Path.GetDirectoryName(destPath);
+            if (destDir != null && !Directory.Exists(destDir))
+            {
+                Directory.CreateDirectory(destDir);
+            }
+
+            var outputJson = JsonConvert.SerializeObject(manifest, Formatting.Indented);
+            await File.WriteAllTextAsync(destPath, outputJson);
+        }
+    }
 }
