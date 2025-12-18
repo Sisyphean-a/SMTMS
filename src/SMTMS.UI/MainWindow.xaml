@@ -121,31 +121,292 @@
                 <Grid Margin="0,10,0,0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="2*"/>
-                        <RowDefinition Height="5"/>
-                        <RowDefinition Height="1*"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
+                    <!-- 操作按钮 -->
                     <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
                         <Button Content="刷新列表" Command="{Binding LoadHistoryCommand}" Margin="0,0,10,0" Padding="10,5" ToolTip="刷新 Git 提交历史列表。"/>
                         <Button Content="回滚到选中" Command="{Binding GitRollbackCommand}" Margin="0,0,10,0" Padding="10,5" Background="#E74C3C" Foreground="White" BorderThickness="0" ToolTip="将文件恢复到选中提交的状态。警告：这是破坏性操作！"/>
                     </StackPanel>
 
-                    <DataGrid Grid.Row="1" ItemsSource="{Binding CommitHistory}" SelectedItem="{Binding SelectedCommit}" AutoGenerateColumns="False" IsReadOnly="True" BorderThickness="1" BorderBrush="LightGray">
+                    <!-- 提交历史列表 -->
+                    <DataGrid Grid.Row="1" ItemsSource="{Binding CommitHistory}" SelectedItem="{Binding SelectedCommit}"
+                              AutoGenerateColumns="False" IsReadOnly="True" BorderThickness="1" BorderBrush="LightGray"
+                              Height="150" Margin="0,0,0,10">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="哈希" Binding="{Binding ShortHash}" Width="80"/>
+                            <DataGridTextColumn Header="哈希" Binding="{Binding ShortHash}" Width="70"/>
                             <DataGridTextColumn Header="信息" Binding="{Binding Message}" Width="*"/>
-                            <DataGridTextColumn Header="作者" Binding="{Binding Author}" Width="150"/>
-                            <DataGridTextColumn Header="日期" Binding="{Binding FormattedDate}" Width="180"/>
+                            <DataGridTextColumn Header="作者" Binding="{Binding Author}" Width="120"/>
+                            <DataGridTextColumn Header="日期" Binding="{Binding FormattedDate}" Width="150"/>
                         </DataGrid.Columns>
                     </DataGrid>
-                    
-                    <GridSplitter Grid.Row="2" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="Transparent" ShowsPreview="True"/>
-                    
-                    <DockPanel Grid.Row="3">
-                        <TextBlock DockPanel.Dock="Top" Text="修改记录 (Diff)" FontWeight="Bold" Margin="0,5,0,5"/>
-                        <TextBox Text="{Binding DiffText}" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" FontFamily="Consolas"/>
-                    </DockPanel>
+
+                    <!-- 变更详情区域 -->
+                    <Grid Grid.Row="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="3*"/>
+                            <ColumnDefinition Width="5"/>
+                            <ColumnDefinition Width="2*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- 左侧：变更列表（使用 DataGrid） -->
+                        <DataGrid Grid.Column="0" ItemsSource="{Binding ModDiffChanges}" SelectedItem="{Binding SelectedDiffItem}"
+                                  AutoGenerateColumns="False" IsReadOnly="True" BorderThickness="1" BorderBrush="LightGray"
+                                  HeadersVisibility="Column">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="" Binding="{Binding Icon}" Width="30"/>
+                                <DataGridTextColumn Header="模组名称" Binding="{Binding ModName}" Width="200"/>
+                                <DataGridTextColumn Header="文件夹" Binding="{Binding FolderName}" Width="150"/>
+                                <DataGridTemplateColumn Header="变更内容" Width="*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Margin="5,3">
+                                                <!-- 名称变更 -->
+                                                <TextBlock Margin="0,2">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding NameChange.HasChange}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                    <Run Text="名称: " FontWeight="SemiBold" Foreground="#673AB7"/>
+                                                    <Run Text="{Binding NameChange.ChangeSummary, Mode=OneWay}" Foreground="DimGray"/>
+                                                </TextBlock>
+
+                                                <!-- 描述变更 -->
+                                                <TextBlock Margin="0,2">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding DescriptionChange.HasChange}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                    <Run Text="描述: " FontWeight="SemiBold" Foreground="#673AB7"/>
+                                                    <Run Text="{Binding DescriptionChange.ChangeSummary, Mode=OneWay}" Foreground="DimGray"/>
+                                                </TextBlock>
+
+                                                <!-- 作者变更 -->
+                                                <TextBlock Margin="0,2">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding AuthorChange.HasChange}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                    <Run Text="作者: " FontWeight="SemiBold" Foreground="#673AB7"/>
+                                                    <Run Text="{Binding AuthorChange.ChangeSummary, Mode=OneWay}" Foreground="DimGray"/>
+                                                </TextBlock>
+
+                                                <!-- 版本变更 -->
+                                                <TextBlock Margin="0,2">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding VersionChange.HasChange}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                    <Run Text="版本: " FontWeight="SemiBold" Foreground="#673AB7"/>
+                                                    <Run Text="{Binding VersionChange.ChangeSummary, Mode=OneWay}" Foreground="DimGray"/>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Center" VerticalAlignment="Stretch" Background="Transparent" ShowsPreview="True"/>
+
+                        <!-- 右侧：详情面板 -->
+                        <Border Grid.Column="2" BorderBrush="LightGray" BorderThickness="1" CornerRadius="3" Padding="15" Background="White">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <!-- 未选中状态 -->
+                                    <TextBlock Text="← 选择一个模组查看详细变更"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              Foreground="Gray" FontSize="14" FontStyle="Italic" Margin="0,50,0,0">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Hidden"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SelectedDiffItem}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+
+                                    <!-- 已选中状态 -->
+                                    <StackPanel>
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SelectedDiffItem}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Hidden"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+
+                                        <!-- 模组基本信息 -->
+                                        <TextBlock Text="模组详情" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,15"/>
+
+                                        <Grid Margin="0,0,0,15">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+
+                                            <TextBlock Grid.Row="0" Grid.Column="0" Text="模组名称：" FontWeight="Medium" Foreground="DimGray" Margin="0,0,10,8"/>
+                                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedDiffItem.ModName}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+                                            <TextBlock Grid.Row="1" Grid.Column="0" Text="唯一ID：" FontWeight="Medium" Foreground="DimGray" Margin="0,0,10,8"/>
+                                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedDiffItem.UniqueID}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+                                            <TextBlock Grid.Row="2" Grid.Column="0" Text="文件夹：" FontWeight="Medium" Foreground="DimGray" Margin="0,0,10,8"/>
+                                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedDiffItem.FolderName}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+                                            <TextBlock Grid.Row="3" Grid.Column="0" Text="变更类型：" FontWeight="Medium" Foreground="DimGray" Margin="0,0,10,8"/>
+                                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectedDiffItem.ChangeType}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                        </Grid>
+
+                                        <Separator Margin="0,0,0,15"/>
+
+                                        <!-- 字段变更详情 -->
+                                        <TextBlock Text="字段变更" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+
+                                        <!-- 名称变更 -->
+                                        <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="3" Padding="10" Margin="0,0,0,10">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding SelectedDiffItem.NameChange.HasChange}" Value="True">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <StackPanel>
+                                                <TextBlock Text="名称 (Name)" FontWeight="SemiBold" Foreground="#673AB7" Margin="0,0,0,8"/>
+                                                <TextBlock Text="旧值：" FontWeight="Medium" Foreground="DimGray" FontSize="11"/>
+                                                <TextBox Text="{Binding SelectedDiffItem.NameChange.OldValue, Mode=OneWay}"
+                                                        IsReadOnly="True" Background="#FFF3E0" BorderThickness="0"
+                                                        TextWrapping="Wrap" Margin="0,2,0,8" Padding="5"/>
+                                                <TextBlock Text="新值：" FontWeight="Medium" Foreground="DimGray" FontSize="11"/>
+                                                <TextBox Text="{Binding SelectedDiffItem.NameChange.NewValue, Mode=OneWay}"
+                                                        IsReadOnly="True" Background="#E8F5E9" BorderThickness="0"
+                                                        TextWrapping="Wrap" Margin="0,2,0,0" Padding="5"/>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- 描述变更 -->
+                                        <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="3" Padding="10" Margin="0,0,0,10">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding SelectedDiffItem.DescriptionChange.HasChange}" Value="True">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <StackPanel>
+                                                <TextBlock Text="描述 (Description)" FontWeight="SemiBold" Foreground="#673AB7" Margin="0,0,0,8"/>
+                                                <TextBlock Text="旧值：" FontWeight="Medium" Foreground="DimGray" FontSize="11"/>
+                                                <TextBox Text="{Binding SelectedDiffItem.DescriptionChange.OldValue, Mode=OneWay}"
+                                                        IsReadOnly="True" Background="#FFF3E0" BorderThickness="0"
+                                                        TextWrapping="Wrap" AcceptsReturn="True" Height="80"
+                                                        VerticalScrollBarVisibility="Auto" Margin="0,2,0,8" Padding="5"/>
+                                                <TextBlock Text="新值：" FontWeight="Medium" Foreground="DimGray" FontSize="11"/>
+                                                <TextBox Text="{Binding SelectedDiffItem.DescriptionChange.NewValue, Mode=OneWay}"
+                                                        IsReadOnly="True" Background="#E8F5E9" BorderThickness="0"
+                                                        TextWrapping="Wrap" AcceptsReturn="True" Height="80"
+                                                        VerticalScrollBarVisibility="Auto" Margin="0,2,0,0" Padding="5"/>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- 作者变更 -->
+                                        <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="3" Padding="10" Margin="0,0,0,10">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding SelectedDiffItem.AuthorChange.HasChange}" Value="True">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <StackPanel>
+                                                <TextBlock Text="作者 (Author)" FontWeight="SemiBold" Foreground="#673AB7" Margin="0,0,0,8"/>
+                                                <TextBlock Text="旧值：" FontWeight="Medium" Foreground="DimGray" FontSize="11"/>
+                                                <TextBox Text="{Binding SelectedDiffItem.AuthorChange.OldValue, Mode=OneWay}"
+                                                        IsReadOnly="True" Background="#FFF3E0" BorderThickness="0"
+                                                        TextWrapping="Wrap" Margin="0,2,0,8" Padding="5"/>
+                                                <TextBlock Text="新值：" FontWeight="Medium" Foreground="DimGray" FontSize="11"/>
+                                                <TextBox Text="{Binding SelectedDiffItem.AuthorChange.NewValue, Mode=OneWay}"
+                                                        IsReadOnly="True" Background="#E8F5E9" BorderThickness="0"
+                                                        TextWrapping="Wrap" Margin="0,2,0,0" Padding="5"/>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- 版本变更 -->
+                                        <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="3" Padding="10" Margin="0,0,0,10">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding SelectedDiffItem.VersionChange.HasChange}" Value="True">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <StackPanel>
+                                                <TextBlock Text="版本 (Version)" FontWeight="SemiBold" Foreground="#673AB7" Margin="0,0,0,8"/>
+                                                <TextBlock Text="旧值：" FontWeight="Medium" Foreground="DimGray" FontSize="11"/>
+                                                <TextBox Text="{Binding SelectedDiffItem.VersionChange.OldValue, Mode=OneWay}"
+                                                        IsReadOnly="True" Background="#FFF3E0" BorderThickness="0"
+                                                        TextWrapping="Wrap" Margin="0,2,0,8" Padding="5"/>
+                                                <TextBlock Text="新值：" FontWeight="Medium" Foreground="DimGray" FontSize="11"/>
+                                                <TextBox Text="{Binding SelectedDiffItem.VersionChange.NewValue, Mode=OneWay}"
+                                                        IsReadOnly="True" Background="#E8F5E9" BorderThickness="0"
+                                                        TextWrapping="Wrap" Margin="0,2,0,0" Padding="5"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
                 </Grid>
             </TabItem>
         </TabControl>

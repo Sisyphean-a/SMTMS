@@ -39,8 +39,12 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private GitCommitModel? _selectedCommit;
 
+    [ObservableProperty]
+    private ModDiffModel? _selectedDiffItem;
+
     public ObservableCollection<ModViewModel> Mods { get; } = new();
     public ObservableCollection<GitCommitModel> CommitHistory { get; } = new();
+    public ObservableCollection<ModDiffModel> ModDiffChanges { get; } = new();
 
     public MainViewModel(
         IModService modService, 
@@ -399,17 +403,32 @@ public partial class MainViewModel : ObservableObject
             try
             {
                 var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
+
+                // 加载结构化的 Diff 数据
+                var structuredDiff = _gitService.GetStructuredDiff(appDataPath, value.FullHash);
+                ModDiffChanges.Clear();
+                foreach (var diff in structuredDiff)
+                {
+                    ModDiffChanges.Add(diff);
+                }
+
+                // 保留旧的文本 Diff 作为备用
                 DiffText = _gitService.GetDiff(appDataPath, value.FullHash);
             }
             catch (Exception ex)
             {
                 DiffText = $"Error loading diff: {ex.Message}";
+                ModDiffChanges.Clear();
             }
         }
         else
         {
             DiffText = "Select a commit to see changes.";
+            ModDiffChanges.Clear();
         }
+
+        // 清空选中的 Diff 项
+        SelectedDiffItem = null;
     }
 
     [RelayCommand]

@@ -16,6 +16,7 @@ public interface IGitService
     IEnumerable<SMTMS.Core.Models.GitCommitModel> GetHistory(string path);
     IEnumerable<SMTMS.Core.Models.GitCommitModel> GetFileHistory(string repoPath, string relativeFilePath);
     string GetDiff(string repoPath, string commitHash);
+    IEnumerable<SMTMS.Core.Models.ModDiffModel> GetStructuredDiff(string repoPath, string commitHash);
     string GetFileContentAtCommit(string repoPath, string commitHash, string relativeFilePath);
     void Reset(string path, string commitHash);
     void RollbackFile(string path, string commitHash, string relativeFilePath);
