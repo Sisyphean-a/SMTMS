@@ -29,8 +29,8 @@ flowchart LR
 
 - **SMTMS.Core**：领域与接口层
 
-  - 定义接口：`IModService`, `IModRepository`, `IGitService`, `INexusClient`, `ITranslationService`, `IGamePathService`, `ISettingsService`。
-  - 定义模型：`ModManifest`, `ModMetadata`, `TranslationMemory`, `GitCommitModel`, `NexusModDto`, `AppSettings` 等。
+  - 定义接口：`IModService`, `IModRepository`, `IGitService`, `IGitDiffCacheService`, `INexusClient`, `ITranslationService`, `IGamePathService`, `ISettingsService`。
+  - 定义模型：`ModManifest`, `ModMetadata`, `TranslationMemory`, `GitCommitModel`, `ModDiffModel`, `GitDiffCache`, `NexusModDto`, `AppSettings` 等。
   - `ModService`, `TranslationService` (负责提取/恢复翻译), `RegistryGamePathService`。
   - 提供横切基础设施：`LogAttribute`（AOP 日志）、`ServiceLocator`。
 
@@ -38,8 +38,9 @@ flowchart LR
 
   - `AppDbContext`（EF Core + SQLite）。
   - `ModRepository : IModRepository`，负责 `ModMetadata` / `TranslationMemory` / `GitDiffCache` 的 CRUD。
+  - `GitDiffCacheService : IGitDiffCacheService`，负责 Git Diff 缓存的读取、保存和清理（使用 MessagePack 序列化）。
   - `SettingsService : ISettingsService`，负责应用配置（如最后使用的 Mods 目录、窗口尺寸等）的持久化。
-  - **性能优化**：为常用查询字段添加索引（`LastTranslationUpdate`, `RelativePath`, `Engine`, `Timestamp`）。
+  - **性能优化**：为常用查询字段添加索引（`LastTranslationUpdate`, `RelativePath`, `Engine`, `Timestamp`, `CreatedAt`）。
 
 - **SMTMS.GitProvider**：Git 集成
 
@@ -156,6 +157,7 @@ flowchart TD
   - `AddSingleton<IModService, ModService>()`。
   - `AddSingleton<IGamePathService, RegistryGamePathService>()`。
   - `AddScoped<IModRepository, ModRepository>()`。
+  - `AddScoped<IGitDiffCacheService, GitDiffCacheService>()`。
   - `AddScoped<ISettingsService, SettingsService>()`。
   - `AddSingleton<ITranslationService, TranslationService>()`。
   - `AddSingleton<MainViewModel>()`, `AddSingleton<MainWindow>()`。

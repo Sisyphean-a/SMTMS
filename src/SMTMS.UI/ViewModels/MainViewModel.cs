@@ -428,11 +428,48 @@ public partial class MainViewModel : ObservableObject
         try
         {
             var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
+            List<ModDiffModel> structuredDiff;
 
-            // 在后台线程加载结构化的 Diff 数据
-            var structuredDiff = await Task.Run(() => _gitService.GetStructuredDiff(appDataPath, commit.FullHash));
+            // 使用 scope 访问 scoped 服务
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var cacheService = scope.ServiceProvider.GetRequiredService<IGitDiffCacheService>();
+
+                // 1. 先尝试从缓存读取
+                DiffLoadingMessage = "正在检查缓存...";
+                var cachedDiff = await cacheService.GetCachedDiffAsync(commit.FullHash);
+
+                if (cachedDiff != null)
+                {
+                    // 缓存命中
+                    DiffLoadingMessage = "从缓存加载...";
+                    structuredDiff = cachedDiff;
+                }
+                else
+                {
+                    // 缓存未命中，计算 Diff
+                    DiffLoadingMessage = "正在计算变更...";
+                    structuredDiff = await Task.Run(() => _gitService.GetStructuredDiff(appDataPath, commit.FullHash).ToList());
+
+                    // 保存到缓存（异步，不阻塞 UI）
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            using var saveScope = _scopeFactory.CreateScope();
+                            var saveCacheService = saveScope.ServiceProvider.GetRequiredService<IGitDiffCacheService>();
+                            await saveCacheService.SaveDiffCacheAsync(commit.FullHash, structuredDiff);
+                        }
+                        catch
+                        {
+                            // 忽略缓存保存失败
+                        }
+                    });
+                }
+            }
 
             // 回到 UI 线程更新集合
+            DiffLoadingMessage = "正在更新界面...";
             foreach (var diff in structuredDiff)
             {
                 ModDiffChanges.Add(diff);

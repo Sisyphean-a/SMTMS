@@ -39,7 +39,8 @@ public partial class App : System.Windows.Application
                 services.AddScoped<IModRepository, SMTMS.Data.Repositories.ModRepository>(); // Scoped for EF
                 services.AddSingleton<ITranslationService, TranslationService>();
                 services.AddScoped<ISettingsService, SMTMS.Data.Services.SettingsService>();
-                
+                services.AddScoped<IGitDiffCacheService, SMTMS.Data.Services.GitDiffCacheService>(); // Scoped for EF
+
                 // ViewModels are usually Transient or Singleton depending on navigation
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();
