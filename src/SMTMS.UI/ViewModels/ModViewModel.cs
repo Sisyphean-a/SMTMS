@@ -13,11 +13,24 @@ public partial class ModViewModel : ObservableObject
     private readonly IGitService _gitService; // Added
     private ModMetadata? _metadata;
 
+    // 原始值用于检测更改
+    private string _originalName = string.Empty;
+    private string _originalAuthor = string.Empty;
+    private string _originalVersion = string.Empty;
+    private string _originalDescription = string.Empty;
+
     public ModViewModel(ModManifest manifest, IGitService gitService, ModMetadata? metadata = null) // Updated signature
     {
         _manifest = manifest;
         _gitService = gitService;
         _metadata = metadata;
+        
+        // 保存原始值
+        _originalName = _manifest.Name;
+        _originalAuthor = _manifest.Author;
+        _originalVersion = _manifest.Version;
+        _originalDescription = _manifest.Description;
+        
         UpdateStatus();
     }
     
@@ -33,6 +46,32 @@ public partial class ModViewModel : ObservableObject
 
     [ObservableProperty]
     private string? _dbTranslatedDescription;
+
+    [ObservableProperty]
+    private bool _isDirty = false;
+
+    /// <summary>
+    /// 更新IsDirty状态（检查是否有未保存的更改）
+    /// </summary>
+    private void CheckDirty()
+    {
+        IsDirty = _manifest.Name != _originalName ||
+                  _manifest.Author != _originalAuthor ||
+                  _manifest.Version != _originalVersion ||
+                  _manifest.Description != _originalDescription;
+    }
+
+    /// <summary>
+    /// 保存后重置原始值
+    /// </summary>
+    public void ResetDirtyState()
+    {
+        _originalName = _manifest.Name;
+        _originalAuthor = _manifest.Author;
+        _originalVersion = _manifest.Version;
+        _originalDescription = _manifest.Description;
+        IsDirty = false;
+    }
     
     public void UpdateMetadata(ModMetadata metadata)
     {
@@ -81,6 +120,7 @@ public partial class ModViewModel : ObservableObject
             {
                 _manifest.Name = value;
                 OnPropertyChanged();
+                CheckDirty();
                 UpdateStatus();
             }
         }
@@ -95,6 +135,7 @@ public partial class ModViewModel : ObservableObject
             {
                 _manifest.Author = value;
                 OnPropertyChanged();
+                CheckDirty();
             }
         }
     }
@@ -108,6 +149,7 @@ public partial class ModViewModel : ObservableObject
             {
                 _manifest.Version = value;
                 OnPropertyChanged();
+                CheckDirty();
             }
         }
     }
@@ -121,6 +163,7 @@ public partial class ModViewModel : ObservableObject
             {
                 _manifest.Description = value;
                 OnPropertyChanged();
+                CheckDirty();
                 UpdateStatus();
             }
         }

@@ -47,7 +47,7 @@ SMTMS 基于 **.NET 8** 和 **WPF** 构建，採用纯净的 **MVVM** 架构：
 | :-------------------- | :----------------------- | :------------------------- |
 | **SMTMS.UI**          | 用户界面与展现逻辑       | WPF, CommunityToolkit.Mvvm |
 | **SMTMS.Core**        | 核心业务模型与防腐层接口 | Rougamo (AOP Logging)      |
-| **SMTMS.Data**        | 数据持久化与查询         | EF Core, SQLite            |
+| **SMTMS.Data**        | 数据持久化、配置管理     | EF Core, SQLite            |
 | **SMTMS.GitProvider** | 自动化版本控制           | LibGit2Sharp               |
 | **SMTMS.Translation** | 翻译同步服务             | Newtonsoft.Json, Regex     |
 
@@ -64,7 +64,7 @@ SMTMS 基于 **.NET 8** 和 **WPF** 构建，採用纯净的 **MVVM** 架构：
 
 ### 使用指南
 
-1. **启动**：运行程序，确保上方显示的 "Mods 目录" 正确（默认自动检测 Steam 路径）。
+1. **启动**：运行程序，确保上方显示的 "Mods 目录" 正确（默认自动检测 Steam 路径）。如需更改，点击 "选择目录" 按钮手动指定。
 2. **扫描**：程序启动时会自动扫描，也可手动点击界面上的 "扫描模组" 按钮。
 3. **编辑**：在列表中选中模组，修改名称或描述，点击 **"保存 (Save)"**。此时仅修改本地文件 (manifest.json)，数据库不会变更。
 4. **同步 (checkpoint)**：点击 **"同步到数据库"**，系统会将当前所有模组的翻译保存到数据库，并创建一个 Git 历史版本（快照）。

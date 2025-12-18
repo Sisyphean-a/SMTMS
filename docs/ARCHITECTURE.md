@@ -29,8 +29,8 @@ flowchart LR
 
 - **SMTMS.Core**：领域与接口层
 
-  - 定义接口：`IModService`, `IModRepository`, `IGitService`, `INexusClient`, `ITranslationService`, `IGamePathService`。
-  - 定义模型：`ModManifest`, `ModMetadata`, `TranslationMemory`, `GitCommitModel`, `NexusModDto` 等。
+  - 定义接口：`IModService`, `IModRepository`, `IGitService`, `INexusClient`, `ITranslationService`, `IGamePathService`, `ISettingsService`。
+  - 定义模型：`ModManifest`, `ModMetadata`, `TranslationMemory`, `GitCommitModel`, `NexusModDto`, `AppSettings` 等。
   - `ModService`, `TranslationService` (负责提取/恢复翻译), `RegistryGamePathService`。
   - 提供横切基础设施：`LogAttribute`（AOP 日志）、`ServiceLocator`。
 
@@ -38,6 +38,7 @@ flowchart LR
 
   - `AppDbContext`（EF Core + SQLite）。
   - `ModRepository : IModRepository`，负责 `ModMetadata` / `TranslationMemory` 的 CRUD。
+  - `SettingsService : ISettingsService`，负责应用配置（如最后使用的 Mods 目录、窗口尺寸等）的持久化。
 
 - **SMTMS.GitProvider**：Git 集成
 
@@ -98,9 +99,11 @@ flowchart TD
     subgraph SMTMS_Data[SMTMS.Data]
         AppDb["AppDbContext"] --> Sqlite["smtms.db"]
         ModRepo["ModRepository"] --> AppDb
+        SettingsSvc["SettingsService"] --> AppDb
     end
 
     ModRepo --> IModRepository["IModRepository"]
+    SettingsSvc --> ISettingsService["ISettingsService"]
 ```
 
 - `AppDbContext`：配置 SQLite，定义 `DbSet<ModMetadata>` 与 `DbSet<TranslationMemory>`。
@@ -144,6 +147,7 @@ flowchart TD
   - `AddSingleton<IModService, ModService>()`。
   - `AddSingleton<IGamePathService, RegistryGamePathService>()`。
   - `AddScoped<IModRepository, ModRepository>()`。
+  - `AddScoped<ISettingsService, SettingsService>()`。
   - `AddSingleton<ITranslationService, TranslationService>()`。
   - `AddSingleton<MainViewModel>()`, `AddSingleton<MainWindow>()`。
 - `OnStartup` 中：

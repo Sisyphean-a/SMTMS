@@ -6,5 +6,6 @@ public class GitCommitModel
     public string Message { get; set; } = string.Empty;
     public string Author { get; set; } = string.Empty;
     public DateTimeOffset Date { get; set; }
+    public string FormattedDate => Date.ToString("yyyy/MM/dd HH:mm:ss");
     public string FullHash { get; set; } = string.Empty;
 }

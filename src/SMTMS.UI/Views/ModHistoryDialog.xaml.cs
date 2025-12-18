@@ -19,7 +19,7 @@ public partial class ModHistoryDialog : Window
     {
         if (HistoryListView.SelectedItem is GitCommitModel commit)
         {
-            var result = MessageBox.Show($"Are you sure you want to rollback '{ModNameTextBlock.Text}' to version {commit.ShortHash}?\n\nThis will overwrite your local translation file.", 
+            var result = System.Windows.MessageBox.Show($"Are you sure you want to rollback '{ModNameTextBlock.Text}' to version {commit.ShortHash}?\n\nThis will overwrite your local translation file.", 
                                          "Confirm Rollback", MessageBoxButton.YesNo, MessageBoxImage.Warning);
             
             if (result == MessageBoxResult.Yes)
@@ -31,7 +31,7 @@ public partial class ModHistoryDialog : Window
         }
         else
         {
-             MessageBox.Show("Please select a version to rollback to.", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
+             System.Windows.MessageBox.Show("Please select a version to rollback to.", "Information", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
         }
     }
 

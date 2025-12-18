@@ -7,6 +7,7 @@ public class AppDbContext : DbContext
 {
     public DbSet<ModMetadata> ModMetadata { get; set; }
     public DbSet<TranslationMemory> TranslationMemory { get; set; }
+    public DbSet<AppSettings> AppSettings { get; set; }
 
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {

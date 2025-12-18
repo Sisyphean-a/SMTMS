@@ -7,6 +7,8 @@ using SMTMS.Core.Interfaces;
 using SMTMS.Core.Aspects;
 using SMTMS.Core.Models;
 using Microsoft.Extensions.DependencyInjection;
+using System.Text.RegularExpressions;
+using Newtonsoft.Json;
 
 namespace SMTMS.UI.ViewModels;
 
@@ -18,6 +20,9 @@ public partial class MainViewModel : ObservableObject
     private readonly IGamePathService _gamePathService;
     private readonly ITranslationService _translationService;
     private readonly IServiceScopeFactory _scopeFactory; // Added
+
+    // 保存前请求更新绑定的事件
+    public event EventHandler? SaveRequested;
 
     [ObservableProperty]
     private string _applicationTitle = "SMTMS - Stardew Mod Translation & Management System";
@@ -42,7 +47,7 @@ public partial class MainViewModel : ObservableObject
         IGitService gitService, 
         IGamePathService gamePathService, 
         ITranslationService translationService,
-        IServiceScopeFactory scopeFactory) // Added scopeFactory
+        IServiceScopeFactory scopeFactory)
     {
         _modService = modService;
         _gitService = gitService;
@@ -50,11 +55,30 @@ public partial class MainViewModel : ObservableObject
         _translationService = translationService;
         _scopeFactory = scopeFactory; // Assigned
 
-        // Auto-detect mods path
-        var detectedPath = _gamePathService.GetModsPath();
-        if (!string.IsNullOrEmpty(detectedPath))
+        // 优先从设置中加载上次保存的目录
+        _ = InitializeAsync();
+    }
+
+    private async Task InitializeAsync()
+    {
+        // 使用scope访问scoped服务
+        using var scope = _scopeFactory.CreateScope();
+        var settingsService = scope.ServiceProvider.GetRequiredService<ISettingsService>();
+        var settings = await settingsService.GetSettingsAsync();
+        
+        // 优先使用上次保存的目录
+        if (!string.IsNullOrEmpty(settings.LastModsDirectory) && Directory.Exists(settings.LastModsDirectory))
         {
-            ModsDirectory = detectedPath;
+            ModsDirectory = settings.LastModsDirectory;
+        }
+        else
+        {
+            // 回退到自动检测
+            var detectedPath = _gamePathService.GetModsPath();
+            if (!string.IsNullOrEmpty(detectedPath))
+            {
+                ModsDirectory = detectedPath;
+            }
         }
         
         // Ensure Git is initialized in AppData/SMTMS
@@ -142,6 +166,29 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task BrowseFolderAsync()
+    {
+        var dialog = new System.Windows.Forms.FolderBrowserDialog
+        {
+            Description = "选择Stardew Valley的Mods目录",
+            ShowNewFolderButton = false,
+            SelectedPath = ModsDirectory
+        };
+
+        if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+        {
+            ModsDirectory = dialog.SelectedPath;
+            
+            // 保存到数据库
+            using var scope = _scopeFactory.CreateScope();
+            var settingsService = scope.ServiceProvider.GetRequiredService<ISettingsService>();
+            await settingsService.UpdateLastModsDirectoryAsync(ModsDirectory);
+            
+            StatusMessage = $"已设置Mods目录: {ModsDirectory}";
+        }
+    }
+
+    [RelayCommand]
     private async Task SaveModAsync()
     {
         if (SelectedMod == null)
@@ -150,23 +197,75 @@ public partial class MainViewModel : ObservableObject
              return;
         }
 
+        // 触发事件，让 View 更新所有 Explicit 绑定
+        SaveRequested?.Invoke(this, EventArgs.Empty);
+
         try
         {
-            // Only write to disk (manifest.json). 
-            // The DB is updated ONLY when "Sync to Database" is clicked.
-            
+            // 使用正则表达式替换保留JSON注释
             if (!string.IsNullOrEmpty(SelectedMod.ManifestPath))
             {
-                var json = Newtonsoft.Json.JsonConvert.SerializeObject(SelectedMod.Manifest, Newtonsoft.Json.Formatting.Indented);
-                await File.WriteAllTextAsync(SelectedMod.ManifestPath, json);
+                var content = await File.ReadAllTextAsync(SelectedMod.ManifestPath);
+                bool changed = false;
+
+                // 替换Name
+                var manifest = SelectedMod.Manifest;
+                string escapedName = JsonConvert.ToString(manifest.Name).Trim('"');
+                if (Regex.IsMatch(content, @"""Name""\s*:\s*""[^""]*"""))
+                {
+                    string newContent = Regex.Replace(content, @"(""Name""\s*:\s*"")[^""]*("")", $"${{1}}{escapedName}${{2}}");
+                    if (content != newContent)
+                    {
+                        content = newContent;
+                        changed = true;
+                    }
+                }
+
+                // 替换Author
+                string escapedAuthor = JsonConvert.ToString(manifest.Author).Trim('"');
+                if (Regex.IsMatch(content, @"""Author""\s*:\s*""[^""]*"""))
+                {
+                    string newContent = Regex.Replace(content, @"(""Author""\s*:\s*"")[^""]*("")", $"${{1}}{escapedAuthor}${{2}}");
+                    if (content != newContent)
+                    {
+                        content = newContent;
+                        changed = true;
+                    }
+                }
+
+                // 替换Version
+                string escapedVersion = JsonConvert.ToString(manifest.Version).Trim('"');
+                if (Regex.IsMatch(content, @"""Version""\s*:\s*""[^""]*"""))
+                {
+                    string newContent = Regex.Replace(content, @"(""Version""\s*:\s*"")[^""]*("")", $"${{1}}{escapedVersion}${{2}}");
+                    if (content != newContent)
+                    {
+                        content = newContent;
+                        changed = true;
+                    }
+                }
+
+                // 替换Description
+                string escapedDesc = JsonConvert.ToString(manifest.Description).Trim('"');
+                if (Regex.IsMatch(content, @"""Description""\s*:\s*""[^""]*"""))
+                {
+                    string newContent = Regex.Replace(content, @"(""Description""\s*:\s*"")[^""]*("")", $"${{1}}{escapedDesc}${{2}}");
+                    if (content != newContent)
+                    {
+                        content = newContent;
+                        changed = true;
+                    }
+                }
+
+                if (changed)
+                {
+                    await File.WriteAllTextAsync(SelectedMod.ManifestPath, content);
+                }
             }
 
-            // Force update status to show "Changed"
-            SelectedMod.UpdateStatus(); // ModViewModel needs this method public or triggered
-            // Actually ModViewModel.Name setter calls UpdateStatus(), so if we updated properties it should have triggered.
-            // But if we just saved, we want to ensure UI reflects "Changed" if it was "Synced".
-            // Since we didn't touch DB, and we changed disk, "UpdateStatus" logic:
-            // DB has Old, Disk has New -> Differs -> "Changed". Correct.
+            // 重置IsDirty状态
+            SelectedMod.ResetDirtyState();
+            SelectedMod.UpdateStatus();
             
             StatusMessage = $"已保存 '{SelectedMod.Name}' (本地)。请点击 '同步到数据库' 以创建版本。";
         }
@@ -316,7 +415,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task SyncToDatabaseAsync()
     {
-        var dialog = new SMTMS.UI.Views.CommitDialog($"Scan & Update {DateTime.Now:yyyy-MM-dd HH:mm}");
+        var dialog = new SMTMS.UI.Views.CommitDialog($"Scan & Update {DateTime.Now:yyyy/MM/dd HH:mm}");
         if (dialog.ShowDialog() != true)
         {
             return;

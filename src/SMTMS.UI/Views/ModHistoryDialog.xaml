@@ -22,7 +22,7 @@
             <ListView.View>
                 <GridView>
                     <GridViewColumn Header="SHA" DisplayMemberBinding="{Binding ShortHash}" Width="80"/>
-                    <GridViewColumn Header="Date" DisplayMemberBinding="{Binding Date}" Width="150"/>
+                    <GridViewColumn Header="Date" DisplayMemberBinding="{Binding FormattedDate}" Width="180"/>
                     <GridViewColumn Header="Author" DisplayMemberBinding="{Binding Author}" Width="100"/>
                     <GridViewColumn Header="Message" DisplayMemberBinding="{Binding Message}" Width="230"/>
                 </GridView>
