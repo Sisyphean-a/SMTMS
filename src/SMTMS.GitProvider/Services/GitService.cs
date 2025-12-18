@@ -118,14 +118,18 @@ public class GitService : IGitService
         var parentTree = parent?.Tree;
 
         var changes = repo.Diff.Compare<TreeChanges>(parentTree, tree);
-        var diffModels = new List<ModDiffModel>();
 
-        foreach (var change in changes)
+        // 筛选出所有 manifest.json 文件
+        var manifestChanges = changes.Where(c => c.Path.EndsWith("manifest.json", StringComparison.OrdinalIgnoreCase)).ToList();
+
+        if (!manifestChanges.Any())
+            return Enumerable.Empty<ModDiffModel>();
+
+        var diffModels = new List<ModDiffModel>(manifestChanges.Count);
+
+        // 使用并行处理加速（对于大量文件）
+        var processingTasks = manifestChanges.Select(change => Task.Run(() =>
         {
-            // 只处理 manifest.json 文件
-            if (!change.Path.EndsWith("manifest.json", StringComparison.OrdinalIgnoreCase))
-                continue;
-
             var diffModel = new ModDiffModel
             {
                 RelativePath = change.Path,
@@ -214,15 +218,24 @@ public class GitService : IGitService
                 }
 
                 diffModel.ChangeCount = changeCount;
-                diffModels.Add(diffModel);
             }
             catch (Exception)
             {
                 // 如果解析失败，仍然添加基本信息
                 diffModel.ModName = "解析失败";
                 diffModel.ChangeCount = 0;
-                diffModels.Add(diffModel);
             }
+
+            return diffModel;
+        })).ToArray();
+
+        // 等待所有任务完成
+        Task.WaitAll(processingTasks);
+
+        // 收集结果
+        foreach (var task in processingTasks)
+        {
+            diffModels.Add(task.Result);
         }
 
         return diffModels;

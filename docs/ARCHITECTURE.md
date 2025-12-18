@@ -37,8 +37,9 @@ flowchart LR
 - **SMTMS.Data**：数据访问层
 
   - `AppDbContext`（EF Core + SQLite）。
-  - `ModRepository : IModRepository`，负责 `ModMetadata` / `TranslationMemory` 的 CRUD。
+  - `ModRepository : IModRepository`，负责 `ModMetadata` / `TranslationMemory` / `GitDiffCache` 的 CRUD。
   - `SettingsService : ISettingsService`，负责应用配置（如最后使用的 Mods 目录、窗口尺寸等）的持久化。
+  - **性能优化**：为常用查询字段添加索引（`LastTranslationUpdate`, `RelativePath`, `Engine`, `Timestamp`）。
 
 - **SMTMS.GitProvider**：Git 集成
 
@@ -106,8 +107,12 @@ flowchart TD
     SettingsSvc --> ISettingsService["ISettingsService"]
 ```
 
-- `AppDbContext`：配置 SQLite，定义 `DbSet<ModMetadata>` 与 `DbSet<TranslationMemory>`。
+- `AppDbContext`：配置 SQLite，定义 `DbSet<ModMetadata>`、`DbSet<TranslationMemory>`、`DbSet<GitDiffCache>` 和 `DbSet<AppSettings>`。
 - `ModRepository`：实现 `IModRepository`，封装对 EF Core 的访问逻辑。
+- **性能优化**：
+  - 新增 `GitDiffCache` 表用于缓存 Git Diff 结果，避免重复计算。
+  - 为高频查询字段添加数据库索引。
+  - 支持 MessagePack 序列化以加速数据读写。
 
 ### 2.3 Git 集成模块（SMTMS.GitProvider）
 
@@ -119,6 +124,10 @@ flowchart TD
 
     GitService --> IGitService["IGitService"]
 ```
+
+**性能优化**：
+- `GetStructuredDiff` 使用并行处理（`Task.Run` + `Task.WaitAll`）加速多文件解析。
+- 支持增量加载和缓存机制（通过 `GitDiffCache` 表）。
 
 - `GitService`：使用 LibGit2Sharp，实现 `IsRepository/Init/Commit/Checkout/GetStatus/GetHistory/Reset`。
 

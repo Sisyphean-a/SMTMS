@@ -8,6 +8,7 @@ public class AppDbContext : DbContext
     public DbSet<ModMetadata> ModMetadata { get; set; }
     public DbSet<TranslationMemory> TranslationMemory { get; set; }
     public DbSet<AppSettings> AppSettings { get; set; }
+    public DbSet<GitDiffCache> GitDiffCache { get; set; }
 
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
@@ -26,5 +27,28 @@ public class AppDbContext : DbContext
             var dbPath = Path.Combine(smtmsPath, "smtms.db");
             optionsBuilder.UseSqlite($"Data Source={dbPath}");
         }
+    }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        // 为 ModMetadata 添加索引以加速查询
+        modelBuilder.Entity<ModMetadata>()
+            .HasIndex(m => m.LastTranslationUpdate);
+
+        modelBuilder.Entity<ModMetadata>()
+            .HasIndex(m => m.RelativePath);
+
+        // 为 TranslationMemory 添加索引
+        modelBuilder.Entity<TranslationMemory>()
+            .HasIndex(t => t.Engine);
+
+        modelBuilder.Entity<TranslationMemory>()
+            .HasIndex(t => t.Timestamp);
+
+        // 为 GitDiffCache 添加索引
+        modelBuilder.Entity<GitDiffCache>()
+            .HasIndex(g => g.CreatedAt);
     }
 }

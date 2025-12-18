@@ -154,7 +154,7 @@
                         <!-- 左侧：变更列表（使用 DataGrid） -->
                         <DataGrid Grid.Column="0" ItemsSource="{Binding ModDiffChanges}" SelectedItem="{Binding SelectedDiffItem}"
                                   AutoGenerateColumns="False" IsReadOnly="True" BorderThickness="1" BorderBrush="LightGray"
-                                  HeadersVisibility="Column">
+                                  HeadersVisibility="Column" EnableRowVirtualization="True" VirtualizingPanel.IsVirtualizing="True">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="" Binding="{Binding Icon}" Width="30"/>
                                 <DataGridTextColumn Header="模组名称" Binding="{Binding ModName}" Width="200"/>
@@ -232,6 +232,24 @@
                                 </DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
+
+                        <!-- 加载提示覆盖层 -->
+                        <Border Grid.Column="0" Background="#F0FFFFFF" Panel.ZIndex="100">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsLoadingDiff}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock Text="⏳" FontSize="48" HorizontalAlignment="Center" Margin="0,0,0,10"/>
+                                <TextBlock Text="{Binding DiffLoadingMessage}" FontSize="14" Foreground="#007ACC" HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
 
                         <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Center" VerticalAlignment="Stretch" Background="Transparent" ShowsPreview="True"/>
 

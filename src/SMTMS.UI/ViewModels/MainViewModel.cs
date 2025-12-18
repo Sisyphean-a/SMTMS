@@ -396,39 +396,60 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _diffText = "Select a commit to see changes.";
 
+    [ObservableProperty]
+    private bool _isLoadingDiff = false;
+
+    [ObservableProperty]
+    private string _diffLoadingMessage = "";
+
     partial void OnSelectedCommitChanged(GitCommitModel? value)
     {
+        // 清空选中的 Diff 项
+        SelectedDiffItem = null;
+
         if (value != null)
         {
-            try
-            {
-                var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
-
-                // 加载结构化的 Diff 数据
-                var structuredDiff = _gitService.GetStructuredDiff(appDataPath, value.FullHash);
-                ModDiffChanges.Clear();
-                foreach (var diff in structuredDiff)
-                {
-                    ModDiffChanges.Add(diff);
-                }
-
-                // 保留旧的文本 Diff 作为备用
-                DiffText = _gitService.GetDiff(appDataPath, value.FullHash);
-            }
-            catch (Exception ex)
-            {
-                DiffText = $"Error loading diff: {ex.Message}";
-                ModDiffChanges.Clear();
-            }
+            // 异步加载 Diff，避免阻塞 UI
+            _ = LoadDiffAsync(value);
         }
         else
         {
             DiffText = "Select a commit to see changes.";
             ModDiffChanges.Clear();
         }
+    }
 
-        // 清空选中的 Diff 项
-        SelectedDiffItem = null;
+    private async Task LoadDiffAsync(GitCommitModel commit)
+    {
+        IsLoadingDiff = true;
+        DiffLoadingMessage = "正在加载变更...";
+        ModDiffChanges.Clear();
+
+        try
+        {
+            var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
+
+            // 在后台线程加载结构化的 Diff 数据
+            var structuredDiff = await Task.Run(() => _gitService.GetStructuredDiff(appDataPath, commit.FullHash));
+
+            // 回到 UI 线程更新集合
+            foreach (var diff in structuredDiff)
+            {
+                ModDiffChanges.Add(diff);
+            }
+
+            DiffText = $"共 {ModDiffChanges.Count} 个模组发生变更";
+        }
+        catch (Exception ex)
+        {
+            DiffText = $"Error loading diff: {ex.Message}";
+            ModDiffChanges.Clear();
+        }
+        finally
+        {
+            IsLoadingDiff = false;
+            DiffLoadingMessage = "";
+        }
     }
 
     [RelayCommand]
