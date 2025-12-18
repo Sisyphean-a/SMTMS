@@ -1,0 +1,410 @@
+{
+  "Automate": {
+    "UniqueID": "Pathoschild.Automate",
+    "Name": "[体验]自动化",
+    "Description": "通过将机器、果树等连接到箱子，您可以自动制作它们。",
+    "Path": "Automate",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/1063"
+  },
+  "AutomateToolSwap": {
+    "UniqueID": "Trapyy.AutomatetoolSwap",
+    "Name": "[体验]自动工具切换",
+    "Description": "自动切换工具或物品",
+    "Path": "AutomateToolSwap",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/21050"
+  },
+  "AutomaticGates": {
+    "UniqueID": "Rakiin.AutomaticGates",
+    "Name": "[体验]自动门",
+    "Description": "自动开门与关门",
+    "Path": "AutomaticGates",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/3109"
+  },
+  "BetterCrafting": {
+    "UniqueID": "leclair.bettercrafting",
+    "Name": "[体验]更好的制作",
+    "Description": "用一个支持收藏夹、类别且在多人模式中不会锁定附近箱子的改进重实现替换原版制作菜单。",
+    "Path": "BetterCrafting",
+    "IsChinese": true,
+    "Nurl": null
+  },
+  "BetterJunimos": {
+    "UniqueID": "hawkfalcon.BetterJunimos",
+    "Name": "[体验]更好的祝尼魔",
+    "Description": "允许你的祝尼魔（从祝尼魔小屋）自动种植种子、施肥等等！",
+    "Path": "BetterJunimos",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/2221"
+  },
+  "BetterJunimos\\[CP] Better Junimos Config Wizard": {
+    "UniqueID": "ceruleandeep.BetterJunimos.CP",
+    "Name": "[CP] Better Junimos Config Wizard",
+    "Description": "One or two sentences about the mod.",
+    "Path": "BetterJunimos\\[CP] Better Junimos Config Wizard",
+    "IsChinese": false,
+    "Nurl": null
+  },
+  "BiggerBackpack": {
+    "UniqueID": "spacechase0.BiggerBackpack",
+    "Name": "[内容]更大的背包",
+    "Description": "添加另一个背包大小。",
+    "Path": "BiggerBackpack",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/1845"
+  },
+  "Clear Glasses": {
+    "UniqueID": "aurpine.ClearGlasses",
+    "Name": "[美化]透明眼睛",
+    "Description": "使用像素缩放技术和滤镜提升游戏视觉效果。",
+    "Path": "Clear Glasses",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/21090"
+  },
+  "CommunityCenterHelper": {
+    "UniqueID": "vgperson.CommunityCenterHelper",
+    "Name": "[信息]社区中心助手",
+    "Description": "在悬停时添加提示，以查找在捆绑包所需物品时所需的位置。",
+    "Path": "CommunityCenterHelper",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/6893"
+  },
+  "ConsoleApp1": {
+    "UniqueID": "xixifu.test",
+    "Name": "test",
+    "Description": "测试用的",
+    "Path": "ConsoleApp1",
+    "IsChinese": true,
+    "Nurl": null
+  },
+  "ConsoleCommands": {
+    "UniqueID": "SMAPI.ConsoleCommands",
+    "Name": "Console Commands",
+    "Description": "Adds SMAPI console commands that let you manipulate the game.",
+    "Path": "ConsoleCommands",
+    "IsChinese": false,
+    "Nurl": null
+  },
+  "ContentPatcher": {
+    "UniqueID": "Pathoschild.ContentPatcher",
+    "Name": "Content Patcher",
+    "Description": "Loads content packs which edit game data, images, and maps without changing the game files.",
+    "Path": "ContentPatcher",
+    "IsChinese": false,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/1915"
+  },
+  "ConvenientInventory": {
+    "UniqueID": "gaussfire.ConvenientInventory",
+    "Name": "[体验]便捷背包",
+    "Description": "为玩家背包添加便捷功能，如快速堆叠到附近箱子、收藏物品等。",
+    "Path": "ConvenientInventory",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/10384"
+  },
+  "Craftable Auto-Petter": {
+    "UniqueID": "cosplaywrite.CraftableAutoPetter",
+    "Name": "[体验]自动抚摸机蓝图",
+    "Description": "添加一个自动抚摸机蓝图到你的制作菜单。",
+    "Path": "Craftable Auto-Petter",
+    "IsChinese": true,
+    "Nurl": null
+  },
+  "DynamicReflections": {
+    "UniqueID": "PeacefulEnd.DynamicReflections",
+    "Name": "[美化]水面动态反射",
+    "Description": "动态水反射和表面反射。",
+    "Path": "DynamicReflections",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/12831"
+  },
+  "EscasModdingPlugins": {
+    "UniqueID": "Esca.EMP",
+    "Name": "Esca's Modding Plugins (EMP)",
+    "Description": "A framework that adds miscellaneous features for other mods to use.",
+    "Path": "EscasModdingPlugins",
+    "IsChinese": false,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/9296"
+  },
+  "FastAnimations": {
+    "UniqueID": "Pathoschild.FastAnimations",
+    "Name": "[体验]快速动画",
+    "Description": "加速游戏中的许多动画（可配置）。",
+    "Path": "FastAnimations",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/1089"
+  },
+  "FishingBarGrowth": {
+    "UniqueID": "xixifu.FishingBarGrowth",
+    "Name": "[自制]钓鱼条增长",
+    "Description": "根据钓到的鱼数量无限增长钓鱼条长度。每钓10条鱼,钓鱼条增加1像素。",
+    "Path": "FishingBarGrowth",
+    "IsChinese": true,
+    "Nurl": null
+  },
+  "GenericModConfigMenu": {
+    "UniqueID": "spacechase0.GenericModConfigMenu",
+    "Name": "[体验]通用模组配置菜单",
+    "Description": "添加了一个游戏内界面来编辑其他模组的配置选项（适用于支持它的模组）。",
+    "Path": "GenericModConfigMenu",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/5098"
+  },
+  "GNMTokens": {
+    "UniqueID": "Hana.GNMTokens",
+    "Name": "GNMTokens",
+    "Description": "为可定制代词和其他语言提供内容修补程序令牌。",
+    "Path": "GNMTokens",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/14426"
+  },
+  "HarvestWithScythe": {
+    "UniqueID": "bcmpinc.HarvestWithScythe",
+    "Name": "[体验]使用镰刀收割",
+    "Description": "允许你使用镰刀收割所有作物和觅食。它们仍然可以被采摘。",
+    "Path": "HarvestWithScythe",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/2731"
+  },
+  "InstantSprinklerMod": {
+    "UniqueID": "xixifu.InstantSprinkler",
+    "Name": "[自制]即时洒水器",
+    "Description": "允许你通过点击洒水器来手动触发洒水器，无需等待下一天即可立即灌溉附近的作物。",
+    "Path": "InstantSprinklerMod",
+    "IsChinese": true,
+    "Nurl": null
+  },
+  "LadderLocator": {
+    "UniqueID": "ChaosEnergy.LadderLocator",
+    "Name": "[信息]梯子定位器",
+    "Description": "在矿井中找到梯子和矿石。",
+    "Path": "LadderLocator",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/3094"
+  },
+  "LightRadiusMod": {
+    "UniqueID": "irocendar.LightRadius",
+    "Name": "[美化]光半径",
+    "Description": "更改家具和物体的光线半径。",
+    "Path": "LightRadiusMod",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/30136"
+  },
+  "LookupAnything": {
+    "UniqueID": "Pathoschild.LookupAnything",
+    "Name": "[信息]查看一切",
+    "Description": "通过按键查看任何物品的元数据。",
+    "Path": "LookupAnything",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/541"
+  },
+  "MineBustle": {
+    "UniqueID": "xixifu.MineBustle",
+    "Name": "[自制]由巴的祭坛",
+    "Description": "通过由巴的祭坛献祭金币，动态调整矿井怪物生成倍率（1x-10x）。祭坛位于山区矿井入口附近。",
+    "Path": "MineBustle",
+    "IsChinese": true,
+    "Nurl": null
+  },
+  "nightlight": {
+    "UniqueID": "Nightlight",
+    "Name": "[美化]更柔和的光照",
+    "Description": "使用效果着色器替换减法混合。",
+    "Path": "nightlight",
+    "IsChinese": true,
+    "Nurl": null
+  },
+  "No Fence Decay - Redux": {
+    "UniqueID": "EnderTedi.NoFenceDecayRedux",
+    "Name": "[体验]栅栏不会腐朽",
+    "Description": "停止栅栏腐朽",
+    "Path": "No Fence Decay - Redux",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/20802"
+  },
+  "NoFriendshipDecayReborn": {
+    "UniqueID": "TheFluffyRobot.No",
+    "Name": "[体验]无友谊衰减",
+    "Description": "防止友谊衰减。",
+    "Path": "NoFriendshipDecayReborn",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/22922"
+  },
+  "NPCMapLocations": {
+    "UniqueID": "Bouhm.NPCMapLocations",
+    "Name": "[信息]NPC地图位置",
+    "Description": "在修改后的地图页面上显示NPC和农民，以准确跟踪。",
+    "Path": "NPCMapLocations",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/239"
+  },
+  "PassableCrops": {
+    "UniqueID": "NCarigon.PassableCrops",
+    "Name": "[体验]合格作物",
+    "Description": "允许农民穿过所有作物和相关对象。",
+    "Path": "PassableCrops",
+    "IsChinese": true,
+    "Nurl": null
+  },
+  "PenPals": {
+    "UniqueID": "focustense.PenPals",
+    "Name": "[体验]笔友",
+    "Description": "通过邮件给NPC送礼",
+    "Path": "PenPals",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/27489"
+  },
+  "PolymorphicAetherRing": {
+    "UniqueID": "xixifu.PolymorphicAetherTrinket",
+    "Name": "[自制]以太多态戒指",
+    "Description": "一个可以吸收武器并释放360度战斗光环的饰品。",
+    "Path": "PolymorphicAetherRing",
+    "IsChinese": true,
+    "Nurl": null
+  },
+  "SaveBackup": {
+    "UniqueID": "SMAPI.SaveBackup",
+    "Name": "Save Backup",
+    "Description": "Automatically backs up all your saves once per day into its folder.",
+    "Path": "SaveBackup",
+    "IsChinese": false,
+    "Nurl": null
+  },
+  "SmartBuilding": {
+    "UniqueID": "DecidedlyHuman.SmartBuilding",
+    "Name": "[体验]智能构建",
+    "Description": "允许你更轻松地构建栅栏/墙壁/路径等。",
+    "Path": "SmartBuilding",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/11158"
+  },
+  "SpaceCore": {
+    "UniqueID": "spacechase0.SpaceCore",
+    "Name": "SpaceCore",
+    "Description": "The space-iest of cores. (Framework mod)",
+    "Path": "SpaceCore",
+    "IsChinese": false,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/1348"
+  },
+  "StardewHack": {
+    "UniqueID": "bcmpinc.StardewHack",
+    "Name": "StardewHack",
+    "Description": "Transpilation library used by my other mods. Doesn't do much on its own.",
+    "Path": "StardewHack",
+    "IsChinese": false,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/3213"
+  },
+  "StardewProgress": {
+    "UniqueID": "seeinggreen.StardewProgress",
+    "Name": "[信息]星露谷进度",
+    "Description": "显示玩家向完美进发的进度",
+    "Path": "StardewProgress",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/9786"
+  },
+  "StardewUI": {
+    "UniqueID": "focustense.StardewUI",
+    "Name": "StardewUI",
+    "Description": "Declarative UI framework",
+    "Path": "StardewUI",
+    "IsChinese": false,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/28870"
+  },
+  "StardewValleyBundleTooltips": {
+    "UniqueID": "musbah.bundleTooltip",
+    "Name": "[信息]社区中心物品提示",
+    "Description": "添加一个提示，告诉你是否需要社区中心物品。",
+    "Path": "StardewValleyBundleTooltips",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/1329"
+  },
+  "UIInfoSuite2": {
+    "UniqueID": "Annosz.UiInfoSuite2",
+    "Name": "[信息]界面信息套件2",
+    "Description": "为用户界面添加有用的信息。基于Cdaragorn优秀的UI Info Suite。",
+    "Path": "UIInfoSuite2",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/7098"
+  },
+  "Vanilla Plus Professions\\VanillaPlusProfessions": {
+    "UniqueID": "KediDili.VanillaPlusProfessions",
+    "Name": "Vanilla Plus Professions",
+    "Description": "Adds further branches to vanilla professions.",
+    "Path": "Vanilla Plus Professions\\VanillaPlusProfessions",
+    "IsChinese": false,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/20054"
+  },
+  "Vanilla Plus Professions\\[CP] VPP Data": {
+    "UniqueID": "KediDili.VPPData.CP",
+    "Name": "[CP] VPP Data",
+    "Description": "Adds further branches to vanilla professions.",
+    "Path": "Vanilla Plus Professions\\[CP] VPP Data",
+    "IsChinese": false,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/20054"
+  },
+  "VisibleFish": {
+    "UniqueID": "shekurika.WaterFish",
+    "Name": "[美化]可见鱼",
+    "Description": "显示水中的鱼",
+    "Path": "VisibleFish",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/8897"
+  },
+  "WearMoreRings": {
+    "UniqueID": "bcmpinc.WearMoreRings",
+    "Name": "[体验]更多的戒指",
+    "Description": "为你的背包添加额外的戒指槽。",
+    "Path": "WearMoreRings",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/3214"
+  },
+  "ZoomLevel": {
+    "UniqueID": "thespbgamer.ZoomLevel",
+    "Name": "[体验]缩放级别",
+    "Description": "使用简单按键绑定更改缩放、UI级别和相机位置。现在有一个缩放随机化器！",
+    "Path": "ZoomLevel",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/7363"
+  },
+  "[CP] Canon Friendly Dialogue Expansion": {
+    "UniqueID": "gizzymo.canonfriendlyexpansion",
+    "Name": "[内容]友好的对话扩展",
+    "Description": "为所有34个拥有心级角色添加了约4200行对话。",
+    "Path": "[CP] Canon Friendly Dialogue Expansion",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/2544"
+  },
+  "[CP] DaisyNiko's Earthy Recolour": {
+    "UniqueID": "DaisyNiko.EarthyRecolour",
+    "Name": "[美化]泥土色彩",
+    "Description": null,
+    "Path": "[CP] DaisyNiko's Earthy Recolour",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/5255"
+  },
+  "[CP] Pierre Shop Upgrade": {
+    "UniqueID": "TaisceRayne_PierreShopUpgrade",
+    "Name": "[体验]皮埃尔商店售卖洒水器",
+    "Description": "皮埃尔的商店现在可以售卖洒水器了",
+    "Path": "[CP] Pierre Shop Upgrade",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/31468"
+  },
+  "[CP] Shopkeeper Leela - Pierre's Competition": {
+    "UniqueID": "yuninocorn.ShopkeeperLeela",
+    "Name": "[内容]店主莉拉 -皮埃尔的对手'",
+    "Description": "厌倦了皮埃尔？该内容包添加了一家小商店，其运作方式类似于公交车站旁的皮埃尔商店，由一位带着三只猫的老妇人经营。",
+    "Path": "[CP] Shopkeeper Leela - Pierre's Competition",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/39490"
+  },
+  "[CP] Way Back Pelican Town": {
+    "UniqueID": "Gweniaczek.WayBackPT",
+    "Name": "[美化]重返醍醐镇",
+    "Description": "醍醐镇建筑和结构重绘",
+    "Path": "[CP] Way Back Pelican Town",
+    "IsChinese": true,
+    "Nurl": "https://www.nexusmods.com/stardewvalley/mods/7332"
+  }
+}
