@@ -254,16 +254,16 @@
                         <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Center" VerticalAlignment="Stretch" Background="Transparent" ShowsPreview="True"/>
 
                         <!-- 右侧：详情面板 -->
-                        <Border Grid.Column="2" BorderBrush="LightGray" BorderThickness="1" CornerRadius="3" Padding="15" Background="White">
+                        <Border Grid.Column="2" BorderBrush="LightGray" BorderThickness="1" CornerRadius="3" Padding="10" Background="White">
                             <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                <StackPanel>
+                                <Grid>
                                     <!-- 未选中状态 -->
                                     <TextBlock Text="← 选择一个模组查看详细变更"
-                                              HorizontalAlignment="Center" VerticalAlignment="Center"
-                                              Foreground="Gray" FontSize="14" FontStyle="Italic" Margin="0,50,0,0">
+                                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                                            Foreground="Gray" FontSize="14" FontStyle="Italic" Margin="0,50,0,0">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
-                                                <Setter Property="Visibility" Value="Hidden"/>
+                                                <Setter Property="Visibility" Value="Collapsed"/>
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding SelectedDiffItem}" Value="{x:Null}">
                                                         <Setter Property="Visibility" Value="Visible"/>
@@ -280,47 +280,48 @@
                                                 <Setter Property="Visibility" Value="Visible"/>
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding SelectedDiffItem}" Value="{x:Null}">
-                                                        <Setter Property="Visibility" Value="Hidden"/>
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
                                         </StackPanel.Style>
 
                                         <!-- 模组基本信息 -->
-                                        <TextBlock Text="模组详情" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,15"/>
+                                        <Border Background="#F9F9F9" CornerRadius="3" Padding="10" Margin="0,0,0,10">
+                                            <StackPanel>
+                                                <TextBlock Text="模组详情" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
 
-                                        <Grid Margin="0,0,0,15">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto"/>
-                                                <RowDefinition Height="Auto"/>
-                                                <RowDefinition Height="Auto"/>
-                                                <RowDefinition Height="Auto"/>
-                                            </Grid.RowDefinitions>
+                                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="模组名称：" FontWeight="Medium" Foreground="DimGray" Margin="0,0,10,4"/>
+                                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedDiffItem.ModName}" TextWrapping="Wrap" Margin="0,0,0,4"/>
 
-                                            <TextBlock Grid.Row="0" Grid.Column="0" Text="模组名称：" FontWeight="Medium" Foreground="DimGray" Margin="0,0,10,8"/>
-                                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedDiffItem.ModName}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="唯一ID：" FontWeight="Medium" Foreground="DimGray" Margin="0,0,10,4"/>
+                                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedDiffItem.UniqueID}" TextWrapping="Wrap" Margin="0,0,0,4"/>
 
-                                            <TextBlock Grid.Row="1" Grid.Column="0" Text="唯一ID：" FontWeight="Medium" Foreground="DimGray" Margin="0,0,10,8"/>
-                                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedDiffItem.UniqueID}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="文件夹：" FontWeight="Medium" Foreground="DimGray" Margin="0,0,10,4"/>
+                                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedDiffItem.FolderName}" TextWrapping="Wrap" Margin="0,0,0,4"/>
 
-                                            <TextBlock Grid.Row="2" Grid.Column="0" Text="文件夹：" FontWeight="Medium" Foreground="DimGray" Margin="0,0,10,8"/>
-                                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedDiffItem.FolderName}" TextWrapping="Wrap" Margin="0,0,0,8"/>
-
-                                            <TextBlock Grid.Row="3" Grid.Column="0" Text="变更类型：" FontWeight="Medium" Foreground="DimGray" Margin="0,0,10,8"/>
-                                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectedDiffItem.ChangeType}" TextWrapping="Wrap" Margin="0,0,0,8"/>
-                                        </Grid>
-
-                                        <Separator Margin="0,0,0,15"/>
+                                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="变更类型：" FontWeight="Medium" Foreground="DimGray" Margin="0,0,10,4"/>
+                                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectedDiffItem.ChangeType}" TextWrapping="Wrap" Margin="0,0,0,4"/>
+                                                </Grid>
+                                            </StackPanel>
+                                        </Border>
 
                                         <!-- 字段变更详情 -->
-                                        <TextBlock Text="字段变更" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                                        <TextBlock Text="字段变更" FontSize="15" FontWeight="SemiBold" Margin="0,5,0,8"/>
 
                                         <!-- 名称变更 -->
-                                        <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="3" Padding="10" Margin="0,0,0,10">
+                                        <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,0,0,8">
                                             <Border.Style>
                                                 <Style TargetType="Border">
                                                     <Setter Property="Visibility" Value="Collapsed"/>
@@ -332,20 +333,32 @@
                                                 </Style>
                                             </Border.Style>
                                             <StackPanel>
-                                                <TextBlock Text="名称 (Name)" FontWeight="SemiBold" Foreground="#673AB7" Margin="0,0,0,8"/>
-                                                <TextBlock Text="旧值：" FontWeight="Medium" Foreground="DimGray" FontSize="11"/>
-                                                <TextBox Text="{Binding SelectedDiffItem.NameChange.OldValue, Mode=OneWay}"
-                                                        IsReadOnly="True" Background="#FFF3E0" BorderThickness="0"
-                                                        TextWrapping="Wrap" Margin="0,2,0,8" Padding="5"/>
-                                                <TextBlock Text="新值：" FontWeight="Medium" Foreground="DimGray" FontSize="11"/>
-                                                <TextBox Text="{Binding SelectedDiffItem.NameChange.NewValue, Mode=OneWay}"
-                                                        IsReadOnly="True" Background="#E8F5E9" BorderThickness="0"
-                                                        TextWrapping="Wrap" Margin="0,2,0,0" Padding="5"/>
+                                                <TextBlock Text="名称 (Name)" FontWeight="SemiBold" Foreground="#673AB7" Margin="0,0,0,4"/>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    
+                                                    <StackPanel Grid.Column="0" Margin="0,0,5,0">
+                                                        <TextBlock Text="旧值：" FontWeight="Medium" Foreground="DimGray" FontSize="11"/>
+                                                        <TextBox Text="{Binding SelectedDiffItem.NameChange.OldValue, Mode=OneWay}"
+                                                                IsReadOnly="True" Background="#FFF3E0" BorderThickness="0"
+                                                                TextWrapping="Wrap" Margin="0,2,0,0" Padding="5"/>
+                                                    </StackPanel>
+                                                    
+                                                    <StackPanel Grid.Column="1" Margin="5,0,0,0">
+                                                        <TextBlock Text="新值：" FontWeight="Medium" Foreground="DimGray" FontSize="11"/>
+                                                        <TextBox Text="{Binding SelectedDiffItem.NameChange.NewValue, Mode=OneWay}"
+                                                                IsReadOnly="True" Background="#E8F5E9" BorderThickness="0"
+                                                                TextWrapping="Wrap" Margin="0,2,0,0" Padding="5"/>
+                                                    </StackPanel>
+                                                </Grid>
                                             </StackPanel>
                                         </Border>
 
                                         <!-- 描述变更 -->
-                                        <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="3" Padding="10" Margin="0,0,0,10">
+                                        <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,0,0,8">
                                             <Border.Style>
                                                 <Style TargetType="Border">
                                                     <Setter Property="Visibility" Value="Collapsed"/>
@@ -357,22 +370,34 @@
                                                 </Style>
                                             </Border.Style>
                                             <StackPanel>
-                                                <TextBlock Text="描述 (Description)" FontWeight="SemiBold" Foreground="#673AB7" Margin="0,0,0,8"/>
-                                                <TextBlock Text="旧值：" FontWeight="Medium" Foreground="DimGray" FontSize="11"/>
-                                                <TextBox Text="{Binding SelectedDiffItem.DescriptionChange.OldValue, Mode=OneWay}"
-                                                        IsReadOnly="True" Background="#FFF3E0" BorderThickness="0"
-                                                        TextWrapping="Wrap" AcceptsReturn="True" Height="80"
-                                                        VerticalScrollBarVisibility="Auto" Margin="0,2,0,8" Padding="5"/>
-                                                <TextBlock Text="新值：" FontWeight="Medium" Foreground="DimGray" FontSize="11"/>
-                                                <TextBox Text="{Binding SelectedDiffItem.DescriptionChange.NewValue, Mode=OneWay}"
-                                                        IsReadOnly="True" Background="#E8F5E9" BorderThickness="0"
-                                                        TextWrapping="Wrap" AcceptsReturn="True" Height="80"
-                                                        VerticalScrollBarVisibility="Auto" Margin="0,2,0,0" Padding="5"/>
+                                                <TextBlock Text="描述 (Description)" FontWeight="SemiBold" Foreground="#673AB7" Margin="0,0,0,4"/>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    
+                                                    <StackPanel Grid.Column="0" Margin="0,0,5,0">
+                                                        <TextBlock Text="旧值：" FontWeight="Medium" Foreground="DimGray" FontSize="11"/>
+                                                        <TextBox Text="{Binding SelectedDiffItem.DescriptionChange.OldValue, Mode=OneWay}"
+                                                                IsReadOnly="True" Background="#FFF3E0" BorderThickness="0"
+                                                                TextWrapping="Wrap" AcceptsReturn="True" MinHeight="40" MaxHeight="150"
+                                                                VerticalScrollBarVisibility="Auto" Margin="0,2,0,0" Padding="5"/>
+                                                    </StackPanel>
+                                                    
+                                                    <StackPanel Grid.Column="1" Margin="5,0,0,0">
+                                                        <TextBlock Text="新值：" FontWeight="Medium" Foreground="DimGray" FontSize="11"/>
+                                                        <TextBox Text="{Binding SelectedDiffItem.DescriptionChange.NewValue, Mode=OneWay}"
+                                                                IsReadOnly="True" Background="#E8F5E9" BorderThickness="0"
+                                                                TextWrapping="Wrap" AcceptsReturn="True" MinHeight="40" MaxHeight="150"
+                                                                VerticalScrollBarVisibility="Auto" Margin="0,2,0,0" Padding="5"/>
+                                                    </StackPanel>
+                                                </Grid>
                                             </StackPanel>
                                         </Border>
 
                                         <!-- 作者变更 -->
-                                        <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="3" Padding="10" Margin="0,0,0,10">
+                                        <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,0,0,8">
                                             <Border.Style>
                                                 <Style TargetType="Border">
                                                     <Setter Property="Visibility" Value="Collapsed"/>
@@ -384,20 +409,32 @@
                                                 </Style>
                                             </Border.Style>
                                             <StackPanel>
-                                                <TextBlock Text="作者 (Author)" FontWeight="SemiBold" Foreground="#673AB7" Margin="0,0,0,8"/>
-                                                <TextBlock Text="旧值：" FontWeight="Medium" Foreground="DimGray" FontSize="11"/>
-                                                <TextBox Text="{Binding SelectedDiffItem.AuthorChange.OldValue, Mode=OneWay}"
-                                                        IsReadOnly="True" Background="#FFF3E0" BorderThickness="0"
-                                                        TextWrapping="Wrap" Margin="0,2,0,8" Padding="5"/>
-                                                <TextBlock Text="新值：" FontWeight="Medium" Foreground="DimGray" FontSize="11"/>
-                                                <TextBox Text="{Binding SelectedDiffItem.AuthorChange.NewValue, Mode=OneWay}"
-                                                        IsReadOnly="True" Background="#E8F5E9" BorderThickness="0"
-                                                        TextWrapping="Wrap" Margin="0,2,0,0" Padding="5"/>
+                                                <TextBlock Text="作者 (Author)" FontWeight="SemiBold" Foreground="#673AB7" Margin="0,0,0,4"/>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    
+                                                    <StackPanel Grid.Column="0" Margin="0,0,5,0">
+                                                        <TextBlock Text="旧值：" FontWeight="Medium" Foreground="DimGray" FontSize="11"/>
+                                                        <TextBox Text="{Binding SelectedDiffItem.AuthorChange.OldValue, Mode=OneWay}"
+                                                                IsReadOnly="True" Background="#FFF3E0" BorderThickness="0"
+                                                                TextWrapping="Wrap" Margin="0,2,0,0" Padding="5"/>
+                                                    </StackPanel>
+                                                    
+                                                    <StackPanel Grid.Column="1" Margin="5,0,0,0">
+                                                        <TextBlock Text="新值：" FontWeight="Medium" Foreground="DimGray" FontSize="11"/>
+                                                        <TextBox Text="{Binding SelectedDiffItem.AuthorChange.NewValue, Mode=OneWay}"
+                                                                IsReadOnly="True" Background="#E8F5E9" BorderThickness="0"
+                                                                TextWrapping="Wrap" Margin="0,2,0,0" Padding="5"/>
+                                                    </StackPanel>
+                                                </Grid>
                                             </StackPanel>
                                         </Border>
 
                                         <!-- 版本变更 -->
-                                        <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="3" Padding="10" Margin="0,0,0,10">
+                                        <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,0,0,8">
                                             <Border.Style>
                                                 <Style TargetType="Border">
                                                     <Setter Property="Visibility" Value="Collapsed"/>
@@ -409,19 +446,31 @@
                                                 </Style>
                                             </Border.Style>
                                             <StackPanel>
-                                                <TextBlock Text="版本 (Version)" FontWeight="SemiBold" Foreground="#673AB7" Margin="0,0,0,8"/>
-                                                <TextBlock Text="旧值：" FontWeight="Medium" Foreground="DimGray" FontSize="11"/>
-                                                <TextBox Text="{Binding SelectedDiffItem.VersionChange.OldValue, Mode=OneWay}"
-                                                        IsReadOnly="True" Background="#FFF3E0" BorderThickness="0"
-                                                        TextWrapping="Wrap" Margin="0,2,0,8" Padding="5"/>
-                                                <TextBlock Text="新值：" FontWeight="Medium" Foreground="DimGray" FontSize="11"/>
-                                                <TextBox Text="{Binding SelectedDiffItem.VersionChange.NewValue, Mode=OneWay}"
-                                                        IsReadOnly="True" Background="#E8F5E9" BorderThickness="0"
-                                                        TextWrapping="Wrap" Margin="0,2,0,0" Padding="5"/>
+                                                <TextBlock Text="版本 (Version)" FontWeight="SemiBold" Foreground="#673AB7" Margin="0,0,0,4"/>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    
+                                                    <StackPanel Grid.Column="0" Margin="0,0,5,0">
+                                                        <TextBlock Text="旧值：" FontWeight="Medium" Foreground="DimGray" FontSize="11"/>
+                                                        <TextBox Text="{Binding SelectedDiffItem.VersionChange.OldValue, Mode=OneWay}"
+                                                                IsReadOnly="True" Background="#FFF3E0" BorderThickness="0"
+                                                                TextWrapping="Wrap" Margin="0,2,0,0" Padding="5"/>
+                                                    </StackPanel>
+                                                    
+                                                    <StackPanel Grid.Column="1" Margin="5,0,0,0">
+                                                        <TextBlock Text="新值：" FontWeight="Medium" Foreground="DimGray" FontSize="11"/>
+                                                        <TextBox Text="{Binding SelectedDiffItem.VersionChange.NewValue, Mode=OneWay}"
+                                                                IsReadOnly="True" Background="#E8F5E9" BorderThickness="0"
+                                                                TextWrapping="Wrap" Margin="0,2,0,0" Padding="5"/>
+                                                    </StackPanel>
+                                                </Grid>
                                             </StackPanel>
                                         </Border>
                                     </StackPanel>
-                                </StackPanel>
+                                </Grid>
                             </ScrollViewer>
                         </Border>
                     </Grid>

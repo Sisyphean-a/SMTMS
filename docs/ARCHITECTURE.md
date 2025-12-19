@@ -40,7 +40,7 @@ flowchart LR
   - `ModRepository : IModRepository`，负责 `ModMetadata` / `TranslationMemory` / `GitDiffCache` 的 CRUD。
   - `GitDiffCacheService : IGitDiffCacheService`，负责 Git Diff 缓存的读取、保存和清理（使用 MessagePack 序列化）。
   - `SettingsService : ISettingsService`，负责应用配置（如最后使用的 Mods 目录、窗口尺寸等）的持久化。
-  - **性能优化**：为常用查询字段添加索引（`LastTranslationUpdate`, `RelativePath`, `Engine`, `Timestamp`, `CreatedAt`）。
+  - **性能优化**：为常用查询字段添加索引（`LastTranslationUpdate`, `RelativePath`, `Engine`, `Timestamp`, `CreatedAt`）。新增 `LastFileHash` 用于内容指纹快速比对。
 
 - **SMTMS.GitProvider**：Git 集成
 
@@ -236,6 +236,8 @@ sequenceDiagram
     U->>VM: 输入提交信息 (Message) & 确认
 
     VM->>TS: SaveTranslationsToDbAsync(ModsDirectory)
+    TS->>TS: 计算文件 Hash，对比数据库 LastFileHash
+    TS->>TS: 若 Hash 一致则跳过 (性能优化)
     TS->>DB: 更新 ModMetadata 表 (Source of Truth)
 
     VM->>TS: ExportTranslationsToGitRepo(ModsDirectory, AppDataPath)

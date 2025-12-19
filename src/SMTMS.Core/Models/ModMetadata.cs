@@ -27,4 +27,7 @@ public class ModMetadata
     public string? RelativePath { get; set; } // Path relative to Mods folder
     public bool IsMachineTranslated { get; set; }
     public DateTime? LastTranslationUpdate { get; set; }
+    
+    // Content Fingerprint
+    public string? LastFileHash { get; set; }
 }

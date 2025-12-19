@@ -5,6 +5,7 @@ using SMTMS.Core.Interfaces;
 using SMTMS.Core.Models;
 using SMTMS.Core.Aspects;
 using Microsoft.Extensions.DependencyInjection;
+using System.Security.Cryptography;
 
 namespace SMTMS.Core.Services;
 
@@ -128,10 +129,44 @@ public class TranslationService : ITranslationService
         using var scope = _scopeFactory.CreateScope();
         var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
 
+        // Pre-load all mods and map by Relative Path for fast lookup
+        // We use this to compare unique file fingerprints
+        var allMods = await modRepo.GetAllModsAsync();
+        var pathMap = allMods
+            .Where(m => !string.IsNullOrEmpty(m.RelativePath))
+            // Handle potential duplicates by taking the first one or grouping
+            .GroupBy(m => m.RelativePath)
+            .ToDictionary(g => g.Key!, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
         foreach (var file in modFiles)
         {
             try
             {
+                var relativePath = Path.GetRelativePath(modDirectory, file);
+                
+                // 1. 获取文件指纹
+                string currentHash = ComputeMD5(file);
+                
+                ModMetadata? mod = null;
+                bool fastSkip = false;
+
+                // 2. 极速比对
+                if (pathMap.TryGetValue(relativePath, out var existingMod))
+                {
+                    if (existingMod.LastFileHash == currentHash)
+                    {
+                        fastSkip = true;
+                    }
+                    mod = existingMod;
+                }
+
+                if (fastSkip)
+                {
+                    // 🔥 直接跳过！不用解析 JSON，不用正则匹配，不用写库
+                    continue;
+                }
+
+                // 3. 只有指纹变了，才做繁重的脏活
                 var json = await File.ReadAllTextAsync(file);
                 var manifest = JsonConvert.DeserializeObject<ModManifest>(json);
 
@@ -141,33 +176,51 @@ public class TranslationService : ITranslationService
                 bool hasChineseName = !string.IsNullOrEmpty(manifest.Name) && chineseRegex.IsMatch(manifest.Name);
                 bool hasChineseDesc = !string.IsNullOrEmpty(manifest.Description) && chineseRegex.IsMatch(manifest.Description);
 
-                // Always update DB with found mods to ensure they are tracked
-                var mod = await modRepo.GetModAsync(manifest.UniqueID);
+                // If mod was not found by path (New file?) or we want to double check by ID
                 if (mod == null)
                 {
-                    mod = new ModMetadata
+                    mod = await modRepo.GetModAsync(manifest.UniqueID);
+                    if (mod == null)
                     {
-                        UniqueID = manifest.UniqueID,
-                        RelativePath = Path.GetRelativePath(modDirectory, file),
-                        OriginalName = manifest.Name,
-                        OriginalDescription = manifest.Description
-                    };
+                        mod = new ModMetadata
+                        {
+                            UniqueID = manifest.UniqueID,
+                            RelativePath = relativePath,
+                            OriginalName = manifest.Name,
+                            OriginalDescription = manifest.Description
+                        };
+                    }
+                    else
+                    {
+                        // Found by ID (Moved file?), update path
+                        mod.RelativePath = relativePath;
+                    }
                 }
                 else
                 {
-                     // Update RelativePath in case it moved
-                     mod.RelativePath = Path.GetRelativePath(modDirectory, file);
+                     // Ensure ID matches
+                     if (mod.UniqueID != manifest.UniqueID)
+                     {
+                         // Path collision or ID changed. Re-fetch by ID.
+                         mod = await modRepo.GetModAsync(manifest.UniqueID) ?? new ModMetadata
+                         {
+                             UniqueID = manifest.UniqueID,
+                             RelativePath = relativePath,
+                             OriginalName = manifest.Name,
+                             OriginalDescription = manifest.Description
+                         };
+                     }
                 }
 
+                // Update Logic
                 bool updated = false;
 
-                // Update translations if they differ (and effectively track current state as translation if meaningful)
-                // If we want to strictly separate "Original" vs "Translated", we need logic.
-                // For now, let's assume "Translated" fields hold the *Current* value if it's considered "worked on".
-                // But if I just changed English text?
-                // The architecture implies TranslatedName is what we restore.
-                
-                // Let's just save current state to TranslatedName/Description so it can be restored.
+                if (mod.RelativePath != relativePath)
+                {
+                    mod.RelativePath = relativePath;
+                    updated = true;
+                }
+
                 if (mod.TranslatedName != manifest.Name)
                 {
                     mod.TranslatedName = manifest.Name;
@@ -176,6 +229,13 @@ public class TranslationService : ITranslationService
                 if (mod.TranslatedDescription != manifest.Description)
                 {
                     mod.TranslatedDescription = manifest.Description;
+                    updated = true;
+                }
+
+                // 4. 更新指纹
+                if (mod.LastFileHash != currentHash)
+                {
+                    mod.LastFileHash = currentHash;
                     updated = true;
                 }
 
@@ -190,6 +250,14 @@ public class TranslationService : ITranslationService
                 Console.WriteLine($"Error saving to DB from {file}: {ex.Message}");
             }
         }
+    }
+
+    private string ComputeMD5(string filePath)
+    {
+        using var md5 = MD5.Create();
+        using var stream = File.OpenRead(filePath);
+        var hash = md5.ComputeHash(stream);
+        return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
     }
 
     public async Task RestoreTranslationsFromDbAsync(string modDirectory)
