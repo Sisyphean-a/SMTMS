@@ -300,9 +300,9 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task GitRollback()
     {
-        if (SelectedCommit == null)
+        if (SelectedCommit == null || string.IsNullOrEmpty(SelectedCommit.FullHash))
         {
-             StatusMessage = "Rollback Error: No commit selected.";
+             StatusMessage = "Rollback Error: No valid commit selected.";
              return;
         }
 
