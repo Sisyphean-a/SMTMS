@@ -188,7 +188,7 @@ public partial class ModViewModel : ObservableObject
         if (_metadata == null || string.IsNullOrEmpty(_metadata.RelativePath))
         {
              // Fallback or warning
-             System.Windows.MessageBox.Show("Cannot show history: Mod metadata missing.", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+             System.Windows.MessageBox.Show("无法显示历史：模组元数据缺失。", "错误", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
              return;
         }
 
@@ -196,21 +196,34 @@ public partial class ModViewModel : ObservableObject
         {
             var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
             // Based on architecture, files are in "Mods" subfolder in repo
-            var repoRelativePath = Path.Combine("Mods", _metadata.RelativePath); 
+            // RelativePath 是文件夹路径，需要添加 manifest.json
+            var repoRelativePath = Path.Combine("Mods", _metadata.RelativePath, "manifest.json");
 
             var history = await Task.Run(() => _gitService.GetFileHistory(appDataPath, repoRelativePath));
 
-            var dialog = new SMTMS.UI.Views.ModHistoryDialog(Name, history);
-            // dialog.Owner = System.Windows.Application.Current.MainWindow; // Optional
-
-            if (dialog.ShowDialog() == true && dialog.SelectedCommit != null)
+            if (!history.Any())
             {
-                await RollbackToVersionAsync(dialog.SelectedCommit.FullHash, repoRelativePath);
+                System.Windows.MessageBox.Show("此模组没有历史记录。", "提示", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                return;
+            }
+
+            var dialog = new SMTMS.UI.Views.ModHistoryDialog(Name, history, _gitService, appDataPath, repoRelativePath);
+            dialog.Owner = System.Windows.Application.Current.MainWindow;
+
+            if (dialog.ShowDialog() == true && dialog.SelectedCommit != null && dialog.SelectedManifest != null)
+            {
+                if (dialog.Action == SMTMS.UI.Views.ModHistoryDialog.DialogAction.ApplyToEditor)
+                {
+                    // 应用到编辑框（不保存到文件）
+                    Name = dialog.SelectedManifest.Name;
+                    Description = dialog.SelectedManifest.Description;
+                    UpdateStatus(); // 更新状态显示
+                }
             }
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show($"Error loading history: {ex.Message}", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            System.Windows.MessageBox.Show($"加载历史记录时出错: {ex.Message}", "错误", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
         }
     }
 
