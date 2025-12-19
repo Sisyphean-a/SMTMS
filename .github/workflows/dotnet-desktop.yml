@@ -1,0 +1,38 @@
+name: Build and Publish SMTMS
+
+on:
+  push:
+    branches: [ "master", "main" ]
+  pull_request:
+    branches: [ "master", "main" ]
+
+jobs:
+  build:
+    name: Build on Windows
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout Source Code (检出代码)
+      uses: actions/checkout@v4
+
+    - name: Setup .NET 8 (安装 .NET 8)
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+
+    - name: Restore Dependencies (还原依赖)
+      run: dotnet restore SMTMS.sln
+
+    - name: Build Solution (构建解决方案)
+      run: dotnet build SMTMS.sln --configuration Release --no-restore
+
+    - name: Publish Application (发布应用)
+      # 使用 dotnet publish 命令直接生成可执行文件
+      # 注意：这里我们发布的是 SMTMS.UI 项目
+      run: dotnet publish src/SMTMS.UI/SMTMS.UI.csproj --configuration Release --output ./publish --no-build
+
+    - name: Upload Artifact (上传构建产物)
+      uses: actions/upload-artifact@v4
+      with:
+        name: SMTMS-Release-Build
+        path: ./publish
