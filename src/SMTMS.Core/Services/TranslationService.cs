@@ -374,4 +374,63 @@ public class TranslationService : ITranslationService
             await File.WriteAllTextAsync(destPath, outputJson);
         }
     }
+    public async Task ImportTranslationsFromGitRepoAsync(string repoPath)
+    {
+        var repoModsPath = Path.Combine(repoPath, "Mods");
+        if (!Directory.Exists(repoModsPath))
+        {
+            return;
+        }
+
+        var modFiles = Directory.GetFiles(repoModsPath, "manifest.json", SearchOption.AllDirectories);
+
+        using var scope = _scopeFactory.CreateScope();
+        var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
+
+        foreach (var file in modFiles)
+        {
+            try
+            {
+                var json = await File.ReadAllTextAsync(file);
+                var manifest = JsonConvert.DeserializeObject<ModManifest>(json); 
+
+                if (manifest == null || string.IsNullOrWhiteSpace(manifest.UniqueID))
+                    continue;
+
+                var mod = await modRepo.GetModAsync(manifest.UniqueID);
+                if (mod == null)
+                {
+                     mod = new ModMetadata
+                    {
+                        UniqueID = manifest.UniqueID,
+                        RelativePath = Path.GetRelativePath(repoModsPath, file) 
+                    };
+                }
+
+                bool updated = false;
+
+                // We assume the Repo contains the "Translated" version of Name/Description
+                if (mod.TranslatedName != manifest.Name)
+                {
+                    mod.TranslatedName = manifest.Name;
+                    updated = true;
+                }
+                if (mod.TranslatedDescription != manifest.Description)
+                {
+                    mod.TranslatedDescription = manifest.Description;
+                    updated = true;
+                }
+
+                if (updated)
+                {
+                    mod.LastTranslationUpdate = DateTime.Now;
+                    await modRepo.UpsertModAsync(mod);
+                }
+            }
+            catch (Exception ex)
+            {
+                 Console.WriteLine($"Error importing from Git Repo {file}: {ex.Message}");
+            }
+        }
+    }
 }

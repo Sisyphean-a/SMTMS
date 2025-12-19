@@ -22,4 +22,10 @@ public interface ITranslationService
 
     Task ExportTranslationsToGitRepo(string modDirectory, string repoPath);
 
+    /// <summary>
+    /// Reads translations from the Git repository (AppData) and updates the database.
+    /// This is used after a Rollback/Reset to synchronize the DB with the reverted files.
+    /// </summary>
+    Task ImportTranslationsFromGitRepoAsync(string repoPath);
+
 }

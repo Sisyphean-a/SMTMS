@@ -323,10 +323,13 @@ sequenceDiagram
 
     U->>VM: 选中某个 Commit, 点击 "Rollback"
     VM->>Git: Reset(appDataPath, SelectedCommit.FullHash)
-    Git->>Git: Reset(Hard) -> 恢复 smtms.db 和 Shadow Files 到旧版本
+    Git->>Git: Reset(Hard) -> 恢复 Shadow Files (manifest.json) 到旧版本
+
+    VM->>TS: ImportTranslationsFromGitRepoAsync(appDataPath)
+    TS->>DB: 扫描 Shadow Files，将旧版 Name/Description 同步回数据库 (忽略版本号)
 
     VM->>TS: RestoreTranslationsFromDbAsync(ModsDirectory)
-    TS->>TS: 从回滚后的 DB 读取数据
+    TS->>TS: 从数据库读取数据 (此时已是旧版翻译)
     TS->>Game Dir: 覆盖游戏目录下的 manifest.json (应用变更)
 
     VM->>VM: Status = $"Rolled back to '{ShortHash}' and applied to files."

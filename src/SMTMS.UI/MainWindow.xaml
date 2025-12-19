@@ -74,7 +74,7 @@
                                 <TextBox x:Name="AuthorTextBox" Text="{Binding SelectedMod.Author, UpdateSourceTrigger=Explicit}" Margin="0,5,0,15" Padding="5"/>
 
                                 <TextBlock Text="版本" FontWeight="Medium" Foreground="DimGray"/>
-                                <TextBox x:Name="VersionTextBox" Text="{Binding SelectedMod.Version, UpdateSourceTrigger=Explicit}" Margin="0,5,0,15" Padding="5"/>
+                                <TextBox x:Name="VersionTextBox" Text="{Binding SelectedMod.Version, UpdateSourceTrigger=Explicit}" Margin="0,5,0,15" Padding="5" IsReadOnly="True" Background="#F5F5F5" ToolTip="Version cannot be changed."/>
 
                                 <TextBlock Text="唯一ID" FontWeight="Medium" Foreground="DimGray"/>
                                 <TextBox Text="{Binding SelectedMod.UniqueID, UpdateSourceTrigger=Explicit}" Margin="0,5,0,15" Padding="5" IsReadOnly="True" Background="#F5F5F5" ToolTip="Mod ID cannot be changed safely."/>

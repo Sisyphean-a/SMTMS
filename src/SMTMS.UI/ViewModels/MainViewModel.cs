@@ -237,17 +237,9 @@ public partial class MainViewModel : ObservableObject
                     }
                 }
 
-                // 替换Version
-                string escapedVersion = JsonConvert.ToString(manifest.Version).Trim('"');
-                if (Regex.IsMatch(content, @"""Version""\s*:\s*""[^""]*"""))
-                {
-                    string newContent = Regex.Replace(content, @"(""Version""\s*:\s*"")[^""]*("")", $"${{1}}{escapedVersion}${{2}}");
-                    if (content != newContent)
-                    {
-                        content = newContent;
-                        changed = true;
-                    }
-                }
+                // 替换Version - DISABLED (User request: prevent version changes)
+                // string escapedVersion = JsonConvert.ToString(manifest.Version).Trim('"');
+                // if (Regex.IsMatch(content, @"""Version""\s*:\s*""[^""]*""")) ...
 
                 // 替换Description
                 string escapedDesc = JsonConvert.ToString(manifest.Description).Trim('"');
@@ -322,6 +314,9 @@ public partial class MainViewModel : ObservableObject
             var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
             
             await Task.Run(() => _gitService.Reset(appDataPath, SelectedCommit.FullHash));
+            
+            // Sync DB with the reverted Git Repo state
+            await _translationService.ImportTranslationsFromGitRepoAsync(appDataPath);
             
             // Auto-sync: Apply the restored DB state to game files
             // Wait, Reset reverted the whole repo, including smtms.db (if tracked) or files in Mods/? 
