@@ -29,10 +29,10 @@ flowchart LR
 
 - **SMTMS.Core**：领域与接口层
 
-  - 定义接口：`IModService`, `IModRepository`, `IGitService`, `IGitDiffCacheService`, `INexusClient`, `ITranslationService`, `IGamePathService`, `ISettingsService`。
+  - 定义接口：`IModService`, `IModRepository`, `IGitService`, `IGitDiffCacheService`, `INexusClient`, `ITranslationService`, `IGamePathService`, `ISettingsService`, `IFileSystem`。
   - 定义模型：`ModManifest`, `ModMetadata`, `TranslationMemory`, `GitCommitModel`, `ModDiffModel`, `GitDiffCache`, `NexusModDto`, `AppSettings` 等。
   - 定义通用类型：`Result<T>`, `OperationResult` (统一错误处理模式)。
-  - 服务实现：`ModService`, `RegistryGamePathService`。
+  - 服务实现：`ModService`, `RegistryGamePathService`, `PhysicalFileSystem`。
 
 - **SMTMS.Data**：数据访问层
 
@@ -43,7 +43,7 @@ flowchart LR
   - **性能优化**：
     - 为常用查询字段添加索引（`LastTranslationUpdate`, `RelativePath`, `Engine`, `Timestamp`, `CreatedAt`）。
     - 新增 `LastFileHash` 用于内容指纹快速比对。
-    - 所有只读查询使用 `AsNoTracking()` 减少内存占用（30-50%）。
+    - 所有只读查询使用 `AsNoTracking()` 减少内存占用。
     - 所有异步方法支持 `CancellationToken`，允许取消长时间操作。
 
 - **SMTMS.GitProvider**：Git 集成
@@ -59,10 +59,11 @@ flowchart LR
   - 核心实现 `TranslationService : ITranslationService`，负责在 "本地 manifest.json" 与 "SQLite 数据库" 之间双向同步翻译数据 (Extract/Restore)。
   - **架构改进**：
     - 从 Core 层移至独立的 Translation 层，实现真正的分层架构。
-    - 使用构造函数注入 `ILogger<TranslationService>` 和 `IServiceScopeFactory`。
+    - 使用构造函数注入 `ILogger<TranslationService>`、`IServiceScopeFactory` 和 `IFileSystem`。
     - 所有方法返回 `OperationResult`，提供统一的错误处理和详细的操作结果。
+    - 通过 `IFileSystem` 抽象所有文件操作，实现可测试性。
   - **性能优化**：
-    - 使用 C# 11+ `[GeneratedRegex]` 特性，编译时生成优化的正则表达式代码（2-5倍性能提升）。
+    - 使用 C# 11+ `[GeneratedRegex]` 特性，编译时生成优化的正则表达式代码。
     - 并行文件处理（`Task.WhenAll`），充分利用多核 CPU。
     - 批量数据库操作，减少往返次数。
     - 支持 `CancellationToken`，允许取消长时间操作。
@@ -70,10 +71,23 @@ flowchart LR
     - 结构化日志记录，包含关键业务上下文（文件数量、成功/失败计数、错误详情）。
     - 使用适当的日志级别（Debug/Information/Warning/Error）。
 
+- **SMTMS.Tests**：单元测试项目
+
+  - **测试覆盖**：39个测试，100%通过
+    - Git 服务测试（22个）：初始化、提交、推送、拉取、回滚等
+    - Mod 服务测试（7个）：扫描、加载、保存等
+    - 翻译服务测试（5个）：提取、恢复、同步等
+    - 文件系统测试（5个）：读写、目录操作等
+  - **Mock 实现**：
+    - `InMemoryFileSystem`：内存文件系统，用于测试文件操作
+    - `InMemoryModRepository`：内存数据库，用于测试数据访问
+  - **测试框架**：xUnit + Moq
+
 - **SMTMS.UI**：WPF 前端 & 组合根
   - 使用 `Host.CreateDefaultBuilder` 配置 DI、数据库、服务与 ViewModel。
   - 应用数据库迁移，创建并显示 `MainWindow`。
   - 所有依赖通过构造函数注入，遵循标准 DI 模式。
+  - 注册 `IFileSystem` 为 `PhysicalFileSystem`（生产环境）。
 
 ---
 
@@ -109,8 +123,9 @@ flowchart TD
 
 - **接口全部定义在 Core 中**，实现分别在 Core/Data/GitProvider/NexusClient/Translation 等模块中。
 - `TranslationService` 位于独立的 Translation 层，通过 `IServiceScopeFactory` 动态获取 `IModRepository`，避免直接依赖 SMTMS.Data。
-- 所有服务使用构造函数注入 `ILogger<T>`，遵循标准依赖注入模式。
+- 所有服务使用构造函数注入 `ILogger<T>` 和 `IFileSystem`，遵循标准依赖注入模式。
 - 使用 `Result<T>` 和 `OperationResult` 模式进行统一错误处理。
+- `IFileSystem` 抽象层使得所有文件操作可测试，生产环境使用 `PhysicalFileSystem`，测试环境使用 `InMemoryFileSystem`。
 
 ### 2.2 数据层（SMTMS.Data）
 
@@ -189,6 +204,7 @@ flowchart TD
   - `AddSingleton<IGitService, SMTMS.GitProvider.Services.GitService>()`。
   - `AddSingleton<IModService, ModService>()`。
   - `AddSingleton<IGamePathService, RegistryGamePathService>()`。
+  - `AddSingleton<IFileSystem, PhysicalFileSystem>()`（生产环境）。
   - `AddScoped<IModRepository, ModRepository>()`。
   - `AddScoped<IGitDiffCacheService, GitDiffCacheService>()`。
   - `AddScoped<ISettingsService, SettingsService>()`。

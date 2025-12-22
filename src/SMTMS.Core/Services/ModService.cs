@@ -1,5 +1,6 @@
 using Newtonsoft.Json;
 using SMTMS.Core.Interfaces;
+using SMTMS.Core.Infrastructure;
 using SMTMS.Core.Models;
 
 namespace SMTMS.Core.Services;
@@ -7,9 +8,12 @@ namespace SMTMS.Core.Services;
 public class ModService : IModService
 {
     private readonly JsonSerializerSettings _jsonSettings;
+    private readonly IFileSystem _fileSystem;
 
-    public ModService()
+    public ModService(IFileSystem fileSystem)
     {
+        _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+
         _jsonSettings = new JsonSerializerSettings
         {
             Formatting = Formatting.Indented,
@@ -22,19 +26,19 @@ public class ModService : IModService
 
     public async Task<IEnumerable<ModManifest>> ScanModsAsync(string modsDirectory)
     {
-        if (!Directory.Exists(modsDirectory))
+        if (!_fileSystem.DirectoryExists(modsDirectory))
         {
             return new List<ModManifest>();
         }
 
         // SMAPI mods are usually in subfolders of Mods/
         // We look for manifest.json in each subfolder
-        var subDirectories = Directory.GetDirectories(modsDirectory);
+        var subDirectories = _fileSystem.GetDirectories(modsDirectory);
 
         // 🔥 并行读取所有 manifest.json 文件
         var tasks = subDirectories
-            .Select(dir => Path.Combine(dir, "manifest.json"))
-            .Where(File.Exists)
+            .Select(dir => _fileSystem.Combine(dir, "manifest.json"))
+            .Where(path => _fileSystem.FileExists(path))
             .Select(manifestPath => ReadManifestAsync(manifestPath))
             .ToList();
 
@@ -46,14 +50,14 @@ public class ModService : IModService
 
     public async Task<ModManifest?> ReadManifestAsync(string manifestPath)
     {
-        if (!File.Exists(manifestPath))
+        if (!_fileSystem.FileExists(manifestPath))
         {
             return null;
         }
 
         try
         {
-            var json = await File.ReadAllTextAsync(manifestPath);
+            var json = await _fileSystem.ReadAllTextAsync(manifestPath);
             var manifest = JsonConvert.DeserializeObject<ModManifest>(json, _jsonSettings);
             if (manifest != null)
             {
@@ -72,6 +76,6 @@ public class ModService : IModService
     public async Task WriteManifestAsync(string manifestPath, ModManifest manifest)
     {
         var json = JsonConvert.SerializeObject(manifest, _jsonSettings);
-        await File.WriteAllTextAsync(manifestPath, json);
+        await _fileSystem.WriteAllTextAsync(manifestPath, json);
     }
 }

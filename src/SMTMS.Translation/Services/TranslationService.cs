@@ -4,44 +4,32 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using SMTMS.Core.Common;
+using SMTMS.Core.Infrastructure;
 using SMTMS.Core.Interfaces;
 using SMTMS.Core.Models;
+using SMTMS.Translation.Helpers;
 
 namespace SMTMS.Translation.Services;
 
 /// <summary>
 /// 翻译服务实现 - 负责翻译数据的提取、恢复和同步
 /// </summary>
-public partial class TranslationService : ITranslationService
+public class TranslationService : ITranslationService
 {
     private readonly JsonSerializerSettings _jsonSettings;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<TranslationService> _logger;
+    private readonly IFileSystem _fileSystem;
 
-    // 🔥 正则表达式缓存优化 - 使用 GeneratedRegex (C# 11+)
-    [GeneratedRegex(@"[\u4e00-\u9fff]")]
-    private static partial Regex ChinesePatternRegex();
-
-    [GeneratedRegex(@"[\u4e00-\u9fa5]")]
-    private static partial Regex ChineseSimplifiedRegex();
-
-    [GeneratedRegex(@"""Name""\s*:\s*""[^""]*""")]
-    private static partial Regex NameFieldRegex();
-
-    [GeneratedRegex(@"(""Name""\s*:\s*"")[^""]*("")")]
-    private static partial Regex NameReplaceRegex();
-
-    [GeneratedRegex(@"""Description""\s*:\s*""[^""]*""")]
-    private static partial Regex DescriptionFieldRegex();
-
-    [GeneratedRegex(@"(""Description""\s*:\s*"")[^""]*("")")]
-    private static partial Regex DescriptionReplaceRegex();
-
-    public TranslationService(IServiceScopeFactory scopeFactory, ILogger<TranslationService> logger)
+    public TranslationService(
+        IServiceScopeFactory scopeFactory,
+        ILogger<TranslationService> logger,
+        IFileSystem fileSystem)
     {
         _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        
+        _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+
         _jsonSettings = new JsonSerializerSettings
         {
             Formatting = Formatting.Indented,
@@ -58,7 +46,7 @@ public partial class TranslationService : ITranslationService
     {
         _logger.LogInformation("开始从旧版 JSON 导入翻译: {JsonPath}", jsonPath);
 
-        if (!File.Exists(jsonPath))
+        if (!_fileSystem.FileExists(jsonPath))
         {
             _logger.LogWarning("备份文件不存在: {JsonPath}", jsonPath);
             return OperationResult.Failure("备份文件不存在");
@@ -70,7 +58,7 @@ public partial class TranslationService : ITranslationService
 
         try
         {
-            string json = await File.ReadAllTextAsync(jsonPath, cancellationToken);
+            string json = await _fileSystem.ReadAllTextAsync(jsonPath, cancellationToken);
             var translationsData = JsonConvert.DeserializeObject<Dictionary<string, TranslationBackupEntry>>(json);
 
             if (translationsData == null || !translationsData.Any())
@@ -118,13 +106,12 @@ public partial class TranslationService : ITranslationService
                     else
                     {
                         // Fallback: 检测是否包含中文
-                        var chinesePattern = ChinesePatternRegex();
-                        if (!string.IsNullOrEmpty(modData.Name) && chinesePattern.IsMatch(modData.Name))
+                        if (!string.IsNullOrEmpty(modData.Name) && ManifestTextReplacer.ContainsChinese(modData.Name))
                         {
                             mod.TranslatedName = modData.Name;
                             updated = true;
                         }
-                        if (!string.IsNullOrEmpty(modData.Description) && chinesePattern.IsMatch(modData.Description))
+                        if (!string.IsNullOrEmpty(modData.Description) && ManifestTextReplacer.ContainsChinese(modData.Description))
                         {
                             mod.TranslatedDescription = modData.Description;
                             updated = true;
@@ -175,13 +162,13 @@ public partial class TranslationService : ITranslationService
     {
         _logger.LogInformation("开始保存翻译到数据库: {ModDirectory}", modDirectory);
 
-        if (!Directory.Exists(modDirectory))
+        if (!_fileSystem.DirectoryExists(modDirectory))
         {
             _logger.LogWarning("模组目录不存在: {ModDirectory}", modDirectory);
             return OperationResult.Failure("模组目录不存在");
         }
 
-        var modFiles = Directory.GetFiles(modDirectory, "manifest.json", SearchOption.AllDirectories);
+        var modFiles = _fileSystem.GetFiles(modDirectory, "manifest.json", SearchOption.AllDirectories);
         _logger.LogInformation("找到 {Count} 个 manifest.json 文件", modFiles.Length);
 
         int successCount = 0;
@@ -196,7 +183,7 @@ public partial class TranslationService : ITranslationService
         {
             try
             {
-                var content = await File.ReadAllBytesAsync(file, cancellationToken);
+                var content = await _fileSystem.ReadAllBytesAsync(file, cancellationToken);
                 var hash = Convert.ToBase64String(MD5.HashData(content));
                 return (file, hash, success: true);
             }
@@ -213,7 +200,7 @@ public partial class TranslationService : ITranslationService
             if (!success)
             {
                 errorCount++;
-                errors.Add($"无法读取文件: {Path.GetFileName(file)}");
+                errors.Add($"无法读取文件: {_fileSystem.GetFileName(file)}");
                 continue;
             }
 
@@ -221,7 +208,7 @@ public partial class TranslationService : ITranslationService
 
             try
             {
-                var json = await File.ReadAllTextAsync(file, cancellationToken);
+                var json = await _fileSystem.ReadAllTextAsync(file, cancellationToken);
                 var manifest = JsonConvert.DeserializeObject<ModManifest>(json);
 
                 if (manifest == null || string.IsNullOrWhiteSpace(manifest.UniqueID))
@@ -236,7 +223,7 @@ public partial class TranslationService : ITranslationService
                     mod = new ModMetadata
                     {
                         UniqueID = manifest.UniqueID,
-                        RelativePath = Path.GetRelativePath(modDirectory, file)
+                        RelativePath = _fileSystem.GetRelativePath(modDirectory, file)
                     };
                 }
 
@@ -272,7 +259,7 @@ public partial class TranslationService : ITranslationService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "保存翻译失败: {File}", file);
-                errors.Add($"{Path.GetFileName(file)}: {ex.Message}");
+                errors.Add($"{_fileSystem.GetFileName(file)}: {ex.Message}");
                 errorCount++;
             }
         }
@@ -299,7 +286,7 @@ public partial class TranslationService : ITranslationService
     {
         _logger.LogInformation("开始从数据库恢复翻译: {ModDirectory}", modDirectory);
 
-        if (!Directory.Exists(modDirectory))
+        if (!_fileSystem.DirectoryExists(modDirectory))
         {
             _logger.LogWarning("模组目录不存在: {ModDirectory}", modDirectory);
             return OperationResult.Failure("模组目录不存在");
@@ -319,7 +306,7 @@ public partial class TranslationService : ITranslationService
         }
 
         var translationMap = allTranslatedMods.ToDictionary(m => m.UniqueID);
-        var modFiles = Directory.GetFiles(modDirectory, "manifest.json", SearchOption.AllDirectories);
+        var modFiles = _fileSystem.GetFiles(modDirectory, "manifest.json", SearchOption.AllDirectories);
 
         int successCount = 0;
         int errorCount = 0;
@@ -332,51 +319,35 @@ public partial class TranslationService : ITranslationService
 
             try
             {
-                var content = await File.ReadAllTextAsync(file, cancellationToken);
+                var content = await _fileSystem.ReadAllTextAsync(file, cancellationToken);
                 var manifest = JsonConvert.DeserializeObject<ModManifest>(content);
 
                 if (manifest == null || string.IsNullOrWhiteSpace(manifest.UniqueID))
                 {
-                    return (success: false, error: $"无效的 manifest: {Path.GetFileName(file)}");
+                    return (success: false, error: $"无效的 manifest: {_fileSystem.GetFileName(file)}");
                 }
 
                 if (translationMap.TryGetValue(manifest.UniqueID, out var dbMod))
                 {
-                    bool changed = false;
+                    // 🔥 使用纯函数工具类进行替换
+                    string originalContent = content;
 
-                    // 恢复 Name
+                    // 只在需要时替换 Name
                     if (!string.IsNullOrEmpty(dbMod.TranslatedName) && manifest.Name != dbMod.TranslatedName)
                     {
-                        string escapedName = JsonConvert.ToString(dbMod.TranslatedName).Trim('"');
-                        if (NameFieldRegex().IsMatch(content))
-                        {
-                            string newContent = NameReplaceRegex().Replace(content, $"${{1}}{escapedName}${{2}}");
-                            if (content != newContent)
-                            {
-                                content = newContent;
-                                changed = true;
-                            }
-                        }
+                        content = ManifestTextReplacer.ReplaceName(content, dbMod.TranslatedName);
                     }
 
-                    // 恢复 Description
+                    // 只在需要时替换 Description
                     if (!string.IsNullOrEmpty(dbMod.TranslatedDescription) && manifest.Description != dbMod.TranslatedDescription)
                     {
-                        string escapedDesc = JsonConvert.ToString(dbMod.TranslatedDescription).Trim('"');
-                        if (DescriptionFieldRegex().IsMatch(content))
-                        {
-                            string newContent = DescriptionReplaceRegex().Replace(content, $"${{1}}{escapedDesc}${{2}}");
-                            if (content != newContent)
-                            {
-                                content = newContent;
-                                changed = true;
-                            }
-                        }
+                        content = ManifestTextReplacer.ReplaceDescription(content, dbMod.TranslatedDescription);
                     }
 
-                    if (changed)
+                    // 如果内容发生变化,写入文件
+                    if (content != originalContent)
                     {
-                        await File.WriteAllTextAsync(file, content, cancellationToken);
+                        await _fileSystem.WriteAllTextAsync(file, content, cancellationToken);
                         _logger.LogDebug("恢复翻译: {UniqueId}", manifest.UniqueID);
                         return (success: true, error: (string?)null);
                     }
@@ -387,7 +358,7 @@ public partial class TranslationService : ITranslationService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "恢复翻译失败: {File}", file);
-                return (success: false, error: $"{Path.GetFileName(file)}: {ex.Message}");
+                return (success: false, error: $"{_fileSystem.GetFileName(file)}: {ex.Message}");
             }
         }).ToArray();
 
@@ -437,10 +408,10 @@ public partial class TranslationService : ITranslationService
         var allMods = (await modRepo.GetAllModsAsync(cancellationToken)).ToList();
 
         // 确保仓库 Mods 文件夹存在
-        var repoModsPath = Path.Combine(repoPath, "Mods");
-        if (!Directory.Exists(repoModsPath))
+        var repoModsPath = _fileSystem.Combine(repoPath, "Mods");
+        if (!_fileSystem.DirectoryExists(repoModsPath))
         {
-            Directory.CreateDirectory(repoModsPath);
+            _fileSystem.CreateDirectory(repoModsPath);
         }
 
         int successCount = 0;
@@ -459,14 +430,14 @@ public partial class TranslationService : ITranslationService
 
             try
             {
-                var sourcePath = Path.Combine(modDirectory, mod.RelativePath);
-                if (!File.Exists(sourcePath))
+                var sourcePath = _fileSystem.Combine(modDirectory, mod.RelativePath);
+                if (!_fileSystem.FileExists(sourcePath))
                 {
                     return (success: true, error: (string?)null); // 模组可能已删除
                 }
 
                 // 读取源文件
-                var json = await File.ReadAllTextAsync(sourcePath, cancellationToken);
+                var json = await _fileSystem.ReadAllTextAsync(sourcePath, cancellationToken);
                 var manifest = JsonConvert.DeserializeObject<ModManifest>(json);
                 if (manifest == null)
                 {
@@ -484,15 +455,15 @@ public partial class TranslationService : ITranslationService
                 }
 
                 // 写入到 Git 仓库
-                var targetPath = Path.Combine(repoPath, mod.RelativePath);
-                var targetDir = Path.GetDirectoryName(targetPath);
-                if (!string.IsNullOrEmpty(targetDir) && !Directory.Exists(targetDir))
+                var targetPath = _fileSystem.Combine(repoPath, mod.RelativePath);
+                var targetDir = _fileSystem.GetDirectoryName(targetPath);
+                if (!string.IsNullOrEmpty(targetDir) && !_fileSystem.DirectoryExists(targetDir))
                 {
-                    Directory.CreateDirectory(targetDir);
+                    _fileSystem.CreateDirectory(targetDir);
                 }
 
                 var outputJson = JsonConvert.SerializeObject(manifest, _jsonSettings);
-                await File.WriteAllTextAsync(targetPath, outputJson, cancellationToken);
+                await _fileSystem.WriteAllTextAsync(targetPath, outputJson, cancellationToken);
 
                 _logger.LogDebug("导出翻译: {UniqueId}", mod.UniqueID);
                 return (success: true, error: (string?)null);
@@ -544,14 +515,14 @@ public partial class TranslationService : ITranslationService
     {
         _logger.LogInformation("开始从 Git 仓库导入翻译: {RepoPath}", repoPath);
 
-        var repoModsPath = Path.Combine(repoPath, "Mods");
-        if (!Directory.Exists(repoModsPath))
+        var repoModsPath = _fileSystem.Combine(repoPath, "Mods");
+        if (!_fileSystem.DirectoryExists(repoModsPath))
         {
             _logger.LogWarning("Git 仓库 Mods 目录不存在: {RepoModsPath}", repoModsPath);
             return OperationResult.Failure("Git 仓库 Mods 目录不存在");
         }
 
-        var modFiles = Directory.GetFiles(repoModsPath, "manifest.json", SearchOption.AllDirectories);
+        var modFiles = _fileSystem.GetFiles(repoModsPath, "manifest.json", SearchOption.AllDirectories);
         _logger.LogInformation("找到 {Count} 个 manifest.json 文件", modFiles.Length);
 
         int successCount = 0;
@@ -568,12 +539,12 @@ public partial class TranslationService : ITranslationService
 
             try
             {
-                var json = await File.ReadAllTextAsync(file, cancellationToken);
+                var json = await _fileSystem.ReadAllTextAsync(file, cancellationToken);
                 var manifest = JsonConvert.DeserializeObject<ModManifest>(json);
 
                 if (manifest == null || string.IsNullOrWhiteSpace(manifest.UniqueID))
                 {
-                    return (success: false, error: $"无效的 manifest: {Path.GetFileName(file)}", mod: (ModMetadata?)null);
+                    return (success: false, error: $"无效的 manifest: {_fileSystem.GetFileName(file)}", mod: (ModMetadata?)null);
                 }
 
                 var mod = await modRepo.GetModAsync(manifest.UniqueID, cancellationToken);
@@ -582,7 +553,7 @@ public partial class TranslationService : ITranslationService
                     mod = new ModMetadata
                     {
                         UniqueID = manifest.UniqueID,
-                        RelativePath = Path.GetRelativePath(repoModsPath, file)
+                        RelativePath = _fileSystem.GetRelativePath(repoModsPath, file)
                     };
                 }
 
@@ -596,7 +567,7 @@ public partial class TranslationService : ITranslationService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "读取文件失败: {File}", file);
-                return (success: false, error: $"{Path.GetFileName(file)}: {ex.Message}", mod: (ModMetadata?)null);
+                return (success: false, error: $"{_fileSystem.GetFileName(file)}: {ex.Message}", mod: (ModMetadata?)null);
             }
         }).ToArray();
 

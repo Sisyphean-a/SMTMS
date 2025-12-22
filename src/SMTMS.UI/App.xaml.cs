@@ -3,6 +3,7 @@ using System.IO;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.EntityFrameworkCore;
+using SMTMS.Core.Infrastructure;
 using SMTMS.Core.Interfaces;
 using SMTMS.Core.Services;
 using SMTMS.Data.Context;
@@ -30,9 +31,12 @@ public partial class App : System.Windows.Application
                 }
                 var dbPath = Path.Combine(smtmsPath, "smtms.db");
 
-                services.AddDbContext<AppDbContext>(options => 
+                services.AddDbContext<AppDbContext>(options =>
                     options.UseSqlite($"Data Source={dbPath}"));
-                
+
+                // Infrastructure
+                services.AddSingleton<IFileSystem, PhysicalFileSystem>();
+
                 services.AddSingleton<IGitService, SMTMS.GitProvider.Services.GitService>();
                 services.AddSingleton<IModService, ModService>();
                 services.AddSingleton<IGamePathService, RegistryGamePathService>();
