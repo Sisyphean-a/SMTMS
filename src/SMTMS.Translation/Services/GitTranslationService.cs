@@ -145,6 +145,7 @@ public class GitTranslationService(
     {
         if (string.IsNullOrEmpty(mod.RelativePath))
         {
+            _logger.LogWarning("跳过导出 [{UniqueId}]: RelativePath 为空", mod.UniqueID);
             return (true, null);
         }
 
@@ -168,6 +169,9 @@ public class GitTranslationService(
 
             // 应用数据库中的翻译
             ApplyTranslationsToManifest(manifest, mod);
+
+            // LOGGING DEBUG: Check what we are about to write
+            _logger.LogInformation("准备导出 [{UniqueId}]: Name='{Name}'", mod.UniqueID, manifest.Name);
 
             // 写入到 Git 仓库
             await WriteManifestToGitRepoAsync(manifest, mod.RelativePath, repoPath, cancellationToken);
@@ -265,7 +269,32 @@ public class GitTranslationService(
         }
 
         var outputJson = JsonConvert.SerializeObject(manifest, _jsonSettings);
+
+        // 如果文件存在，检查内容是否变更
+        if (_fileSystem.FileExists(targetPath))
+        {
+            var existingJson = await _fileSystem.ReadAllTextAsync(targetPath, cancellationToken);
+            if (string.Equals(existingJson, outputJson, StringComparison.Ordinal))
+            {
+                // 内容一致，无需写入
+                // DEBUG: 即使一致也记录一下，确认我们检查了这个文件
+                // _logger.LogDebug("文件内容未变更，跳过写入: {RelativePath}", relativePath);
+                return;
+            }
+            else
+            {
+                 // DEBUG: 记录差异
+                 _logger.LogInformation("检测到文件内容差异: {RelativePath}", relativePath);
+                 _logger.LogDebug("旧内容长度: {OldLen}, 新内容长度: {NewLen}", existingJson.Length, outputJson.Length);
+            }
+        }
+        else
+        {
+             _logger.LogInformation("创建新文件: {RelativePath}", relativePath);
+        }
+
         await _fileSystem.WriteAllTextAsync(targetPath, outputJson, cancellationToken);
+        _logger.LogInformation("已写入文件: {RelativePath}", relativePath);
     }
 
     /// <summary>

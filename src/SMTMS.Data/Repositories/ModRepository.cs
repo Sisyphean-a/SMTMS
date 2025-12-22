@@ -36,9 +36,13 @@ public class ModRepository(AppDbContext context) : IModRepository
         }
         else
         {
-            // Update fields. Be careful not to overwrite user changes with old file data if logic requires.
-            // For now, assume this method is called to update data.
-            context.Entry(existing).CurrentValues.SetValues(mod);
+            // 如果传入的 mod 与数据库查出的 existing 是同一个实例（引用相等），
+            // 说明它已经被 Tracked 且属性已在外部被修改，直接 SaveChanges 即可。
+            // 只有当它们是不同对象时，才需要从 mod 复制值到 existing。
+            if (!ReferenceEquals(existing, mod))
+            {
+                context.Entry(existing).CurrentValues.SetValues(mod);
+            }
         }
         await context.SaveChangesAsync(cancellationToken);
     }

@@ -123,20 +123,27 @@ public class TranslationScanService(
                 RelativePath = _fileSystem.GetRelativePath(modDirectory, file)
             };
 
-            // 🔥 性能优化：使用 Hash 快速判断文件是否变更
-            if (mod.LastFileHash == hash)
+            var currentRelativePath = _fileSystem.GetRelativePath(modDirectory, file);
+
+            if (mod.RelativePath != currentRelativePath)
             {
-                return (false, null); // 文件未变更，跳过
+                mod.RelativePath = currentRelativePath;
+                // 强制更新 LastFileHash 以确保被保存
+                mod.LastFileHash = string.Empty; 
             }
 
-            var updated = UpdateModFromManifest(mod, manifest);
-
-            if (updated || mod.LastTranslationUpdate == null)
+            var changes = GetModChanges(mod, manifest);
+            if (changes.Count > 0 || mod.LastTranslationUpdate == null || mod.RelativePath != _fileSystem.GetRelativePath(modDirectory, file))
             {
+                ApplyChangesToMod(mod, manifest);
                 mod.LastTranslationUpdate = DateTime.Now;
                 mod.LastFileHash = hash;
                 await modRepo.UpsertModAsync(mod, cancellationToken);
-                _logger.LogDebug("保存翻译: {UniqueId}", manifest.UniqueID);
+                
+                foreach (var change in changes)
+                {
+                    _logger.LogInformation("更新翻译 [{UniqueId}]: {Change}", manifest.UniqueID, change);
+                }
                 return (true, null);
             }
 
@@ -150,23 +157,33 @@ public class TranslationScanService(
     }
 
     /// <summary>
-    /// 从 manifest 更新模组数据
+    /// 获取模组变更列表
     /// </summary>
-    private bool UpdateModFromManifest(ModMetadata mod, ModManifest manifest)
+    private List<string> GetModChanges(ModMetadata mod, ModManifest manifest)
     {
-        var updated = false;
+        var changes = new List<string>();
 
         if (mod.TranslatedName != manifest.Name)
         {
-            mod.TranslatedName = manifest.Name;
-            updated = true;
+            changes.Add($"名称: '{mod.TranslatedName}' -> '{manifest.Name}'");
         }
 
-        if (mod.TranslatedDescription == manifest.Description) return updated;
-        mod.TranslatedDescription = manifest.Description;
-        updated = true;
+        if (mod.TranslatedDescription != manifest.Description)
+        {
+            // 描述可能很长，只记录变更事实
+            changes.Add("描述已更新");
+        }
 
-        return updated;
+        return changes;
+    }
+
+    /// <summary>
+    /// 应用变更到模组对象
+    /// </summary>
+    private void ApplyChangesToMod(ModMetadata mod, ModManifest manifest)
+    {
+        mod.TranslatedName = manifest.Name;
+        mod.TranslatedDescription = manifest.Description;
     }
 
     /// <summary>

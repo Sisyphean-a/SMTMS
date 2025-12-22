@@ -20,6 +20,21 @@ public partial class App : System.Windows.Application
 
     public App()
     {
+        // 修复控制台日志中文乱码
+        try
+        {
+            var writer = new StreamWriter(Console.OpenStandardOutput(), new System.Text.UTF8Encoding(false))
+            {
+                AutoFlush = true
+            };
+            Console.SetOut(writer);
+        }
+        catch (Exception ex)
+        {
+            // 仅在输出窗口打印，不会崩溃
+            System.Diagnostics.Debug.WriteLine($"无法重定向控制台输出: {ex.Message}");
+        }
+
         _host = Host.CreateDefaultBuilder()
             .ConfigureServices((_, services) =>
             {
@@ -32,7 +47,14 @@ public partial class App : System.Windows.Application
                 var dbPath = Path.Combine(smtmsPath, "smtms.db");
 
                 services.AddDbContext<AppDbContext>(options =>
-                    options.UseSqlite($"Data Source={dbPath}"));
+                {
+                    options.UseSqlite($"Data Source={dbPath}");
+                    // 仅在开发环境或需要调试 SQL 时开启，避免控制台刷屏
+                    // options.EnableSensitiveDataLogging(); 
+                    
+                    // 忽略 SQL 执行日志，防止控制台刷屏
+                    options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.CommandExecuted));
+                });
 
                 // Infrastructure
                 services.AddSingleton<IFileSystem, PhysicalFileSystem>();
@@ -70,7 +92,20 @@ public partial class App : System.Windows.Application
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             // MigrateAsync will apply all pending migrations
-            await dbContext.Database.MigrateAsync();
+            try
+            {
+                await dbContext.Database.MigrateAsync();
+            }
+            catch (Exception ex)
+            {
+                // 如果是 "table already exists" 错误，说明数据库可能通过 EnsureCreated 创建，
+                // 导致缺少 __EFMigrationsHistory 表。这里忽略异常以允许程序启动。
+                // 真正的修复是使用 HardReset（已在 MainViewModel 中修复）。
+                if (!ex.Message.Contains("already exists") && !ex.ToString().Contains("already exists"))
+                {
+                    throw; // 其他严重错误仍然抛出
+                }
+            }
         }
 
         var mainWindow = _host.Services.GetRequiredService<MainWindow>();

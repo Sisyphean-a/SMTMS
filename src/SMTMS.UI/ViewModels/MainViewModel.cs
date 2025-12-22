@@ -6,6 +6,7 @@ using SMTMS.Core.Interfaces;
 using SMTMS.UI.Messages;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
 
 namespace SMTMS.UI.ViewModels;
 
@@ -105,9 +106,8 @@ public partial class MainViewModel : ObservableObject
                 _gitService.Init(smtmsPath);
             }
 
-            // 4. 通知子 ViewModels 目录已设置
-            WeakReferenceMessenger.Default.Send(new ModsDirectoryChangedMessage(ModsDirectory));
-
+            // 4. (已通过属性变更通知 OnModsDirectoryChanged 自动发送消息，此处无需重复发送)
+            
             StatusMessage = "初始化完成";
         }
         catch (Exception ex)
@@ -173,7 +173,7 @@ public partial class MainViewModel : ObservableObject
             using (var scope = _scopeFactory.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<Data.Context.AppDbContext>();
-                context.Database.EnsureCreated();
+                await context.Database.MigrateAsync();
             }
 
             // 4. 重新初始化 Git

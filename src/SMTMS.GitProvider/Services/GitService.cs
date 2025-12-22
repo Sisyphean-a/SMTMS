@@ -101,7 +101,7 @@ public class GitService(ILogger<GitService> logger) : IGitService
     public IEnumerable<GitCommitModel> GetHistory(string path)
     {
         using var repo = new Repository(path);
-        return repo.Commits.Take(50).Select(c => new GitCommitModel
+        var commits = repo.Commits.Take(50).Select(c => new GitCommitModel
         {
             ShortHash = c.Sha[..7],
             FullHash = c.Sha,
@@ -109,6 +109,14 @@ public class GitService(ILogger<GitService> logger) : IGitService
             Author = c.Author.Name,
             Date = c.Author.When
         }).ToList();
+
+        logger.LogInformation("获取历史记录: 找到 {Count} 条提交", commits.Count);
+        foreach (var commit in commits.Take(3))
+        {
+            logger.LogInformation("  - [{Hash}] {Message} ({Date})", commit.ShortHash, commit.Message, commit.Date);
+        }
+
+        return commits;
     }
 
     public string GetDiff(string repoPath, string commitHash)
