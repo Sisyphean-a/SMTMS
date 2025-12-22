@@ -117,20 +117,29 @@ public partial class MainViewModel : ObservableObject
     {
         StatusMessage = "Scanning mods...";
         Mods.Clear();
-        
+
         // 1. Scan files
         var manifests = await _modService.ScanModsAsync(ModsDirectory);
-        
-        // 2. Sync with DB
+        var manifestList = manifests.ToList();
+
+        // 2. Sync with DB (批量操作优化)
         using (var scope = _scopeFactory.CreateScope())
         {
             var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
-            
-            foreach (var manifest in manifests)
+
+            // 批量获取所有 Mod 的元数据
+            var uniqueIds = manifestList.Select(m => m.UniqueID).ToList();
+            var existingMods = await modRepo.GetModsByIdsAsync(uniqueIds);
+
+            var modsToUpdate = new List<SMTMS.Core.Models.ModMetadata>();
+
+            foreach (var manifest in manifestList)
             {
-                var mod = await modRepo.GetModAsync(manifest.UniqueID);
-                if (mod == null)
+                SMTMS.Core.Models.ModMetadata mod;
+
+                if (!existingMods.TryGetValue(manifest.UniqueID, out mod!))
                 {
+                    // 新 Mod
                     mod = new SMTMS.Core.Models.ModMetadata
                     {
                         UniqueID = manifest.UniqueID,
@@ -138,33 +147,31 @@ public partial class MainViewModel : ObservableObject
                         OriginalDescription = manifest.Description,
                         RelativePath = Path.GetRelativePath(ModsDirectory, Path.GetDirectoryName(manifest.ManifestPath)!)
                     };
-                    await modRepo.UpsertModAsync(mod);
+                    modsToUpdate.Add(mod);
                 }
                 else
                 {
-                    // Update transient fields if needed, e.g. path might verify
-                     mod.RelativePath = Path.GetRelativePath(ModsDirectory, Path.GetDirectoryName(manifest.ManifestPath)!);
-                     await modRepo.UpsertModAsync(mod);
+                    // 更新路径（可能移动了）
+                    var newRelativePath = Path.GetRelativePath(ModsDirectory, Path.GetDirectoryName(manifest.ManifestPath)!);
+                    if (mod.RelativePath != newRelativePath)
+                    {
+                        mod.RelativePath = newRelativePath;
+                        modsToUpdate.Add(mod);
+                    }
                 }
 
                 // Add to UI collection (using DB data)
-                // We need to merge Manifest info (author, version) with DB info (Translation)
-                // Current ModViewModel likely uses ModManifest. We might need to update ModViewModel to support metadata.
-                // For now, let's inject valid data into ModViewModel
-                
                 var viewModel = new ModViewModel(manifest, _gitService, mod);
-                
-                // Do NOT overwrite Name with translation here. 
-                // ModViewModel.UpdateStatus() will handle the comparison status.
-                // Logic:
-                // 1. Manifest is from Disk (Actual state)
-                // 2. Mod (Metadata) is from DB (Stored Translation)
-                // ViewModel will check if they match.
-                
                 Mods.Add(viewModel);
             }
+
+            // 🔥 批量保存所有变更（一次数据库操作）
+            if (modsToUpdate.Any())
+            {
+                await modRepo.UpsertModsAsync(modsToUpdate);
+            }
         }
-        
+
         StatusMessage = $"Loaded {Mods.Count} mods.";
         LoadHistory(); // Refresh history
     }

@@ -22,31 +22,26 @@ public class ModService : IModService
 
     public async Task<IEnumerable<ModManifest>> ScanModsAsync(string modsDirectory)
     {
-        var manifests = new List<ModManifest>();
-
         if (!Directory.Exists(modsDirectory))
         {
-            return manifests;
+            return new List<ModManifest>();
         }
 
         // SMAPI mods are usually in subfolders of Mods/
         // We look for manifest.json in each subfolder
         var subDirectories = Directory.GetDirectories(modsDirectory);
 
-        foreach (var dir in subDirectories)
-        {
-            var manifestPath = Path.Combine(dir, "manifest.json");
-            if (File.Exists(manifestPath))
-            {
-                var manifest = await ReadManifestAsync(manifestPath);
-                if (manifest != null)
-                {
-                    manifests.Add(manifest);
-                }
-            }
-        }
+        // 🔥 并行读取所有 manifest.json 文件
+        var tasks = subDirectories
+            .Select(dir => Path.Combine(dir, "manifest.json"))
+            .Where(File.Exists)
+            .Select(manifestPath => ReadManifestAsync(manifestPath))
+            .ToList();
 
-        return manifests;
+        var results = await Task.WhenAll(tasks);
+
+        // 过滤掉解析失败的（null）
+        return results.Where(m => m != null).Cast<ModManifest>().ToList();
     }
 
     public async Task<ModManifest?> ReadManifestAsync(string manifestPath)

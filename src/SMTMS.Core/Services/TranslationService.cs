@@ -130,125 +130,107 @@ public class TranslationService : ITranslationService
         var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
 
         // Pre-load all mods and map by Relative Path for fast lookup
-        // We use this to compare unique file fingerprints
         var allMods = await modRepo.GetAllModsAsync();
         var pathMap = allMods
             .Where(m => !string.IsNullOrEmpty(m.RelativePath))
-            // Handle potential duplicates by taking the first one or grouping
             .GroupBy(m => m.RelativePath)
             .ToDictionary(g => g.Key!, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
-        foreach (var file in modFiles)
+        // 🔥 并行处理所有文件（第一阶段：快速指纹检查）
+        var fileInfoTasks = modFiles.Select(async file =>
         {
-            try
+            var relativePath = Path.GetRelativePath(modDirectory, file);
+            var currentHash = ComputeMD5(file);
+
+            // 快速跳过未变更的文件
+            if (pathMap.TryGetValue(relativePath, out var existingMod) &&
+                existingMod.LastFileHash == currentHash)
             {
-                var relativePath = Path.GetRelativePath(modDirectory, file);
-                
-                // 1. 获取文件指纹
-                string currentHash = ComputeMD5(file);
-                
-                ModMetadata? mod = null;
-                bool fastSkip = false;
+                return (file, relativePath, currentHash, skip: true, mod: existingMod);
+            }
 
-                // 2. 极速比对
-                if (pathMap.TryGetValue(relativePath, out var existingMod))
+            return (file, relativePath, currentHash, skip: false, mod: (ModMetadata?)null);
+        }).ToList();
+
+        var fileInfos = await Task.WhenAll(fileInfoTasks);
+
+        // 🔥 并行读取和解析需要处理的文件（第二阶段：JSON 解析）
+        var processTasks = fileInfos
+            .Where(info => !info.skip)
+            .Select(async info =>
+            {
+                try
                 {
-                    if (existingMod.LastFileHash == currentHash)
-                    {
-                        fastSkip = true;
-                    }
-                    mod = existingMod;
-                }
+                    var json = await File.ReadAllTextAsync(info.file);
+                    var manifest = JsonConvert.DeserializeObject<ModManifest>(json);
 
-                if (fastSkip)
-                {
-                    // 🔥 直接跳过！不用解析 JSON，不用正则匹配，不用写库
-                    continue;
-                }
+                    if (manifest == null || string.IsNullOrWhiteSpace(manifest.UniqueID))
+                        return null;
 
-                // 3. 只有指纹变了，才做繁重的脏活
-                var json = await File.ReadAllTextAsync(file);
-                var manifest = JsonConvert.DeserializeObject<ModManifest>(json);
-
-                if (manifest == null || string.IsNullOrWhiteSpace(manifest.UniqueID))
-                    continue;
-
-                bool hasChineseName = !string.IsNullOrEmpty(manifest.Name) && chineseRegex.IsMatch(manifest.Name);
-                bool hasChineseDesc = !string.IsNullOrEmpty(manifest.Description) && chineseRegex.IsMatch(manifest.Description);
-
-                // If mod was not found by path (New file?) or we want to double check by ID
-                if (mod == null)
-                {
-                    mod = await modRepo.GetModAsync(manifest.UniqueID);
+                    // 查找或创建 ModMetadata
+                    var mod = allMods.FirstOrDefault(m => m.UniqueID == manifest.UniqueID);
                     if (mod == null)
                     {
                         mod = new ModMetadata
                         {
                             UniqueID = manifest.UniqueID,
-                            RelativePath = relativePath,
+                            RelativePath = info.relativePath,
                             OriginalName = manifest.Name,
                             OriginalDescription = manifest.Description
                         };
                     }
-                    else
+
+                    // 更新逻辑
+                    bool updated = false;
+
+                    if (mod.RelativePath != info.relativePath)
                     {
-                        // Found by ID (Moved file?), update path
-                        mod.RelativePath = relativePath;
+                        mod.RelativePath = info.relativePath;
+                        updated = true;
                     }
-                }
-                else
-                {
-                     // Ensure ID matches
-                     if (mod.UniqueID != manifest.UniqueID)
-                     {
-                         // Path collision or ID changed. Re-fetch by ID.
-                         mod = await modRepo.GetModAsync(manifest.UniqueID) ?? new ModMetadata
-                         {
-                             UniqueID = manifest.UniqueID,
-                             RelativePath = relativePath,
-                             OriginalName = manifest.Name,
-                             OriginalDescription = manifest.Description
-                         };
-                     }
-                }
 
-                // Update Logic
-                bool updated = false;
+                    if (mod.TranslatedName != manifest.Name)
+                    {
+                        mod.TranslatedName = manifest.Name;
+                        updated = true;
+                    }
 
-                if (mod.RelativePath != relativePath)
-                {
-                    mod.RelativePath = relativePath;
-                    updated = true;
-                }
+                    if (mod.TranslatedDescription != manifest.Description)
+                    {
+                        mod.TranslatedDescription = manifest.Description;
+                        updated = true;
+                    }
 
-                if (mod.TranslatedName != manifest.Name)
-                {
-                    mod.TranslatedName = manifest.Name;
-                    updated = true;
-                }
-                if (mod.TranslatedDescription != manifest.Description)
-                {
-                    mod.TranslatedDescription = manifest.Description;
-                    updated = true;
-                }
+                    if (mod.LastFileHash != info.currentHash)
+                    {
+                        mod.LastFileHash = info.currentHash;
+                        updated = true;
+                    }
 
-                // 4. 更新指纹
-                if (mod.LastFileHash != currentHash)
-                {
-                    mod.LastFileHash = currentHash;
-                    updated = true;
-                }
+                    if (updated || mod.LastTranslationUpdate == null)
+                    {
+                        mod.LastTranslationUpdate = DateTime.Now;
+                        return mod;
+                    }
 
-                if (updated || mod.LastTranslationUpdate == null)
-                {
-                    mod.LastTranslationUpdate = DateTime.Now;
-                    await modRepo.UpsertModAsync(mod);
+                    return null;
                 }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error saving to DB from {file}: {ex.Message}");
-            }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error saving to DB from {info.file}: {ex.Message}");
+                    return null;
+                }
+            }).ToList();
+
+        var processedMods = await Task.WhenAll(processTasks);
+
+        // 收集所有需要更新的 Mod
+        var modsToUpdate = processedMods.Where(m => m != null).Cast<ModMetadata>().ToList();
+
+        // 🔥 批量保存所有变更（一次数据库操作）
+        if (modsToUpdate.Any())
+        {
+            await modRepo.UpsertModsAsync(modsToUpdate);
         }
     }
 
@@ -273,7 +255,8 @@ public class TranslationService : ITranslationService
 
         var modFiles = Directory.GetFiles(modDirectory, "manifest.json", SearchOption.AllDirectories);
 
-        foreach (var file in modFiles)
+        // 🔥 并行处理所有文件的读取、修改和写入
+        var tasks = modFiles.Select(async file =>
         {
             try
             {
@@ -281,7 +264,7 @@ public class TranslationService : ITranslationService
                 var manifest = JsonConvert.DeserializeObject<ModManifest>(content);
 
                 if (manifest == null || string.IsNullOrWhiteSpace(manifest.UniqueID))
-                    continue;
+                    return;
 
                 if (translationMap.TryGetValue(manifest.UniqueID, out var dbMod))
                 {
@@ -327,14 +310,16 @@ public class TranslationService : ITranslationService
             {
                 Console.WriteLine($"Error restoring to {file}: {ex.Message}");
             }
-        }
+        }).ToList();
+
+        await Task.WhenAll(tasks);
     }
     public async Task ExportTranslationsToGitRepo(string modDirectory, string repoPath)
     {
         using var scope = _scopeFactory.CreateScope();
         var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
         var allMods = await modRepo.GetAllModsAsync();
-        
+
         // Ensure repo/mods folder exists
         var repoModsPath = Path.Combine(repoPath, "Mods");
         if (!Directory.Exists(repoModsPath))
@@ -342,37 +327,43 @@ public class TranslationService : ITranslationService
             Directory.CreateDirectory(repoModsPath);
         }
 
-        // Clean up repo folder? 
-        // If we want exact mirror, we might want to delete stale files.
-        // But for now let's just overwrite existing.
-
-        foreach (var mod in allMods)
-        {
-            if (string.IsNullOrEmpty(mod.RelativePath)) continue;
-
-            var sourcePath = Path.Combine(modDirectory, mod.RelativePath);
-            if (!File.Exists(sourcePath)) continue; // Mod might have been deleted
-
-            // Read source
-            var json = await File.ReadAllTextAsync(sourcePath);
-            var manifest = JsonConvert.DeserializeObject<ModManifest>(json); 
-            if (manifest == null) continue;
-
-            // Apply translations from DB
-            if (!string.IsNullOrEmpty(mod.TranslatedName)) manifest.Name = mod.TranslatedName;
-            if (!string.IsNullOrEmpty(mod.TranslatedDescription)) manifest.Description = mod.TranslatedDescription;
-
-            // Write to Repo
-            var destPath = Path.Combine(repoModsPath, mod.RelativePath);
-            var destDir = Path.GetDirectoryName(destPath);
-            if (destDir != null && !Directory.Exists(destDir))
+        // 🔥 并行处理所有 Mod 的导出
+        var tasks = allMods
+            .Where(mod => !string.IsNullOrEmpty(mod.RelativePath))
+            .Select(async mod =>
             {
-                Directory.CreateDirectory(destDir);
-            }
+                try
+                {
+                    var sourcePath = Path.Combine(modDirectory, mod.RelativePath);
+                    if (!File.Exists(sourcePath)) return; // Mod might have been deleted
 
-            var outputJson = JsonConvert.SerializeObject(manifest, Formatting.Indented);
-            await File.WriteAllTextAsync(destPath, outputJson);
-        }
+                    // Read source
+                    var json = await File.ReadAllTextAsync(sourcePath);
+                    var manifest = JsonConvert.DeserializeObject<ModManifest>(json);
+                    if (manifest == null) return;
+
+                    // Apply translations from DB
+                    if (!string.IsNullOrEmpty(mod.TranslatedName)) manifest.Name = mod.TranslatedName;
+                    if (!string.IsNullOrEmpty(mod.TranslatedDescription)) manifest.Description = mod.TranslatedDescription;
+
+                    // Write to Repo
+                    var destPath = Path.Combine(repoModsPath, mod.RelativePath);
+                    var destDir = Path.GetDirectoryName(destPath);
+                    if (destDir != null && !Directory.Exists(destDir))
+                    {
+                        Directory.CreateDirectory(destDir);
+                    }
+
+                    var outputJson = JsonConvert.SerializeObject(manifest, Formatting.Indented);
+                    await File.WriteAllTextAsync(destPath, outputJson);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error exporting mod {mod.UniqueID}: {ex.Message}");
+                }
+            }).ToList();
+
+        await Task.WhenAll(tasks);
     }
     public async Task ImportTranslationsFromGitRepoAsync(string repoPath)
     {
@@ -387,50 +378,80 @@ public class TranslationService : ITranslationService
         using var scope = _scopeFactory.CreateScope();
         var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
 
-        foreach (var file in modFiles)
+        // 🔥 并行读取和解析所有文件
+        var parseTasks = modFiles.Select(async file =>
         {
             try
             {
                 var json = await File.ReadAllTextAsync(file);
-                var manifest = JsonConvert.DeserializeObject<ModManifest>(json); 
+                var manifest = JsonConvert.DeserializeObject<ModManifest>(json);
 
                 if (manifest == null || string.IsNullOrWhiteSpace(manifest.UniqueID))
-                    continue;
+                    return ((ModManifest?)null, (string?)null);
 
-                var mod = await modRepo.GetModAsync(manifest.UniqueID);
-                if (mod == null)
-                {
-                     mod = new ModMetadata
-                    {
-                        UniqueID = manifest.UniqueID,
-                        RelativePath = Path.GetRelativePath(repoModsPath, file) 
-                    };
-                }
-
-                bool updated = false;
-
-                // We assume the Repo contains the "Translated" version of Name/Description
-                if (mod.TranslatedName != manifest.Name)
-                {
-                    mod.TranslatedName = manifest.Name;
-                    updated = true;
-                }
-                if (mod.TranslatedDescription != manifest.Description)
-                {
-                    mod.TranslatedDescription = manifest.Description;
-                    updated = true;
-                }
-
-                if (updated)
-                {
-                    mod.LastTranslationUpdate = DateTime.Now;
-                    await modRepo.UpsertModAsync(mod);
-                }
+                return (manifest, relativePath: Path.GetRelativePath(repoModsPath, file));
             }
             catch (Exception ex)
             {
-                 Console.WriteLine($"Error importing from Git Repo {file}: {ex.Message}");
+                Console.WriteLine($"Error parsing Git Repo file {file}: {ex.Message}");
+                return ((ModManifest?)null, (string?)null);
             }
+        }).ToList();
+
+        var parsedResults = await Task.WhenAll(parseTasks);
+        var validManifests = parsedResults
+            .Where(r => r.Item1 != null && r.Item2 != null)
+            .Select(r => (manifest: r.Item1!, relativePath: r.Item2!))
+            .ToList();
+
+        if (!validManifests.Any())
+            return;
+
+        // 批量获取现有的 Mod 数据
+        var uniqueIds = validManifests.Select(r => r.manifest.UniqueID).ToList();
+        var existingMods = await modRepo.GetModsByIdsAsync(uniqueIds);
+
+        var modsToUpdate = new List<ModMetadata>();
+
+        foreach (var result in validManifests)
+        {
+            var (manifest, relativePath) = result;
+
+            ModMetadata mod;
+            if (!existingMods.TryGetValue(manifest.UniqueID, out mod!))
+            {
+                mod = new ModMetadata
+                {
+                    UniqueID = manifest.UniqueID,
+                    RelativePath = relativePath
+                };
+            }
+
+            bool updated = false;
+
+            // We assume the Repo contains the "Translated" version of Name/Description
+            if (mod.TranslatedName != manifest.Name)
+            {
+                mod.TranslatedName = manifest.Name;
+                updated = true;
+            }
+            if (mod.TranslatedDescription != manifest.Description)
+            {
+                mod.TranslatedDescription = manifest.Description;
+                updated = true;
+            }
+
+            if (updated)
+            {
+                mod.LastTranslationUpdate = DateTime.Now;
+                modsToUpdate.Add(mod);
+            }
+        }
+
+        // 🔥 批量保存所有变更
+        if (modsToUpdate.Any())
+        {
+            await modRepo.UpsertModsAsync(modsToUpdate);
         }
     }
 }
