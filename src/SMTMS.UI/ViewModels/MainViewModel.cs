@@ -24,7 +24,7 @@ public partial class MainViewModel : ObservableObject
     private string _applicationTitle = "SMTMS - Stardew Mod Translation & Management System";
 
     [ObservableProperty]
-    private string _modsDirectory = @"C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Mods";
+    private string _modsDirectory = string.Empty; // 将在初始化时从 IGamePathService 获取
 
     [ObservableProperty]
     private string _statusMessage = "Ready.";

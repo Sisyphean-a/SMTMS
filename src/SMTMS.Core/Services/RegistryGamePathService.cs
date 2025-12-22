@@ -76,7 +76,8 @@ public class RegistryGamePathService : IGamePathService
                 var path = key.GetValue("SteamPath")?.ToString();
                 if (!string.IsNullOrEmpty(path))
                 {
-                    return path.Replace("/", "\\");
+                    // 规范化路径，让 .NET 自动处理分隔符
+                    return Path.GetFullPath(path);
                 }
             }
         }

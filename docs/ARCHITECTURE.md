@@ -32,7 +32,11 @@ flowchart LR
   - 定义接口：`IModService`, `IModRepository`, `IGitService`, `IGitDiffCacheService`, `INexusClient`, `ITranslationService`, `IGamePathService`, `ISettingsService`, `IFileSystem`。
   - 定义模型：`ModManifest`, `ModMetadata`, `TranslationMemory`, `GitCommitModel`, `ModDiffModel`, `GitDiffCache`, `NexusModDto`, `AppSettings` 等。
   - 定义通用类型：`Result<T>`, `OperationResult` (统一错误处理模式)。
-  - 服务实现：`ModService`, `RegistryGamePathService`, `PhysicalFileSystem`。
+  - 服务实现：
+    - `ModService`：模组清单文件的读写和扫描服务。
+    - `RegistryGamePathService`：Windows 专用，通过注册表查找 Steam/游戏路径（使用条件编译 `#if WINDOWS`）。
+    - `MultiPlatformGamePathService`：跨平台游戏路径服务，支持 Windows/Linux/macOS，自动检测 Steam 和游戏安装位置。
+    - `PhysicalFileSystem`：生产环境的文件系统实现。
 
 - **SMTMS.Data**：数据访问层
 
@@ -102,7 +106,8 @@ flowchart TD
     subgraph SMTMS_Core[SMTMS.Core]
         IMod["IModService"] --> ModService["ModService"]
         ITrans["ITranslationService"]
-        IGame["IGamePathService"] --> RegistryGamePathService["RegistryGamePathService"]
+        IGame["IGamePathService"] --> RegistryGamePathService["RegistryGamePathService (Windows Only)"]
+        IGame --> MultiPlatformGamePathService["MultiPlatformGamePathService (Cross-Platform)"]
 
         IRepo["IModRepository"]
         IGit["IGitService"]
@@ -128,6 +133,10 @@ flowchart TD
 - 所有服务使用构造函数注入 `ILogger<T>` 和 `IFileSystem`，遵循标准依赖注入模式。
 - 使用 `Result<T>` 和 `OperationResult` 模式进行统一错误处理。
 - `IFileSystem` 抽象层使得所有文件操作可测试，生产环境使用 `PhysicalFileSystem`，测试环境使用 `InMemoryFileSystem`。
+- **多平台支持**：
+  - `IGamePathService` 有两个实现：`RegistryGamePathService`（Windows 专用，使用注册表）和 `MultiPlatformGamePathService`（跨平台，支持 Windows/Linux/macOS）。
+  - 使用条件编译（`#if WINDOWS`）和条件包引用确保 Windows 特定代码（如 `Microsoft.Win32.Registry`）仅在 Windows 平台编译和引用。
+  - 路径处理统一使用 `Path.Combine()` 和 `Path.GetFullPath()`，避免硬编码路径分隔符。
 
 ### 2.2 数据层（SMTMS.Data）
 
@@ -216,7 +225,9 @@ flowchart TD
   - `AddDbContext<AppDbContext>()`（SQLite）。
   - `AddSingleton<IGitService, SMTMS.GitProvider.Services.GitService>()`。
   - `AddSingleton<IModService, ModService>()`。
-  - `AddSingleton<IGamePathService, RegistryGamePathService>()`。
+  - `AddSingleton<IGamePathService, ...>()`：
+    - **WPF UI**：使用 `RegistryGamePathService`（Windows 专用）。
+    - **Avalonia UI**：使用 `MultiPlatformGamePathService`（跨平台支持）。
   - `AddSingleton<IFileSystem, PhysicalFileSystem>()`（生产环境）。
   - `AddScoped<IModRepository, ModRepository>()`。
   - `AddScoped<IGitDiffCacheService, GitDiffCacheService>()`。

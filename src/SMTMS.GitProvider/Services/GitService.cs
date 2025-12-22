@@ -41,13 +41,29 @@ public class GitService(ILogger<GitService> logger) : IGitService
         }
 
         // Auto-stage everything (respecting .gitignore)
+        logger.LogInformation("暂存所有文件...");
         Commands.Stage(repo, "*");
 
         // Check if there are changes to commit
         var status = repo.RetrieveStatus();
+        logger.LogInformation("仓库状态: IsDirty={IsDirty}, Added={Added}, Modified={Modified}, Removed={Removed}",
+            status.IsDirty,
+            status.Added.Count(),
+            status.Modified.Count(),
+            status.Removed.Count());
+
+        if (status.IsDirty)
+        {
+            // 记录变更的文件
+            foreach (var item in status.Where(s => s.State != FileStatus.Ignored))
+            {
+                logger.LogInformation("变更文件: {FilePath} ({State})", item.FilePath, item.State);
+            }
+        }
+
         if (!status.IsDirty)
         {
-            logger.LogDebug("没有需要提交的更改");
+            logger.LogWarning("没有需要提交的更改");
             return;
         }
 
