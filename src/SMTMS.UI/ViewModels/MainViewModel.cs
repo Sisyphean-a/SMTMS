@@ -3,23 +3,22 @@ using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
 using System.IO;
 using SMTMS.Core.Interfaces;
-
-using SMTMS.Core.Aspects;
 using SMTMS.Core.Models;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 
 namespace SMTMS.UI.ViewModels;
 
-[Log]
 public partial class MainViewModel : ObservableObject
 {
     private readonly IModService _modService;
     private readonly IGitService _gitService;
     private readonly IGamePathService _gamePathService;
     private readonly ITranslationService _translationService;
-    private readonly IServiceScopeFactory _scopeFactory; // Added
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ILogger<MainViewModel> _logger;
 
     // 保存前请求更新绑定的事件
     public event EventHandler? SaveRequested;
@@ -47,17 +46,21 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<ModDiffModel> ModDiffChanges { get; } = new();
 
     public MainViewModel(
-        IModService modService, 
-        IGitService gitService, 
-        IGamePathService gamePathService, 
+        IModService modService,
+        IGitService gitService,
+        IGamePathService gamePathService,
         ITranslationService translationService,
-        IServiceScopeFactory scopeFactory)
+        IServiceScopeFactory scopeFactory,
+        ILogger<MainViewModel> logger)
     {
         _modService = modService;
         _gitService = gitService;
         _gamePathService = gamePathService;
         _translationService = translationService;
-        _scopeFactory = scopeFactory; // Assigned
+        _scopeFactory = scopeFactory;
+        _logger = logger;
+
+        _logger.LogInformation("MainViewModel 初始化");
 
         // 优先从设置中加载上次保存的目录
         _ = InitializeAsync();
@@ -506,22 +509,36 @@ public partial class MainViewModel : ObservableObject
         try
         {
             // 1. Extract/Update DB
-            await _translationService.SaveTranslationsToDbAsync(ModsDirectory);
-            
+            var saveResult = await _translationService.SaveTranslationsToDbAsync(ModsDirectory);
+            if (!saveResult.IsSuccess)
+            {
+                StatusMessage = $"保存失败: {saveResult.Message}";
+                _logger.LogError("保存翻译失败: {Message}", saveResult.Message);
+                return;
+            }
+
             // 2. Export to Git Repo (Staging)
             var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
-            await _translationService.ExportTranslationsToGitRepo(ModsDirectory, appDataPath);
+            var exportResult = await _translationService.ExportTranslationsToGitRepo(ModsDirectory, appDataPath);
+            if (!exportResult.IsSuccess)
+            {
+                StatusMessage = $"导出失败: {exportResult.Message}";
+                _logger.LogError("导出翻译失败: {Message}", exportResult.Message);
+                return;
+            }
 
             // 3. Create Git Snapshot
             _gitService.CommitAll(appDataPath, commitMessage);
 
-            StatusMessage = "同步成功：已创建新版本。";
-            LoadHistory(); 
+            StatusMessage = $"同步成功：{saveResult.Message}";
+            _logger.LogInformation("同步成功: {Message}", saveResult.Message);
+            LoadHistory();
             await LoadModsAsync(); // Refresh status
         }
         catch (Exception ex)
         {
             StatusMessage = $"同步错误: {ex.Message}";
+            _logger.LogError(ex, "同步过程发生异常");
         }
     }
 
@@ -539,17 +556,25 @@ public partial class MainViewModel : ObservableObject
         try
         {
             // For now, act as "Apply latest translations from DB"
-            await _translationService.RestoreTranslationsFromDbAsync(ModsDirectory);
-            
-            // If we want to restore file state from Git (e.g. deleted files?), we might need Git Reset.
-            // _gitService.Reset(appDataPath, "HEAD"); 
-            
-            StatusMessage = "已恢复最新翻译。";
-            await LoadModsAsync(); 
+            var result = await _translationService.RestoreTranslationsFromDbAsync(ModsDirectory);
+
+            if (result.IsSuccess)
+            {
+                StatusMessage = $"恢复成功: {result.Message}";
+                _logger.LogInformation("恢复翻译成功: {Message}", result.Message);
+            }
+            else
+            {
+                StatusMessage = $"恢复失败: {result.Message}";
+                _logger.LogWarning("恢复翻译失败: {Message}", result.Message);
+            }
+
+            await LoadModsAsync();
         }
         catch (Exception ex)
         {
             StatusMessage = $"恢复错误: {ex.Message}";
+            _logger.LogError(ex, "恢复过程发生异常");
         }
     }
 }

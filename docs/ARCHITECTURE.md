@@ -31,8 +31,8 @@ flowchart LR
 
   - 定义接口：`IModService`, `IModRepository`, `IGitService`, `IGitDiffCacheService`, `INexusClient`, `ITranslationService`, `IGamePathService`, `ISettingsService`。
   - 定义模型：`ModManifest`, `ModMetadata`, `TranslationMemory`, `GitCommitModel`, `ModDiffModel`, `GitDiffCache`, `NexusModDto`, `AppSettings` 等。
-  - `ModService`, `TranslationService` (负责提取/恢复翻译), `RegistryGamePathService`。
-  - 提供横切基础设施：`LogAttribute`（AOP 日志）、`ServiceLocator`。
+  - 定义通用类型：`Result<T>`, `OperationResult` (统一错误处理模式)。
+  - 服务实现：`ModService`, `RegistryGamePathService`。
 
 - **SMTMS.Data**：数据访问层
 
@@ -56,14 +56,24 @@ flowchart LR
 
 - **SMTMS.Translation**：翻译服务实现
 
-  - 核心实现 `TranslationService`，负责在 "本地 manifest.json" 与 "SQLite 数据库" 之间双向同步翻译数据 (Extract/Restore)。
+  - 核心实现 `TranslationService : ITranslationService`，负责在 "本地 manifest.json" 与 "SQLite 数据库" 之间双向同步翻译数据 (Extract/Restore)。
+  - **架构改进**：
+    - 从 Core 层移至独立的 Translation 层，实现真正的分层架构。
+    - 使用构造函数注入 `ILogger<TranslationService>` 和 `IServiceScopeFactory`。
+    - 所有方法返回 `OperationResult`，提供统一的错误处理和详细的操作结果。
   - **性能优化**：
     - 使用 C# 11+ `[GeneratedRegex]` 特性，编译时生成优化的正则表达式代码（2-5倍性能提升）。
+    - 并行文件处理（`Task.WhenAll`），充分利用多核 CPU。
+    - 批量数据库操作，减少往返次数。
     - 支持 `CancellationToken`，允许取消长时间操作。
+  - **日志改进**：
+    - 结构化日志记录，包含关键业务上下文（文件数量、成功/失败计数、错误详情）。
+    - 使用适当的日志级别（Debug/Information/Warning/Error）。
 
 - **SMTMS.UI**：WPF 前端 & 组合根
   - 使用 `Host.CreateDefaultBuilder` 配置 DI、数据库、服务与 ViewModel。
-  - 初始化 `ServiceLocator`，创建并显示 `MainWindow`。
+  - 应用数据库迁移，创建并显示 `MainWindow`。
+  - 所有依赖通过构造函数注入，遵循标准 DI 模式。
 
 ---
 
@@ -75,7 +85,7 @@ flowchart LR
 flowchart TD
     subgraph SMTMS_Core[SMTMS.Core]
         IMod["IModService"] --> ModService["ModService"]
-        ITrans["ITranslationService"] --> TranslationService["TranslationService"]
+        ITrans["ITranslationService"]
         IGame["IGamePathService"] --> RegistryGamePathService["RegistryGamePathService"]
 
         IRepo["IModRepository"]
@@ -83,23 +93,24 @@ flowchart TD
         INexus["INexusClient"]
 
         ModService --> ModManifest["ModManifest"]
+
+        Result["Result<T>"]
+        OpResult["OperationResult"]
+    end
+
+    subgraph SMTMS_Translation[SMTMS.Translation]
+        TranslationService["TranslationService"] --> ITrans
         TranslationService --> ModMetadata["ModMetadata"]
-        TranslationService --> TranslationMemory["TranslationMemory"]
+        TranslationService --> IRepo
     end
-
-    subgraph Aspects_Infra["Aspects & Infra"]
-        LogAttr["LogAttribute (Rougamo Aspect)"] --> Logger["ILogger (via ServiceLocator)"]
-        ServiceLocator["ServiceLocator"]
-    end
-
-    TranslationService --> IRepo
 ```
 
 要点：
 
-- **接口全部定义在 Core 中**，实现分别在 Core/Data/GitProvider/NexusClient 等模块中。
-- `TranslationService` 通过 `IServiceScopeFactory` 动态获取 `IModRepository`，避免直接依赖 SMTMS.Data。
-- `LogAttribute` 通过 `ServiceLocator` 拿到 `ILogger&lt;T&gt;`，对带 `[Log]` 的类/方法织入统一日志。
+- **接口全部定义在 Core 中**，实现分别在 Core/Data/GitProvider/NexusClient/Translation 等模块中。
+- `TranslationService` 位于独立的 Translation 层，通过 `IServiceScopeFactory` 动态获取 `IModRepository`，避免直接依赖 SMTMS.Data。
+- 所有服务使用构造函数注入 `ILogger<T>`，遵循标准依赖注入模式。
+- 使用 `Result<T>` 和 `OperationResult` 模式进行统一错误处理。
 
 ### 2.2 数据层（SMTMS.Data）
 
@@ -175,17 +186,17 @@ flowchart TD
 
 - `App` 构造函数中配置：
   - `AddDbContext<AppDbContext>()`（SQLite）。
-  - `AddSingleton<IGitService, GitService>()`。
+  - `AddSingleton<IGitService, SMTMS.GitProvider.Services.GitService>()`。
   - `AddSingleton<IModService, ModService>()`。
   - `AddSingleton<IGamePathService, RegistryGamePathService>()`。
   - `AddScoped<IModRepository, ModRepository>()`。
   - `AddScoped<IGitDiffCacheService, GitDiffCacheService>()`。
   - `AddScoped<ISettingsService, SettingsService>()`。
-  - `AddSingleton<ITranslationService, TranslationService>()`。
+  - `AddSingleton<ITranslationService, SMTMS.Translation.Services.TranslationService>()`。
   - `AddSingleton<MainViewModel>()`, `AddSingleton<MainWindow>()`。
 - `OnStartup` 中：
-  - 启动 Host，
-  - 调用 `ServiceLocator.Initialize(_host.Services)`，
+  - 启动 Host。
+  - 应用数据库迁移（`dbContext.Database.MigrateAsync()`）。
   - 解析并显示 `MainWindow`。
 
 ---

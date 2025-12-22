@@ -37,7 +37,7 @@ public partial class App : System.Windows.Application
                 services.AddSingleton<IModService, ModService>();
                 services.AddSingleton<IGamePathService, RegistryGamePathService>();
                 services.AddScoped<IModRepository, SMTMS.Data.Repositories.ModRepository>(); // Scoped for EF
-                services.AddSingleton<ITranslationService, TranslationService>();
+                services.AddSingleton<ITranslationService, SMTMS.Translation.Services.TranslationService>();
                 services.AddScoped<ISettingsService, SMTMS.Data.Services.SettingsService>();
                 services.AddScoped<IGitDiffCacheService, SMTMS.Data.Services.GitDiffCacheService>(); // Scoped for EF
 
@@ -51,9 +51,6 @@ public partial class App : System.Windows.Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         await _host!.StartAsync();
-        
-        // Initialize ServiceLocator
-        SMTMS.Core.Infrastructure.ServiceLocator.Initialize(_host.Services);
 
         // Apply database migrations
         using (var scope = _host.Services.CreateScope())

@@ -1,35 +1,47 @@
 using LibGit2Sharp;
+using Microsoft.Extensions.Logging;
 using SMTMS.Core.Interfaces;
-using SMTMS.Core.Aspects;
 using SMTMS.Core.Models;
 using Newtonsoft.Json;
 
 namespace SMTMS.GitProvider.Services;
 
-[Log]
 public class GitService : IGitService
 {
+    private readonly ILogger<GitService> _logger;
+
+    public GitService(ILogger<GitService> logger)
+    {
+        _logger = logger;
+    }
+
     public bool IsRepository(string path)
     {
-        return Repository.IsValid(path);
+        var isValid = Repository.IsValid(path);
+        _logger.LogDebug("检查仓库有效性: {Path} => {IsValid}", path, isValid);
+        return isValid;
     }
 
     public void Init(string path)
     {
+        _logger.LogInformation("初始化 Git 仓库: {Path}", path);
         Repository.Init(path);
-        
+
         // Create .gitignore to exclude database files
         var gitIgnorePath = Path.Combine(path, ".gitignore");
         if (!File.Exists(gitIgnorePath))
         {
             File.WriteAllText(gitIgnorePath, "smtms.db\nsmtms.db-shm\nsmtms.db-wal\n");
+            _logger.LogDebug("创建 .gitignore 文件");
         }
     }
 
     public void CommitAll(string path, string message)
     {
+        _logger.LogInformation("提交所有更改: {Path}, 消息: {Message}", path, message);
+
         using var repo = new Repository(path);
-        
+
         // Ensure .gitignore is valid
         var gitIgnorePath = Path.Combine(path, ".gitignore");
         if (!File.Exists(gitIgnorePath))
@@ -42,24 +54,33 @@ public class GitService : IGitService
 
         // Check if there are changes to commit
         var status = repo.RetrieveStatus();
-        if (!status.IsDirty) return;
+        if (!status.IsDirty)
+        {
+            _logger.LogDebug("没有需要提交的更改");
+            return;
+        }
 
         // Use a default signature for auto-commits
         var signature = new Signature("SMTMS Auto", "auto@smtms.local", DateTimeOffset.Now);
-        repo.Commit(message, signature, signature);
+        var commit = repo.Commit(message, signature, signature);
+        _logger.LogInformation("提交成功: {CommitId}", commit.Id.ToString().Substring(0, 7));
     }
 
     public void Checkout(string path, string branchName)
     {
+        _logger.LogInformation("切换分支: {Path} => {BranchName}", path, branchName);
+
         using var repo = new Repository(path);
         var branch = repo.Branches[branchName];
         if (branch != null)
         {
             Commands.Checkout(repo, branch);
+            _logger.LogInformation("分支切换成功");
         }
         else
         {
-             throw new Exception($"Branch '{branchName}' not found.");
+            _logger.LogError("分支不存在: {BranchName}", branchName);
+            throw new Exception($"Branch '{branchName}' not found.");
         }
     }
 

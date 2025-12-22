@@ -49,7 +49,7 @@ SMTMS 基于 **.NET 8** 和 **WPF** 构建，採用纯净的 **MVVM** 架构：
 | 模块                  | 职责                     | 关键技术                   |
 | :-------------------- | :----------------------- | :------------------------- |
 | **SMTMS.UI**          | 用户界面与展现逻辑       | WPF, CommunityToolkit.Mvvm |
-| **SMTMS.Core**        | 核心业务模型与防腐层接口 | Rougamo (AOP Logging)      |
+| **SMTMS.Core**        | 核心业务模型与防腐层接口 | .NET 8, 依赖注入           |
 | **SMTMS.Data**        | 数据持久化、配置管理     | EF Core, SQLite            |
 | **SMTMS.GitProvider** | 自动化版本控制           | LibGit2Sharp               |
 | **SMTMS.Translation** | 翻译同步服务             | Newtonsoft.Json, Regex     |
@@ -88,7 +88,8 @@ SMTMS 基于 **.NET 8** 和 **WPF** 构建，採用纯净的 **MVVM** 架构：
 - [x] LibGit2Sharp 后台自动版本控制
 - [x] 翻译数据的 **提取 (Extract)** 与 **恢复 (Restore)** 核心逻辑
 - [x] 历史记录查看与一键回滚
-- [x] AOP 统一日志记录
+- [x] 结构化日志记录与统一错误处理
+- [x] 分层架构优化与性能提升
 
 ### 🚧 进行中 (In Progress)
 

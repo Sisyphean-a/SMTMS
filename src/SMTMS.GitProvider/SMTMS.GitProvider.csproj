@@ -6,7 +6,7 @@
 
   <ItemGroup>
     <PackageReference Include="LibGit2Sharp" Version="0.31.0" />
-    <PackageReference Include="Rougamo.Fody" Version="4.0.4" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.1" />
   </ItemGroup>
 
   <PropertyGroup>
