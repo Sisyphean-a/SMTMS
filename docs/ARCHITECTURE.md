@@ -88,6 +88,11 @@ flowchart LR
   - 应用数据库迁移，创建并显示 `MainWindow`。
   - 所有依赖通过构造函数注入，遵循标准 DI 模式。
   - 注册 `IFileSystem` 为 `PhysicalFileSystem`（生产环境）。
+  - **MVVM 架构**：
+    - `MainViewModel`：Shell 容器，负责全局状态和导航。
+    - `ModListViewModel`：模组列表管理，负责扫描、加载和单项编辑。
+    - `HistoryViewModel`：Git 历史管理，负责提交历史和差异对比。
+    - 使用 `WeakReferenceMessenger` 实现组件间解耦通信（状态消息、刷新请求等）。
 
 ---
 
@@ -188,13 +193,24 @@ flowchart TD
     Host --> DI["ServiceCollection"]
 
     DI --> MainWindow["MainWindow"]
-    DI --> MainVM["MainViewModel"]
+    DI --> MainVM["MainViewModel (Shell)"]
+    DI --> ModListVM["ModListViewModel"]
+    DI --> HistoryVM["HistoryViewModel"]
 
+    MainVM --> ModListVM
+    MainVM --> HistoryVM
     MainVM --> IGamePath["IGamePathService"]
-    MainVM --> IModSvc["IModService"]
     MainVM --> ITransSvc["ITranslationService"]
     MainVM --> IGitSvc["IGitService"]
     MainVM --> Scope["IServiceScopeFactory"]
+
+    ModListVM --> IModSvc["IModService"]
+    ModListVM --> Scope
+    ModListVM --> Messenger["WeakReferenceMessenger"]
+
+    HistoryVM --> IGitSvc
+    HistoryVM --> Scope
+    HistoryVM --> Messenger
 
     Scope --> IRepo["IModRepository"]
 ```
@@ -209,7 +225,12 @@ flowchart TD
   - `AddScoped<IGitDiffCacheService, GitDiffCacheService>()`。
   - `AddScoped<ISettingsService, SettingsService>()`。
   - `AddSingleton<ITranslationService, SMTMS.Translation.Services.TranslationService>()`。
+  - `AddSingleton<ModListViewModel>()`, `AddSingleton<HistoryViewModel>()`。
   - `AddSingleton<MainViewModel>()`, `AddSingleton<MainWindow>()`。
+- **MVVM 架构**：
+  - `MainViewModel` 作为 Shell 容器，持有 `ModListViewModel` 和 `HistoryViewModel`。
+  - 各 ViewModel 通过 `WeakReferenceMessenger` 发送和接收消息，实现解耦通信。
+  - 消息类型包括：`StatusMessage`（状态更新）、`RefreshModsRequestMessage`（刷新模组列表）、`ModsLoadedMessage`（模组加载完成）等。
 - `OnStartup` 中：
   - 启动 Host。
   - 应用数据库迁移（`dbContext.Database.MigrateAsync()`）。
@@ -227,34 +248,36 @@ flowchart TD
 sequenceDiagram
     participant U as User
     participant V as MainWindow
-    participant VM as MainViewModel
+    participant ModListVM as ModListViewModel
     participant MS as IModService(ModService)
     participant Scope as IServiceScopeFactory
     participant Repo as IModRepository(ModRepository)
+    participant Msg as WeakReferenceMessenger
     participant FS as FileSystem
     participant DB as SQLite
 
     U->>V: 点击 "Scan Mods" 按钮
-    V->>VM: LoadModsAsync()
-    VM->>VM: Status = "Scanning mods..."
-    VM->>MS: ScanModsAsync(ModsDirectory)
+    V->>ModListVM: LoadModsAsync()
+    ModListVM->>Msg: Send(StatusMessage("Scanning..."))
+    ModListVM->>MS: ScanModsAsync(ModsDirectory)
     MS->>FS: 并行读取所有 manifest.json (Task.WhenAll)
     FS-->>MS: ModManifest 列表
-    MS-->>VM: IEnumerable<ModManifest>
+    MS-->>ModListVM: IEnumerable<ModManifest>
 
-    VM->>Scope: CreateScope()
-    Scope-->>VM: IServiceScope
-    VM->>Repo: GetModsByIdsAsync(uniqueIds) - 批量查询
+    ModListVM->>Scope: CreateScope()
+    Scope-->>ModListVM: IServiceScope
+    ModListVM->>Repo: GetModsByIdsAsync(uniqueIds) - 批量查询
     Repo->>DB: 一次性查询所有 Mod
     DB-->>Repo: Dictionary<string, ModMetadata>
 
-    VM->>VM: 收集需要更新的 Mod
-    VM->>Repo: UpsertModsAsync(mods) - 批量保存
+    ModListVM->>ModListVM: 收集需要更新的 Mod
+    ModListVM->>Repo: UpsertModsAsync(mods) - 批量保存
     Repo->>DB: 一次性提交所有变更
     DB-->>Repo: 保存成功
 
-    VM->>VM: 创建 ModViewModel 集合, 应用翻译字段
-    VM->>VM: Status = $"Loaded {count} mods."
+    ModListVM->>ModListVM: 创建 ModViewModel 集合
+    ModListVM->>Msg: Send(StatusMessage("Loaded {count} mods"))
+    ModListVM->>Msg: Send(ModsLoadedMessage)
 ```
 
 ### 3.2 保存当前 Mod 的翻译 (Save Local Only)
@@ -262,15 +285,16 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant U as User
-    participant VM as MainViewModel
+    participant ModListVM as ModListViewModel
+    participant Msg as WeakReferenceMessenger
     participant FS as FileSystem
 
-    U->>VM: 点击 "Save" 当前选中 Mod
-    VM->>VM: 检查 SelectedMod 是否为空
+    U->>ModListVM: 点击 "Save" 当前选中 Mod
+    ModListVM->>ModListVM: 检查 SelectedMod 是否为空
 
-    VM->>FS: 写入 manifest.json (Newtonsoft.Json)
-    VM->>VM: Status = "已保存 '...' (本地)。"
-    note right of VM: 此时数据库未更新，Git 未创建提交
+    ModListVM->>FS: 写入 manifest.json (正则替换保留格式)
+    ModListVM->>Msg: Send(StatusMessage("已保存 '...' (本地)"))
+    note right of ModListVM: 此时数据库未更新，Git 未创建提交
 ```
 
 ### 3.3 同步到数据库 & 创建版本 (Sync / Checkpoint)
@@ -278,18 +302,22 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant U as User
-    participant VM as MainViewModel
+    participant MainVM as MainViewModel
+    participant HistoryVM as HistoryViewModel
+    participant ModListVM as ModListViewModel
     participant TS as ITranslationService
     participant GB as IGitService
+    participant Msg as WeakReferenceMessenger
     participant Repo as IModRepository
     participant DB as SQLite
     participant FS as FileSystem
 
-    U->>VM: 点击 "Sync to Database"
-    VM->>U: 弹出 CommitDialog
-    U->>VM: 输入提交信息 (Message) & 确认
+    U->>MainVM: 点击 "Sync to Database"
+    MainVM->>U: 弹出 CommitDialog
+    U->>MainVM: 输入提交信息 (Message) & 确认
 
-    VM->>TS: SaveTranslationsToDbAsync(ModsDirectory)
+    MainVM->>Msg: Send(StatusMessage("正在同步..."))
+    MainVM->>TS: SaveTranslationsToDbAsync(ModsDirectory)
     TS->>FS: 并行计算所有文件 Hash (Task.WhenAll)
     TS->>TS: 对比数据库 LastFileHash，过滤未变更文件
     TS->>FS: 并行读取和解析变更的 JSON (Task.WhenAll)
@@ -298,14 +326,16 @@ sequenceDiagram
     TS->>Repo: UpsertModsAsync(mods) - 批量保存
     Repo->>DB: 一次性提交所有变更
 
-    VM->>TS: ExportTranslationsToGitRepo(ModsDirectory, AppDataPath)
+    MainVM->>TS: ExportTranslationsToGitRepo(ModsDirectory, AppDataPath)
     TS->>FS: 并行导出所有 manifest.json (Task.WhenAll)
 
-    VM->>GB: CommitAll(AppDataPath, message)
+    MainVM->>GB: CommitAll(AppDataPath, message)
     GB->>GB: Stage * -> Commit
 
-    VM->>VM: Status = "同步成功：已创建新版本。"
-    VM->>VM: LoadHistory()
+    MainVM->>Msg: Send(StatusMessage("同步成功"))
+    MainVM->>HistoryVM: LoadHistory() (通过消息或直接调用)
+    MainVM->>Msg: Send(RefreshModsRequestMessage)
+    ModListVM->>ModListVM: 接收消息并刷新
 ```
 
 ### 3.6 单模组回滚 (Single Mod Rollback)
@@ -339,15 +369,18 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant U as User
-    participant VM as MainViewModel
+    participant MainVM as MainViewModel
+    participant ModListVM as ModListViewModel
     participant TS as ITranslationService
+    participant Msg as WeakReferenceMessenger
     participant Scope as IServiceScopeFactory
     participant Repo as IModRepository
     participant DB as SQLite
     participant FS as FileSystem
 
-    U->>VM: 点击 "Restore Translations" (恢复翻译)
-    VM->>TS: RestoreTranslationsFromDbAsync(ModsDirectory)
+    U->>MainVM: 点击 "Restore Translations" (恢复翻译)
+    MainVM->>Msg: Send(StatusMessage("正在恢复..."))
+    MainVM->>TS: RestoreTranslationsFromDbAsync(ModsDirectory)
 
     TS->>Scope: CreateScope()
     Scope-->>TS: IServiceScope
@@ -366,9 +399,10 @@ sequenceDiagram
         end
     end
 
-    TS-->>VM: 完成
-    VM->>VM: Status = "已从数据库恢复翻译。"
-    VM->>VM: LoadModsAsync()
+    TS-->>MainVM: 完成
+    MainVM->>Msg: Send(StatusMessage("恢复成功"))
+    MainVM->>Msg: Send(RefreshModsRequestMessage)
+    ModListVM->>ModListVM: 接收消息并刷新
 ```
 
 ### 3.5 Git 回滚
@@ -376,27 +410,31 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant U as User
-    participant VM as MainViewModel
+    participant HistoryVM as HistoryViewModel
+    participant ModListVM as ModListViewModel
     participant Git as IGitService(GitService)
     participant TS as ITranslationService
+    participant Msg as WeakReferenceMessenger
     participant Repo as IModRepository
     participant DB as SQLite
 
-    U->>VM: 选中某个 Commit, 点击 "Rollback"
-    VM->>Git: Reset(appDataPath, SelectedCommit.FullHash)
+    U->>HistoryVM: 选中某个 Commit, 点击 "Rollback"
+    HistoryVM->>Msg: Send(StatusMessage("正在回滚..."))
+    HistoryVM->>Git: Reset(appDataPath, SelectedCommit.FullHash)
     Git->>Git: Reset(Hard) -> 恢复 Shadow Files (manifest.json) 到旧版本
 
-    VM->>TS: ImportTranslationsFromGitRepoAsync(appDataPath)
+    HistoryVM->>TS: ImportTranslationsFromGitRepoAsync(appDataPath)
     TS->>TS: 并行读取和解析所有 Shadow Files (Task.WhenAll)
     TS->>Repo: GetModsByIdsAsync(uniqueIds) - 批量查询
     Repo->>DB: 一次性查询所有 Mod
     TS->>Repo: UpsertModsAsync(mods) - 批量保存旧版翻译
     Repo->>DB: 一次性提交所有变更
 
-    VM->>TS: RestoreTranslationsFromDbAsync(ModsDirectory)
+    HistoryVM->>TS: RestoreTranslationsFromDbAsync(ModsDirectory)
     TS->>TS: 从数据库读取数据 (此时已是旧版翻译)
     TS->>Game Dir: 并行覆盖游戏目录下的 manifest.json (Task.WhenAll)
 
-    VM->>VM: Status = $"Rolled back to '{ShortHash}' and applied to files."
-    VM->>VM: LoadModsAsync()
+    HistoryVM->>Msg: Send(StatusMessage("回滚成功"))
+    HistoryVM->>Msg: Send(RefreshModsRequestMessage)
+    ModListVM->>ModListVM: 接收消息并刷新
 ```

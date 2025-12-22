@@ -45,7 +45,9 @@ public partial class App : System.Windows.Application
                 services.AddScoped<ISettingsService, SMTMS.Data.Services.SettingsService>();
                 services.AddScoped<IGitDiffCacheService, SMTMS.Data.Services.GitDiffCacheService>(); // Scoped for EF
 
-                // ViewModels are usually Transient or Singleton depending on navigation
+                // ViewModels - 注册子 ViewModels 为 Singleton
+                services.AddSingleton<ModListViewModel>();
+                services.AddSingleton<HistoryViewModel>();
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();
             })

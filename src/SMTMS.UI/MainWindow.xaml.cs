@@ -24,9 +24,9 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = viewModel;
         Closing += OnWindowClosing;
-        
+
         // 订阅保存命令执行前的事件，更新绑定
-        viewModel.SaveRequested += OnSaveRequested;
+        viewModel.ModListViewModel.SaveRequested += OnSaveRequested;
     }
 
     private void OnSaveRequested(object? sender, EventArgs e)
@@ -44,7 +44,7 @@ public partial class MainWindow : Window
         if (viewModel == null) return;
 
         // 检查是否有未保存的更改
-        var unsavedMods = viewModel.Mods.Where(m => m.IsDirty).ToList();
+        var unsavedMods = viewModel.ModListViewModel.Mods.Where(m => m.IsDirty).ToList();
         if (unsavedMods.Any())
         {
             var modNames = string.Join("\n", unsavedMods.Select(m => $"• {m.Name}"));

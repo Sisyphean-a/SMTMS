@@ -1,59 +1,52 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using System.Collections.ObjectModel;
+using CommunityToolkit.Mvvm.Messaging;
 using System.IO;
 using SMTMS.Core.Interfaces;
-using SMTMS.Core.Models;
+using SMTMS.UI.Messages;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using System.Text.RegularExpressions;
-using Newtonsoft.Json;
 
 namespace SMTMS.UI.ViewModels;
 
+/// <summary>
+/// 主视图模型（Shell），负责全局导航和状态管理
+/// </summary>
 public partial class MainViewModel : ObservableObject
 {
-    private readonly IModService _modService;
     private readonly IGitService _gitService;
     private readonly IGamePathService _gamePathService;
     private readonly ITranslationService _translationService;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<MainViewModel> _logger;
 
-    // 保存前请求更新绑定的事件
-    public event EventHandler? SaveRequested;
-
     [ObservableProperty]
     private string _applicationTitle = "SMTMS - Stardew Mod Translation & Management System";
 
     [ObservableProperty]
-    private string _modsDirectory = @"C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Mods"; // Default path, can be configurable
-    
+    private string _modsDirectory = @"C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Mods";
+
     [ObservableProperty]
     private string _statusMessage = "Ready.";
 
     [ObservableProperty]
-    private ModViewModel? _selectedMod;
+    private StatusLevel _statusLevel = StatusLevel.Info;
 
-    [ObservableProperty]
-    private GitCommitModel? _selectedCommit;
-
-    [ObservableProperty]
-    private ModDiffModel? _selectedDiffItem;
-
-    public ObservableCollection<ModViewModel> Mods { get; } = new();
-    public ObservableCollection<GitCommitModel> CommitHistory { get; } = new();
-    public ObservableCollection<ModDiffModel> ModDiffChanges { get; } = new();
+    // 子 ViewModels
+    public ModListViewModel ModListViewModel { get; }
+    public HistoryViewModel HistoryViewModel { get; }
 
     public MainViewModel(
-        IModService modService,
+        ModListViewModel modListViewModel,
+        HistoryViewModel historyViewModel,
         IGitService gitService,
         IGamePathService gamePathService,
         ITranslationService translationService,
         IServiceScopeFactory scopeFactory,
         ILogger<MainViewModel> logger)
     {
-        _modService = modService;
+        ModListViewModel = modListViewModel;
+        HistoryViewModel = historyViewModel;
         _gitService = gitService;
         _gamePathService = gamePathService;
         _translationService = translationService;
@@ -62,121 +55,73 @@ public partial class MainViewModel : ObservableObject
 
         _logger.LogInformation("MainViewModel 初始化");
 
-        // 优先从设置中加载上次保存的目录
+        // 订阅状态消息
+        WeakReferenceMessenger.Default.Register<StatusMessage>(this, OnStatusMessageReceived);
+
+        // 初始化
         _ = InitializeAsync();
+    }
+
+    private void OnStatusMessageReceived(object recipient, StatusMessage message)
+    {
+        StatusMessage = message.Message;
+        StatusLevel = message.Level;
     }
 
     private async Task InitializeAsync()
     {
-        // 使用scope访问scoped服务
-        using var scope = _scopeFactory.CreateScope();
-        var settingsService = scope.ServiceProvider.GetRequiredService<ISettingsService>();
-        var settings = await settingsService.GetSettingsAsync();
-        
-        // 优先使用上次保存的目录
-        if (!string.IsNullOrEmpty(settings.LastModsDirectory) && Directory.Exists(settings.LastModsDirectory))
+        try
         {
-            ModsDirectory = settings.LastModsDirectory;
-        }
-        else
-        {
-            // 回退到自动检测
-            var detectedPath = _gamePathService.GetModsPath();
-            if (!string.IsNullOrEmpty(detectedPath))
-            {
-                ModsDirectory = detectedPath;
-            }
-        }
-        
-        // Ensure Git is initialized in AppData/SMTMS
-        var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var smtmsPath = Path.Combine(appDataPath, "SMTMS");
-        // We probably need to pass this path to methods or GitService should know it.
-        // For now, let's assume specific operations know the path or we configure GitService?
-        // Actually GitService Init(path) is called.
-        // We should ensure it's initialized on startup or first usage.
-        if (!Directory.Exists(smtmsPath))
-        {
-            Directory.CreateDirectory(smtmsPath);
-        }
-        if (!_gitService.IsRepository(smtmsPath))
-        {
-            _gitService.Init(smtmsPath);
-        }
+            // 1. 加载设置
+            using var scope = _scopeFactory.CreateScope();
+            var settingsService = scope.ServiceProvider.GetRequiredService<ISettingsService>();
+            var settings = await settingsService.GetSettingsAsync();
 
-        // Auto-scan if mods directory exists
-        if (!string.IsNullOrEmpty(ModsDirectory) && Directory.Exists(ModsDirectory))
-        {
-            if (Directory.GetFiles(ModsDirectory).Length > 0 || Directory.GetDirectories(ModsDirectory).Length > 0)
+            // 2. 设置 Mods 目录
+            if (!string.IsNullOrEmpty(settings.LastModsDirectory) && Directory.Exists(settings.LastModsDirectory))
             {
-                // Fire and forget auto-scan safely
-                _ = LoadModsAsync();
+                ModsDirectory = settings.LastModsDirectory;
             }
+            else
+            {
+                var detectedPath = _gamePathService.GetModsPath();
+                if (!string.IsNullOrEmpty(detectedPath))
+                {
+                    ModsDirectory = detectedPath;
+                }
+            }
+
+            // 3. 初始化 Git 仓库
+            var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            var smtmsPath = Path.Combine(appDataPath, "SMTMS");
+
+            if (!Directory.Exists(smtmsPath))
+            {
+                Directory.CreateDirectory(smtmsPath);
+            }
+
+            if (!_gitService.IsRepository(smtmsPath))
+            {
+                _gitService.Init(smtmsPath);
+            }
+
+            // 4. 通知子 ViewModels 目录已设置
+            WeakReferenceMessenger.Default.Send(new ModsDirectoryChangedMessage(ModsDirectory));
+
+            StatusMessage = "初始化完成";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "初始化失败");
+            StatusMessage = $"初始化错误: {ex.Message}";
+            StatusLevel = StatusLevel.Error;
         }
     }
 
-    [RelayCommand]
-    private async Task LoadModsAsync()
+    partial void OnModsDirectoryChanged(string value)
     {
-        StatusMessage = "Scanning mods...";
-        Mods.Clear();
-
-        // 1. Scan files
-        var manifests = await _modService.ScanModsAsync(ModsDirectory);
-        var manifestList = manifests.ToList();
-
-        // 2. Sync with DB (批量操作优化)
-        using (var scope = _scopeFactory.CreateScope())
-        {
-            var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
-
-            // 批量获取所有 Mod 的元数据
-            var uniqueIds = manifestList.Select(m => m.UniqueID).ToList();
-            var existingMods = await modRepo.GetModsByIdsAsync(uniqueIds);
-
-            var modsToUpdate = new List<SMTMS.Core.Models.ModMetadata>();
-
-            foreach (var manifest in manifestList)
-            {
-                SMTMS.Core.Models.ModMetadata mod;
-
-                if (!existingMods.TryGetValue(manifest.UniqueID, out mod!))
-                {
-                    // 新 Mod
-                    mod = new SMTMS.Core.Models.ModMetadata
-                    {
-                        UniqueID = manifest.UniqueID,
-                        OriginalName = manifest.Name,
-                        OriginalDescription = manifest.Description,
-                        RelativePath = Path.GetRelativePath(ModsDirectory, Path.GetDirectoryName(manifest.ManifestPath)!)
-                    };
-                    modsToUpdate.Add(mod);
-                }
-                else
-                {
-                    // 更新路径（可能移动了）
-                    var newRelativePath = Path.GetRelativePath(ModsDirectory, Path.GetDirectoryName(manifest.ManifestPath)!);
-                    if (mod.RelativePath != newRelativePath)
-                    {
-                        mod.RelativePath = newRelativePath;
-                        modsToUpdate.Add(mod);
-                    }
-                }
-
-                // Add to UI collection (using DB data)
-                var viewModel = new ModViewModel(manifest, _gitService, mod);
-                Mods.Add(viewModel);
-            }
-
-            // 🔥 批量保存所有变更（一次数据库操作）
-            if (modsToUpdate.Any())
-            {
-                await modRepo.UpsertModsAsync(modsToUpdate);
-            }
-        }
-
-        StatusMessage = $"Loaded {Mods.Count} mods.";
-        LoadHistory(); // Refresh history
+        // 通知所有订阅者目录已变更
+        WeakReferenceMessenger.Default.Send(new ModsDirectoryChangedMessage(value));
     }
 
     [RelayCommand]
@@ -192,305 +137,58 @@ public partial class MainViewModel : ObservableObject
         if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
         {
             ModsDirectory = dialog.SelectedPath;
-            
+
             // 保存到数据库
             using var scope = _scopeFactory.CreateScope();
             var settingsService = scope.ServiceProvider.GetRequiredService<ISettingsService>();
             await settingsService.UpdateLastModsDirectoryAsync(ModsDirectory);
-            
-            StatusMessage = $"已设置Mods目录: {ModsDirectory}";
+
+            WeakReferenceMessenger.Default.Send(new StatusMessage($"已设置Mods目录: {ModsDirectory}", StatusLevel.Success));
         }
     }
 
-    [RelayCommand]
-    private async Task SaveModAsync()
-    {
-        if (SelectedMod == null)
-        {
-             StatusMessage = "保存错误: 未选择模组。";
-             return;
-        }
 
-        // 触发事件，让 View 更新所有 Explicit 绑定
-        SaveRequested?.Invoke(this, EventArgs.Empty);
-
-        try
-        {
-            // 使用正则表达式替换保留JSON注释
-            if (!string.IsNullOrEmpty(SelectedMod.ManifestPath))
-            {
-                var content = await File.ReadAllTextAsync(SelectedMod.ManifestPath);
-                bool changed = false;
-
-                // 替换Name
-                var manifest = SelectedMod.Manifest;
-                string escapedName = JsonConvert.ToString(manifest.Name).Trim('"');
-                if (Regex.IsMatch(content, @"""Name""\s*:\s*""[^""]*"""))
-                {
-                    string newContent = Regex.Replace(content, @"(""Name""\s*:\s*"")[^""]*("")", $"${{1}}{escapedName}${{2}}");
-                    if (content != newContent)
-                    {
-                        content = newContent;
-                        changed = true;
-                    }
-                }
-
-                // 替换Author
-                string escapedAuthor = JsonConvert.ToString(manifest.Author).Trim('"');
-                if (Regex.IsMatch(content, @"""Author""\s*:\s*""[^""]*"""))
-                {
-                    string newContent = Regex.Replace(content, @"(""Author""\s*:\s*"")[^""]*("")", $"${{1}}{escapedAuthor}${{2}}");
-                    if (content != newContent)
-                    {
-                        content = newContent;
-                        changed = true;
-                    }
-                }
-
-                // 替换Version - DISABLED (User request: prevent version changes)
-                // string escapedVersion = JsonConvert.ToString(manifest.Version).Trim('"');
-                // if (Regex.IsMatch(content, @"""Version""\s*:\s*""[^""]*""")) ...
-
-                // 替换Description
-                string escapedDesc = JsonConvert.ToString(manifest.Description).Trim('"');
-                if (Regex.IsMatch(content, @"""Description""\s*:\s*""[^""]*"""))
-                {
-                    string newContent = Regex.Replace(content, @"(""Description""\s*:\s*"")[^""]*("")", $"${{1}}{escapedDesc}${{2}}");
-                    if (content != newContent)
-                    {
-                        content = newContent;
-                        changed = true;
-                    }
-                }
-
-                if (changed)
-                {
-                    await File.WriteAllTextAsync(SelectedMod.ManifestPath, content);
-                }
-            }
-
-            // 重置IsDirty状态
-            SelectedMod.ResetDirtyState();
-            SelectedMod.UpdateStatus();
-            
-            StatusMessage = $"已保存 '{SelectedMod.Name}' (本地)。请点击 '同步到数据库' 以创建版本。";
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = $"保存错误: {ex.Message}";
-        }
-    }
-    
-    [RelayCommand]
-    private void LoadHistory()
-    {
-        try
-        {
-            var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
-             if (_gitService.IsRepository(appDataPath))
-            {
-                var history = _gitService.GetHistory(appDataPath);
-                CommitHistory.Clear();
-                foreach (var commit in history)
-                {
-                    CommitHistory.Add(commit);
-                }
-            }
-            else
-            {
-                 StatusMessage = "History Warning: No repository found.";
-            }
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = $"History Error: {ex.Message}";
-        }
-    }
-
-    [RelayCommand]
-    private async Task GitRollback()
-    {
-        if (SelectedCommit == null || string.IsNullOrEmpty(SelectedCommit.FullHash))
-        {
-             StatusMessage = "Rollback Error: No valid commit selected.";
-             return;
-        }
-
-        try
-        {
-            // Release DB locks
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-            
-            var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
-            
-            await Task.Run(() => _gitService.Reset(appDataPath, SelectedCommit.FullHash));
-            
-            // Sync DB with the reverted Git Repo state
-            await _translationService.ImportTranslationsFromGitRepoAsync(appDataPath);
-            
-            // Auto-sync: Apply the restored DB state to game files
-            // Wait, Reset reverted the whole repo, including smtms.db (if tracked) or files in Mods/? 
-            // If smtms.db IS tracked, it reverted.
-            // Then RestoreFromDatabaseAsync reads the reverted DB and updates manifests.
-            // This syncs the Game Mods with the rolled-back state.
-            await RestoreFromDatabaseAsync();
-
-            StatusMessage = $"Rolled back to '{SelectedCommit.ShortHash}' and applied to files.";
-            await LoadModsAsync();
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = $"Rollback Error: {ex.Message}";
-        }
-    }
 
     [RelayCommand]
     private async Task HardResetAsync()
     {
         try
         {
-             // Release DB locks
+            // 释放数据库锁
             Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-            
+
             var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
-            
-            // 1. Delete .git folder
+
+            // 1. 删除 .git 文件夹
             await Task.Run(() => _gitService.DeleteRepository(appDataPath));
 
-            // 2. Delete DB file
+            // 2. 删除数据库文件
             var dbPath = Path.Combine(appDataPath, "smtms.db");
             if (File.Exists(dbPath))
             {
                 File.Delete(dbPath);
             }
-            
-            // 3. Re-create DB Tables
+
+            // 3. 重新创建数据库表
             using (var scope = _scopeFactory.CreateScope())
             {
-                 var context = scope.ServiceProvider.GetRequiredService<SMTMS.Data.Context.AppDbContext>();
-                 context.Database.EnsureCreated();
+                var context = scope.ServiceProvider.GetRequiredService<SMTMS.Data.Context.AppDbContext>();
+                context.Database.EnsureCreated();
             }
 
-            StatusMessage = "Initialization complete. All history and data cleared.";
-            CommitHistory.Clear();
-            await LoadModsAsync(); // Rescan, will treat as new/untracked
-            
-            // Re-init git
-             _gitService.Init(appDataPath);
+            // 4. 重新初始化 Git
+            _gitService.Init(appDataPath);
+
+            WeakReferenceMessenger.Default.Send(new StatusMessage("初始化完成。所有历史和数据已清空。", StatusLevel.Success));
+
+            // 5. 请求刷新
+            WeakReferenceMessenger.Default.Send(RefreshModsRequestMessage.Instance);
+            HistoryViewModel.LoadHistory();
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Init Error: {ex.Message}";
-        }
-    }
-
-    [RelayCommand]
-    private async Task ImportLegacyDataAsync()
-    {
-       // Deprecated or redirect to SaveTranslationsToDbAsync (Sync)
-       await SyncToDatabaseAsync();
-    }
-
-    [RelayCommand]
-    private async Task ApplyTranslationsAsync()
-    {
-        // This command was "Apply All Translations". 
-        await RestoreFromDatabaseAsync();
-    }
-
-    [ObservableProperty]
-    private string _diffText = "Select a commit to see changes.";
-
-    [ObservableProperty]
-    private bool _isLoadingDiff = false;
-
-    [ObservableProperty]
-    private string _diffLoadingMessage = "";
-
-    partial void OnSelectedCommitChanged(GitCommitModel? value)
-    {
-        // 清空选中的 Diff 项
-        SelectedDiffItem = null;
-
-        if (value != null)
-        {
-            // 异步加载 Diff，避免阻塞 UI
-            _ = LoadDiffAsync(value);
-        }
-        else
-        {
-            DiffText = "Select a commit to see changes.";
-            ModDiffChanges.Clear();
-        }
-    }
-
-    private async Task LoadDiffAsync(GitCommitModel commit)
-    {
-        IsLoadingDiff = true;
-        DiffLoadingMessage = "正在加载变更...";
-        ModDiffChanges.Clear();
-
-        try
-        {
-            var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
-            List<ModDiffModel> structuredDiff;
-
-            // 使用 scope 访问 scoped 服务
-            using (var scope = _scopeFactory.CreateScope())
-            {
-                var cacheService = scope.ServiceProvider.GetRequiredService<IGitDiffCacheService>();
-
-                // 1. 先尝试从缓存读取
-                DiffLoadingMessage = "正在检查缓存...";
-                var cachedDiff = await cacheService.GetCachedDiffAsync(commit.FullHash);
-
-                if (cachedDiff != null)
-                {
-                    // 缓存命中
-                    DiffLoadingMessage = "从缓存加载...";
-                    structuredDiff = cachedDiff;
-                }
-                else
-                {
-                    // 缓存未命中，计算 Diff
-                    DiffLoadingMessage = "正在计算变更...";
-                    structuredDiff = await Task.Run(() => _gitService.GetStructuredDiff(appDataPath, commit.FullHash).ToList());
-
-                    // 保存到缓存（异步，不阻塞 UI）
-                    _ = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            using var saveScope = _scopeFactory.CreateScope();
-                            var saveCacheService = saveScope.ServiceProvider.GetRequiredService<IGitDiffCacheService>();
-                            await saveCacheService.SaveDiffCacheAsync(commit.FullHash, structuredDiff);
-                        }
-                        catch
-                        {
-                            // 忽略缓存保存失败
-                        }
-                    });
-                }
-            }
-
-            // 回到 UI 线程更新集合
-            DiffLoadingMessage = "正在更新界面...";
-            foreach (var diff in structuredDiff)
-            {
-                ModDiffChanges.Add(diff);
-            }
-
-            DiffText = $"共 {ModDiffChanges.Count} 个模组发生变更";
-        }
-        catch (Exception ex)
-        {
-            DiffText = $"Error loading diff: {ex.Message}";
-            ModDiffChanges.Clear();
-        }
-        finally
-        {
-            IsLoadingDiff = false;
-            DiffLoadingMessage = "";
+            _logger.LogError(ex, "初始化失败");
+            WeakReferenceMessenger.Default.Send(new StatusMessage($"初始化错误: {ex.Message}", StatusLevel.Error));
         }
     }
 
@@ -505,76 +203,72 @@ public partial class MainViewModel : ObservableObject
 
         string commitMessage = dialog.CommitMessage;
 
-        StatusMessage = "正在同步到数据库...";
+        WeakReferenceMessenger.Default.Send(new StatusMessage("正在同步到数据库...", StatusLevel.Info));
+
         try
         {
-            // 1. Extract/Update DB
+            // 1. 提取/更新数据库
             var saveResult = await _translationService.SaveTranslationsToDbAsync(ModsDirectory);
             if (!saveResult.IsSuccess)
             {
-                StatusMessage = $"保存失败: {saveResult.Message}";
+                WeakReferenceMessenger.Default.Send(new StatusMessage($"保存失败: {saveResult.Message}", StatusLevel.Error));
                 _logger.LogError("保存翻译失败: {Message}", saveResult.Message);
                 return;
             }
 
-            // 2. Export to Git Repo (Staging)
+            // 2. 导出到 Git 仓库
             var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
             var exportResult = await _translationService.ExportTranslationsToGitRepo(ModsDirectory, appDataPath);
             if (!exportResult.IsSuccess)
             {
-                StatusMessage = $"导出失败: {exportResult.Message}";
+                WeakReferenceMessenger.Default.Send(new StatusMessage($"导出失败: {exportResult.Message}", StatusLevel.Error));
                 _logger.LogError("导出翻译失败: {Message}", exportResult.Message);
                 return;
             }
 
-            // 3. Create Git Snapshot
+            // 3. 创建 Git 快照
             _gitService.CommitAll(appDataPath, commitMessage);
 
-            StatusMessage = $"同步成功：{saveResult.Message}";
+            WeakReferenceMessenger.Default.Send(new StatusMessage($"同步成功：{saveResult.Message}", StatusLevel.Success));
             _logger.LogInformation("同步成功: {Message}", saveResult.Message);
-            LoadHistory();
-            await LoadModsAsync(); // Refresh status
+
+            // 刷新历史和模组列表
+            HistoryViewModel.LoadHistory();
+            WeakReferenceMessenger.Default.Send(RefreshModsRequestMessage.Instance);
         }
         catch (Exception ex)
         {
-            StatusMessage = $"同步错误: {ex.Message}";
             _logger.LogError(ex, "同步过程发生异常");
+            WeakReferenceMessenger.Default.Send(new StatusMessage($"同步错误: {ex.Message}", StatusLevel.Error));
         }
     }
 
     [RelayCommand]
     private async Task RestoreFromDatabaseAsync()
     {
-        // TODO: Show Dialog to select Version. Default to Latest.
-        // For now, restoring latest means:
-        // 1. Apply DB translations to manifests (RestoreTranslationsFromDbAsync)
-        // 2. Or Git Reset to HEAD?
-        // The user request says "Restore from Database -> manual select version -> default last".
-        // "Restore" in this context (sync/restore pair) usually means "Pull from storage to disk".
-        
-        StatusMessage = "正在从数据库恢复...";
+        WeakReferenceMessenger.Default.Send(new StatusMessage("正在从数据库恢复...", StatusLevel.Info));
+
         try
         {
-            // For now, act as "Apply latest translations from DB"
             var result = await _translationService.RestoreTranslationsFromDbAsync(ModsDirectory);
 
             if (result.IsSuccess)
             {
-                StatusMessage = $"恢复成功: {result.Message}";
+                WeakReferenceMessenger.Default.Send(new StatusMessage($"恢复成功: {result.Message}", StatusLevel.Success));
                 _logger.LogInformation("恢复翻译成功: {Message}", result.Message);
             }
             else
             {
-                StatusMessage = $"恢复失败: {result.Message}";
+                WeakReferenceMessenger.Default.Send(new StatusMessage($"恢复失败: {result.Message}", StatusLevel.Warning));
                 _logger.LogWarning("恢复翻译失败: {Message}", result.Message);
             }
 
-            await LoadModsAsync();
+            WeakReferenceMessenger.Default.Send(RefreshModsRequestMessage.Instance);
         }
         catch (Exception ex)
         {
-            StatusMessage = $"恢复错误: {ex.Message}";
             _logger.LogError(ex, "恢复过程发生异常");
+            WeakReferenceMessenger.Default.Send(new StatusMessage($"恢复错误: {ex.Message}", StatusLevel.Error));
         }
     }
 }

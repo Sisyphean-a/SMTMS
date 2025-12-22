@@ -44,15 +44,15 @@ SMTMS 引入了企业级的 **Git 版本控制** 作为底层存储后端（位�
 
 ## 项目结构 (Architecture)
 
-SMTMS 基于 **.NET 8** 和 **WPF** 构建，採用纯净的 **MVVM** 架构：
+SMTMS 基于 **.NET 8** 和 **WPF** 构建，採用纯净的 **MVVM** 架构，通过消息总线实现组件解耦：
 
-| 模块                  | 职责                     | 关键技术                   |
-| :-------------------- | :----------------------- | :------------------------- |
-| **SMTMS.UI**          | 用户界面与展现逻辑       | WPF, CommunityToolkit.Mvvm |
-| **SMTMS.Core**        | 核心业务模型与防腐层接口 | .NET 8, 依赖注入           |
-| **SMTMS.Data**        | 数据持久化、配置管理     | EF Core, SQLite            |
-| **SMTMS.GitProvider** | 自动化版本控制           | LibGit2Sharp               |
-| **SMTMS.Translation** | 翻译同步服务             | Newtonsoft.Json, Regex     |
+| 模块                  | 职责                     | 关键技术                                    |
+| :-------------------- | :----------------------- | :------------------------------------------ |
+| **SMTMS.UI**          | 用户界面与展现逻辑       | WPF, CommunityToolkit.Mvvm, WeakReferenceMessenger |
+| **SMTMS.Core**        | 核心业务模型与防腐层接口 | .NET 8, 依赖注入                            |
+| **SMTMS.Data**        | 数据持久化、配置管理     | EF Core, SQLite                             |
+| **SMTMS.GitProvider** | 自动化版本控制           | LibGit2Sharp                                |
+| **SMTMS.Translation** | 翻译同步服务             | Newtonsoft.Json, Regex                      |
 
 ---
 
