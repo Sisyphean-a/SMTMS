@@ -17,7 +17,7 @@ public class OperationResult
         SuccessCount = successCount;
         ErrorCount = errorCount;
         Message = message;
-        Details = details ?? new List<string>();
+        Details = details ?? [];
     }
 
     public static OperationResult Success(int count, string message)

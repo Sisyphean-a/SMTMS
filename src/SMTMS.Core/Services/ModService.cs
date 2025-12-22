@@ -5,24 +5,19 @@ using SMTMS.Core.Models;
 
 namespace SMTMS.Core.Services;
 
-public class ModService : IModService
+public class ModService(IFileSystem fileSystem) : IModService
 {
-    private readonly JsonSerializerSettings _jsonSettings;
-    private readonly IFileSystem _fileSystem;
-
-    public ModService(IFileSystem fileSystem)
+    private readonly JsonSerializerSettings _jsonSettings = new()
     {
-        _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+        Formatting = Formatting.Indented,
+        NullValueHandling = NullValueHandling.Ignore,
+        // Handle comments which are common in SMAPI manifests
+        MetadataPropertyHandling = MetadataPropertyHandling.Ignore,
+        DateParseHandling = DateParseHandling.None,
+    };
+    private readonly IFileSystem _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
 
-        _jsonSettings = new JsonSerializerSettings
-        {
-            Formatting = Formatting.Indented,
-            NullValueHandling = NullValueHandling.Ignore,
-            // Handle comments which are common in SMAPI manifests
-            MetadataPropertyHandling = MetadataPropertyHandling.Ignore,
-            DateParseHandling = DateParseHandling.None,
-        };
-    }
+    // Handle comments which are common in SMAPI manifests
 
     public async Task<IEnumerable<ModManifest>> ScanModsAsync(string modsDirectory)
     {

@@ -13,10 +13,10 @@ public interface IGitService
     void Checkout(string path, string branchName);
     // Returns a list of changed files
     IEnumerable<string> GetStatus(string path);
-    IEnumerable<SMTMS.Core.Models.GitCommitModel> GetHistory(string path);
-    IEnumerable<SMTMS.Core.Models.GitCommitModel> GetFileHistory(string repoPath, string relativeFilePath);
+    IEnumerable<Models.GitCommitModel> GetHistory(string path);
+    IEnumerable<Models.GitCommitModel> GetFileHistory(string repoPath, string relativeFilePath);
     string GetDiff(string repoPath, string commitHash);
-    IEnumerable<SMTMS.Core.Models.ModDiffModel> GetStructuredDiff(string repoPath, string commitHash);
+    IEnumerable<Models.ModDiffModel> GetStructuredDiff(string repoPath, string commitHash);
     string GetFileContentAtCommit(string repoPath, string commitHash, string relativeFilePath);
     void Reset(string path, string commitHash);
     void RollbackFile(string path, string commitHash, string relativeFilePath);

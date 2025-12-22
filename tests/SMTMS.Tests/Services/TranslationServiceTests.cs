@@ -1,6 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using SMTMS.Core.Common;
 using SMTMS.Core.Interfaces;
 using SMTMS.Core.Models;
 using SMTMS.Tests.Mocks;

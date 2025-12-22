@@ -1,5 +1,4 @@
 using System.Security.Cryptography;
-using System.Text.RegularExpressions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
@@ -14,28 +13,20 @@ namespace SMTMS.Translation.Services;
 /// <summary>
 /// 翻译服务实现 - 负责翻译数据的提取、恢复和同步
 /// </summary>
-public class TranslationService : ITranslationService
+public class TranslationService(
+    IServiceScopeFactory scopeFactory,
+    ILogger<TranslationService> logger,
+    IFileSystem fileSystem)
+    : ITranslationService
 {
-    private readonly JsonSerializerSettings _jsonSettings;
-    private readonly IServiceScopeFactory _scopeFactory;
-    private readonly ILogger<TranslationService> _logger;
-    private readonly IFileSystem _fileSystem;
-
-    public TranslationService(
-        IServiceScopeFactory scopeFactory,
-        ILogger<TranslationService> logger,
-        IFileSystem fileSystem)
+    private readonly JsonSerializerSettings _jsonSettings = new()
     {
-        _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
-
-        _jsonSettings = new JsonSerializerSettings
-        {
-            Formatting = Formatting.Indented,
-            NullValueHandling = NullValueHandling.Ignore
-        };
-    }
+        Formatting = Formatting.Indented,
+        NullValueHandling = NullValueHandling.Ignore
+    };
+    private readonly IServiceScopeFactory _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
+    private readonly ILogger<TranslationService> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    private readonly IFileSystem _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
 
     /// <summary>
     /// 从旧版 JSON 文件导入翻译数据
@@ -52,16 +43,16 @@ public class TranslationService : ITranslationService
             return OperationResult.Failure("备份文件不存在");
         }
 
-        int successCount = 0;
-        int errorCount = 0;
+        var successCount = 0;
+        var errorCount = 0;
         var errors = new List<string>();
 
         try
         {
-            string json = await _fileSystem.ReadAllTextAsync(jsonPath, cancellationToken);
+            var json = await _fileSystem.ReadAllTextAsync(jsonPath, cancellationToken);
             var translationsData = JsonConvert.DeserializeObject<Dictionary<string, TranslationBackupEntry>>(json);
 
-            if (translationsData == null || !translationsData.Any())
+            if (translationsData == null || translationsData.Count == 0)
             {
                 _logger.LogWarning("备份文件为空或格式无效");
                 return OperationResult.Failure("备份文件为空或格式无效");
@@ -89,7 +80,7 @@ public class TranslationService : ITranslationService
                         mod = new ModMetadata { UniqueID = modData.UniqueID };
                     }
 
-                    bool updated = false;
+                    var updated = false;
                     if (modData.IsChinese)
                     {
                         if (!string.IsNullOrEmpty(modData.Name))
@@ -171,8 +162,8 @@ public class TranslationService : ITranslationService
         var modFiles = _fileSystem.GetFiles(modDirectory, "manifest.json", SearchOption.AllDirectories);
         _logger.LogInformation("找到 {Count} 个 manifest.json 文件", modFiles.Length);
 
-        int successCount = 0;
-        int errorCount = 0;
+        var successCount = 0;
+        var errorCount = 0;
         var errors = new List<string>();
 
         using var scope = _scopeFactory.CreateScope();
@@ -233,7 +224,7 @@ public class TranslationService : ITranslationService
                     continue; // 文件未变更，跳过
                 }
 
-                bool updated = false;
+                var updated = false;
 
                 // 保存当前状态到翻译字段
                 if (mod.TranslatedName != manifest.Name)
@@ -300,7 +291,7 @@ public class TranslationService : ITranslationService
 
         _logger.LogInformation("找到 {Count} 个已翻译的模组", allTranslatedMods.Count);
 
-        if (!allTranslatedMods.Any())
+        if (allTranslatedMods.Count == 0)
         {
             return OperationResult.Success(0, "没有需要恢复的翻译");
         }
@@ -308,8 +299,8 @@ public class TranslationService : ITranslationService
         var translationMap = allTranslatedMods.ToDictionary(m => m.UniqueID);
         var modFiles = _fileSystem.GetFiles(modDirectory, "manifest.json", SearchOption.AllDirectories);
 
-        int successCount = 0;
-        int errorCount = 0;
+        var successCount = 0;
+        var errorCount = 0;
         var errors = new List<string>();
 
         // 🔥 性能优化：并行处理所有文件
@@ -330,7 +321,7 @@ public class TranslationService : ITranslationService
                 if (translationMap.TryGetValue(manifest.UniqueID, out var dbMod))
                 {
                     // 🔥 使用纯函数工具类进行替换
-                    string originalContent = content;
+                    var originalContent = content;
 
                     // 只在需要时替换 Name
                     if (!string.IsNullOrEmpty(dbMod.TranslatedName) && manifest.Name != dbMod.TranslatedName)
@@ -414,8 +405,8 @@ public class TranslationService : ITranslationService
             _fileSystem.CreateDirectory(repoModsPath);
         }
 
-        int successCount = 0;
-        int errorCount = 0;
+        var successCount = 0;
+        var errorCount = 0;
         var errors = new List<string>();
 
         // 🔥 性能优化：并行导出所有文件
@@ -525,8 +516,8 @@ public class TranslationService : ITranslationService
         var modFiles = _fileSystem.GetFiles(repoModsPath, "manifest.json", SearchOption.AllDirectories);
         _logger.LogInformation("找到 {Count} 个 manifest.json 文件", modFiles.Length);
 
-        int successCount = 0;
-        int errorCount = 0;
+        var successCount = 0;
+        var errorCount = 0;
         var errors = new List<string>();
 
         using var scope = _scopeFactory.CreateScope();
@@ -580,7 +571,7 @@ public class TranslationService : ITranslationService
             .ToList();
 
         // 批量更新数据库
-        if (modsToUpdate.Any())
+        if (modsToUpdate.Count != 0)
         {
             try
             {

@@ -150,8 +150,8 @@ public class FieldChange
         get
         {
             if (!HasChange) return "无变更";
-            var oldPreview = OldValue?.Length > 30 ? OldValue.Substring(0, 30) + "..." : OldValue ?? "(空)";
-            var newPreview = NewValue?.Length > 30 ? NewValue.Substring(0, 30) + "..." : NewValue ?? "(空)";
+            var oldPreview = OldValue?.Length > 30 ? OldValue[..30] + "..." : OldValue ?? "(空)";
+            var newPreview = NewValue?.Length > 30 ? NewValue[..30] + "..." : NewValue ?? "(空)";
             return $"{oldPreview} → {newPreview}";
         }
     }

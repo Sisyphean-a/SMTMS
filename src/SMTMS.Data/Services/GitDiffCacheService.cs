@@ -11,17 +11,9 @@ namespace SMTMS.Data.Services;
 /// Git Diff 缓存服务实现
 /// 使用 MessagePack 序列化和 SQLite 数据库存储
 /// </summary>
-public class GitDiffCacheService : IGitDiffCacheService
+public class GitDiffCacheService(AppDbContext context, ILogger<GitDiffCacheService> logger) : IGitDiffCacheService
 {
-    private readonly AppDbContext _context;
-    private readonly ILogger<GitDiffCacheService> _logger;
     private const int CurrentFormatVersion = 1;
-
-    public GitDiffCacheService(AppDbContext context, ILogger<GitDiffCacheService> logger)
-    {
-        _context = context;
-        _logger = logger;
-    }
 
     /// <summary>
     /// 从缓存中获取指定提交的 Diff 数据
@@ -31,32 +23,32 @@ public class GitDiffCacheService : IGitDiffCacheService
         try
         {
             // 🔥 支持取消令牌
-            var cache = await _context.GitDiffCache
+            var cache = await context.GitDiffCache
                 .AsNoTracking()
                 .FirstOrDefaultAsync(c => c.CommitHash == commitHash, cancellationToken);
 
             if (cache == null)
             {
-                _logger.LogDebug("缓存未命中: {CommitHash}", commitHash);
+                logger.LogDebug("缓存未命中: {CommitHash}", commitHash);
                 return null;
             }
 
             // 检查格式版本
             if (cache.FormatVersion != CurrentFormatVersion)
             {
-                _logger.LogWarning("缓存格式版本不匹配 (期望: {Expected}, 实际: {Actual})，忽略缓存", 
+                logger.LogWarning("缓存格式版本不匹配 (期望: {Expected}, 实际: {Actual})，忽略缓存", 
                     CurrentFormatVersion, cache.FormatVersion);
                 return null;
             }
 
             // 反序列化
             var diffData = MessagePackSerializer.Deserialize<List<ModDiffModel>>(cache.SerializedDiffData);
-            _logger.LogInformation("缓存命中: {CommitHash}, 包含 {Count} 个模组变更", commitHash, diffData.Count);
+            logger.LogInformation("缓存命中: {CommitHash}, 包含 {Count} 个模组变更", commitHash, diffData.Count);
             return diffData;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "读取缓存失败: {CommitHash}", commitHash);
+            logger.LogError(ex, "读取缓存失败: {CommitHash}", commitHash);
             return null;
         }
     }
@@ -73,7 +65,7 @@ public class GitDiffCacheService : IGitDiffCacheService
 
             // 检查是否已存在
             // 🔥 支持取消令牌
-            var existingCache = await _context.GitDiffCache
+            var existingCache = await context.GitDiffCache
                 .FirstOrDefaultAsync(c => c.CommitHash == commitHash, cancellationToken);
 
             if (existingCache != null)
@@ -95,17 +87,17 @@ public class GitDiffCacheService : IGitDiffCacheService
                     CreatedAt = DateTime.UtcNow,
                     FormatVersion = CurrentFormatVersion
                 };
-                await _context.GitDiffCache.AddAsync(cache, cancellationToken);
+                await context.GitDiffCache.AddAsync(cache, cancellationToken);
             }
 
             // 🔥 支持取消令牌
-            await _context.SaveChangesAsync(cancellationToken);
-            _logger.LogInformation("缓存已保存: {CommitHash}, 包含 {Count} 个模组变更, 大小: {Size} bytes",
+            await context.SaveChangesAsync(cancellationToken);
+            logger.LogInformation("缓存已保存: {CommitHash}, 包含 {Count} 个模组变更, 大小: {Size} bytes",
                 commitHash, diffData.Count, serializedData.Length);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "保存缓存失败: {CommitHash}", commitHash);
+            logger.LogError(ex, "保存缓存失败: {CommitHash}", commitHash);
             // 不抛出异常，避免影响主流程
         }
     }
@@ -120,16 +112,16 @@ public class GitDiffCacheService : IGitDiffCacheService
             var cutoffDate = DateTime.UtcNow.AddDays(-daysToKeep);
             // 🔥 EF Core 优化：只读查询使用 AsNoTracking()
             // 🔥 支持取消令牌
-            var oldCaches = await _context.GitDiffCache
+            var oldCaches = await context.GitDiffCache
                 .AsNoTracking()
                 .Where(c => c.CreatedAt < cutoffDate)
                 .ToListAsync(cancellationToken);
 
-            if (oldCaches.Any())
+            if (oldCaches.Count != 0)
             {
-                _context.GitDiffCache.RemoveRange(oldCaches);
-                await _context.SaveChangesAsync(cancellationToken);
-                _logger.LogInformation("已清理 {Count} 个旧缓存（超过 {Days} 天）", oldCaches.Count, daysToKeep);
+                context.GitDiffCache.RemoveRange(oldCaches);
+                await context.SaveChangesAsync(cancellationToken);
+                logger.LogInformation("已清理 {Count} 个旧缓存（超过 {Days} 天）", oldCaches.Count, daysToKeep);
                 return oldCaches.Count;
             }
 
@@ -137,7 +129,7 @@ public class GitDiffCacheService : IGitDiffCacheService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "清理旧缓存失败");
+            logger.LogError(ex, "清理旧缓存失败");
             return 0;
         }
     }
@@ -154,36 +146,33 @@ public class GitDiffCacheService : IGitDiffCacheService
         {
             // 获取当前缓存总数
             // 🔥 支持取消令牌
-            var totalCount = await _context.GitDiffCache.CountAsync(cancellationToken);
+            var totalCount = await context.GitDiffCache.CountAsync(cancellationToken);
 
             if (totalCount <= maxCacheCount)
             {
-                _logger.LogDebug("缓存数量 {Count} 未超过限制 {Max}，无需清理", totalCount, maxCacheCount);
+                logger.LogDebug("缓存数量 {Count} 未超过限制 {Max}，无需清理", totalCount, maxCacheCount);
                 return 0;
             }
 
             // 按创建时间降序排序，保留最新的 maxCacheCount 个
             // 🔥 支持取消令牌
-            var cachesToDelete = await _context.GitDiffCache
+            var cachesToDelete = await context.GitDiffCache
                 .AsNoTracking()
                 .OrderByDescending(c => c.CreatedAt)
                 .Skip(maxCacheCount)
                 .ToListAsync(cancellationToken);
 
-            if (cachesToDelete.Any())
-            {
-                _context.GitDiffCache.RemoveRange(cachesToDelete);
-                await _context.SaveChangesAsync(cancellationToken);
-                _logger.LogInformation("LRU 清理完成：删除 {Count} 个旧缓存，保留最新 {Max} 个",
-                    cachesToDelete.Count, maxCacheCount);
-                return cachesToDelete.Count;
-            }
+            if (cachesToDelete.Count == 0) return 0;
+            context.GitDiffCache.RemoveRange(cachesToDelete);
+            await context.SaveChangesAsync(cancellationToken);
+            logger.LogInformation("LRU 清理完成：删除 {Count} 个旧缓存，保留最新 {Max} 个",
+                cachesToDelete.Count, maxCacheCount);
+            return cachesToDelete.Count;
 
-            return 0;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "LRU 缓存清理失败");
+            logger.LogError(ex, "LRU 缓存清理失败");
             return 0;
         }
     }
@@ -213,14 +202,14 @@ public class GitDiffCacheService : IGitDiffCacheService
 
             if (totalCleared > 0)
             {
-                _logger.LogInformation("智能缓存清理完成：共清理 {Count} 个缓存", totalCleared);
+                logger.LogInformation("智能缓存清理完成：共清理 {Count} 个缓存", totalCleared);
             }
 
             return totalCleared;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "智能缓存清理失败");
+            logger.LogError(ex, "智能缓存清理失败");
             return 0;
         }
     }

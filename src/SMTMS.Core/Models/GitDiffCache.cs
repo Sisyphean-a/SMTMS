@@ -16,7 +16,7 @@ public class GitDiffCache
     /// <summary>
     /// 序列化后的 Diff 数据（使用 MessagePack 或 JSON）
     /// </summary>
-    public byte[] SerializedDiffData { get; set; } = Array.Empty<byte>();
+    public byte[] SerializedDiffData { get; set; } = [];
 
     /// <summary>
     /// 变更的模组数量

@@ -127,14 +127,14 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task BrowseFolderAsync()
     {
-        var dialog = new System.Windows.Forms.FolderBrowserDialog
+        var dialog = new FolderBrowserDialog
         {
             Description = "选择Stardew Valley的Mods目录",
             ShowNewFolderButton = false,
             SelectedPath = ModsDirectory
         };
 
-        if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+        if (dialog.ShowDialog() == DialogResult.OK)
         {
             ModsDirectory = dialog.SelectedPath;
 
@@ -172,7 +172,7 @@ public partial class MainViewModel : ObservableObject
             // 3. 重新创建数据库表
             using (var scope = _scopeFactory.CreateScope())
             {
-                var context = scope.ServiceProvider.GetRequiredService<SMTMS.Data.Context.AppDbContext>();
+                var context = scope.ServiceProvider.GetRequiredService<Data.Context.AppDbContext>();
                 context.Database.EnsureCreated();
             }
 
@@ -195,15 +195,15 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task SyncToDatabaseAsync()
     {
-        var dialog = new SMTMS.UI.Views.CommitDialog($"Scan & Update {DateTime.Now:yyyy/MM/dd HH:mm}");
+        var dialog = new Views.CommitDialog($"Scan & Update {DateTime.Now:yyyy/MM/dd HH:mm}");
         if (dialog.ShowDialog() != true)
         {
             return;
         }
 
-        string commitMessage = dialog.CommitMessage;
+        var commitMessage = dialog.CommitMessage;
 
-        WeakReferenceMessenger.Default.Send(new StatusMessage("正在同步到数据库...", StatusLevel.Info));
+        WeakReferenceMessenger.Default.Send(new StatusMessage("正在同步到数据库..."));
 
         try
         {
@@ -246,7 +246,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task RestoreFromDatabaseAsync()
     {
-        WeakReferenceMessenger.Default.Send(new StatusMessage("正在从数据库恢复...", StatusLevel.Info));
+        WeakReferenceMessenger.Default.Send(new StatusMessage("正在从数据库恢复..."));
 
         try
         {

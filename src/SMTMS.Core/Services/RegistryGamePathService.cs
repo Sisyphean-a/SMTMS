@@ -1,5 +1,3 @@
-using System;
-using System.IO;
 using Microsoft.Win32;
 using SMTMS.Core.Interfaces;
 
@@ -11,20 +9,15 @@ public class RegistryGamePathService : IGamePathService
 
     public string? GetModsPath()
     {
-        string? gamePath = GetGameInstallPath(StardewValleyAppId);
+        var gamePath = GetGameInstallPath(StardewValleyAppId);
 
-        if (!string.IsNullOrEmpty(gamePath))
-        {
-            return Path.Combine(gamePath, "Mods");
-        }
-
-        return null;
+        return !string.IsNullOrEmpty(gamePath) ? Path.Combine(gamePath, "Mods") : null;
     }
 
     private string? GetGameInstallPath(string appId)
     {
         // 1. Check Uninstall Registry Key
-        string registryKeyPath = $@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App {appId}";
+        var registryKeyPath = $@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App {appId}";
         
         // Handle 64-bit systems naturally via RegistryView if needed, 
         // but typically uninstall keys are in common locations.
@@ -52,13 +45,13 @@ public class RegistryGamePathService : IGamePathService
             using (var key = baseKey.OpenSubKey(registryKeyPath))
             {
                if (key != null)
-                {
-                    var location = key.GetValue("InstallLocation")?.ToString();
-                    if (!string.IsNullOrEmpty(location) && Directory.Exists(location))
-                    {
-                        return location;
-                    }
-                }
+               {
+                   var location = key.GetValue("InstallLocation")?.ToString();
+                   if (!string.IsNullOrEmpty(location) && Directory.Exists(location))
+                   {
+                       return location;
+                   }
+               }
             }
         } 
         catch 
@@ -67,32 +60,23 @@ public class RegistryGamePathService : IGamePathService
         }
 
         // 2. Fallback: Check Steam Path
-        string? steamPath = GetSteamPath();
-        if (!string.IsNullOrEmpty(steamPath))
-        {
-            string potentialPath = Path.Combine(steamPath, "steamapps", "common", "Stardew Valley");
-            if (Directory.Exists(potentialPath))
-            {
-                return potentialPath;
-            }
-        }
-
-        return null;
+        var steamPath = GetSteamPath();
+        if (string.IsNullOrEmpty(steamPath)) return null;
+        var potentialPath = Path.Combine(steamPath, "steamapps", "common", "Stardew Valley");
+        return Directory.Exists(potentialPath) ? potentialPath : null;
     }
 
     private string? GetSteamPath()
     {
         try
         {
-            using (var key = Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam"))
+            using var key = Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam");
+            if (key != null)
             {
-                if (key != null)
+                var path = key.GetValue("SteamPath")?.ToString();
+                if (!string.IsNullOrEmpty(path))
                 {
-                    string? path = key.GetValue("SteamPath")?.ToString();
-                    if (!string.IsNullOrEmpty(path))
-                    {
-                        return path.Replace("/", "\\");
-                    }
+                    return path.Replace("/", "\\");
                 }
             }
         }

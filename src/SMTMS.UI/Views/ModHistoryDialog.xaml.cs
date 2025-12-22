@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using Newtonsoft.Json;
@@ -38,7 +35,7 @@ public partial class ModHistoryDialog : Window
         HistoryListView.ItemsSource = _history;
 
         // 默认选中第一项
-        if (_history.Any())
+        if (_history.Count != 0)
         {
             HistoryListView.SelectedIndex = 0;
         }

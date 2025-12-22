@@ -7,7 +7,6 @@ using SMTMS.Core.Interfaces;
 using SMTMS.UI.Messages;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 
 namespace SMTMS.UI.ViewModels;
 
@@ -27,7 +26,7 @@ public partial class ModListViewModel : ObservableObject
     [ObservableProperty]
     private string _modsDirectory = string.Empty;
 
-    public ObservableCollection<ModViewModel> Mods { get; } = new();
+    public ObservableCollection<ModViewModel> Mods { get; } = [];
 
     // 保存前请求更新绑定的事件
     public event EventHandler? SaveRequested;
@@ -68,7 +67,7 @@ public partial class ModListViewModel : ObservableObject
             return;
         }
 
-        WeakReferenceMessenger.Default.Send(new StatusMessage("正在扫描模组...", StatusLevel.Info));
+        WeakReferenceMessenger.Default.Send(new StatusMessage("正在扫描模组..."));
         Mods.Clear();
 
         try
@@ -77,7 +76,7 @@ public partial class ModListViewModel : ObservableObject
             var manifests = await _modService.ScanModsAsync(ModsDirectory);
             var manifestList = manifests.ToList();
 
-            if (!manifestList.Any())
+            if (manifestList.Count == 0)
             {
                 WeakReferenceMessenger.Default.Send(new StatusMessage("未找到任何模组", StatusLevel.Warning));
                 return;
@@ -130,7 +129,7 @@ public partial class ModListViewModel : ObservableObject
             }
 
             // 批量保存所有变更
-            if (modsToUpdate.Any())
+            if (modsToUpdate.Count != 0)
             {
                 await modRepo.UpsertModsAsync(modsToUpdate);
             }

@@ -66,14 +66,14 @@ public static partial class ManifestTextReplacer
             return jsonContent;
 
         // 转义特殊字符(使用 Newtonsoft.Json 的转义逻辑)
-        string escapedName = JsonConvert.ToString(newName).Trim('"');
+        var escapedName = JsonConvert.ToString(newName).Trim('"');
 
         // 检查是否存在 Name 字段
         if (!NameFieldRegex().IsMatch(jsonContent))
             return jsonContent;
 
         // 执行替换
-        string newContent = NameReplaceRegex().Replace(jsonContent, $"${{1}}{escapedName}${{2}}");
+        var newContent = NameReplaceRegex().Replace(jsonContent, $"${{1}}{escapedName}${{2}}");
         return newContent;
     }
 
@@ -93,14 +93,14 @@ public static partial class ManifestTextReplacer
             return jsonContent;
 
         // 转义特殊字符
-        string escapedDesc = JsonConvert.ToString(newDescription).Trim('"');
+        var escapedDesc = JsonConvert.ToString(newDescription).Trim('"');
 
         // 检查是否存在 Description 字段
         if (!DescriptionFieldRegex().IsMatch(jsonContent))
             return jsonContent;
 
         // 执行替换
-        string newContent = DescriptionReplaceRegex().Replace(jsonContent, $"${{1}}{escapedDesc}${{2}}");
+        var newContent = DescriptionReplaceRegex().Replace(jsonContent, $"${{1}}{escapedDesc}${{2}}");
         return newContent;
     }
 
@@ -109,7 +109,7 @@ public static partial class ManifestTextReplacer
     /// </summary>
     public static string ReplaceNameAndDescription(string jsonContent, string? newName, string? newDescription)
     {
-        string result = jsonContent;
+        var result = jsonContent;
 
         if (!string.IsNullOrEmpty(newName))
         {

@@ -32,13 +32,13 @@ public partial class HistoryViewModel : ObservableObject
     private string _diffText = "选择一个提交以查看变更";
 
     [ObservableProperty]
-    private bool _isLoadingDiff = false;
+    private bool _isLoadingDiff;
 
     [ObservableProperty]
     private string _diffLoadingMessage = "";
 
-    public ObservableCollection<GitCommitModel> CommitHistory { get; } = new();
-    public ObservableCollection<ModDiffModel> ModDiffChanges { get; } = new();
+    public ObservableCollection<GitCommitModel> CommitHistory { get; } = [];
+    public ObservableCollection<ModDiffModel> ModDiffChanges { get; } = [];
 
     public HistoryViewModel(
         IGitService gitService,
@@ -53,7 +53,7 @@ public partial class HistoryViewModel : ObservableObject
         _appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
 
         // 订阅消息
-        WeakReferenceMessenger.Default.Register<ModsLoadedMessage>(this, (r, m) => LoadHistory());
+        WeakReferenceMessenger.Default.Register<ModsLoadedMessage>(this, (_, _) => LoadHistory());
     }
 
     [RelayCommand]
@@ -191,8 +191,7 @@ public partial class HistoryViewModel : ObservableObject
 
             // 自动同步：将恢复的数据库状态应用到游戏文件
             WeakReferenceMessenger.Default.Send(new StatusMessage(
-                $"已回滚到 '{SelectedCommit.ShortHash}'，正在应用到文件...",
-                StatusLevel.Info));
+                $"已回滚到 '{SelectedCommit.ShortHash}'，正在应用到文件..."));
 
             // 请求刷新模组列表
             WeakReferenceMessenger.Default.Send(RefreshModsRequestMessage.Instance);

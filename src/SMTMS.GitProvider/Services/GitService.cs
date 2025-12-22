@@ -6,39 +6,30 @@ using Newtonsoft.Json;
 
 namespace SMTMS.GitProvider.Services;
 
-public class GitService : IGitService
+public class GitService(ILogger<GitService> logger) : IGitService
 {
-    private readonly ILogger<GitService> _logger;
-
-    public GitService(ILogger<GitService> logger)
-    {
-        _logger = logger;
-    }
-
     public bool IsRepository(string path)
     {
         var isValid = Repository.IsValid(path);
-        _logger.LogDebug("检查仓库有效性: {Path} => {IsValid}", path, isValid);
+        logger.LogDebug("检查仓库有效性: {Path} => {IsValid}", path, isValid);
         return isValid;
     }
 
     public void Init(string path)
     {
-        _logger.LogInformation("初始化 Git 仓库: {Path}", path);
+        logger.LogInformation("初始化 Git 仓库: {Path}", path);
         Repository.Init(path);
 
         // Create .gitignore to exclude database files
         var gitIgnorePath = Path.Combine(path, ".gitignore");
-        if (!File.Exists(gitIgnorePath))
-        {
-            File.WriteAllText(gitIgnorePath, "smtms.db\nsmtms.db-shm\nsmtms.db-wal\n");
-            _logger.LogDebug("创建 .gitignore 文件");
-        }
+        if (File.Exists(gitIgnorePath)) return;
+        File.WriteAllText(gitIgnorePath, "smtms.db\nsmtms.db-shm\nsmtms.db-wal\n");
+        logger.LogDebug("创建 .gitignore 文件");
     }
 
     public void CommitAll(string path, string message)
     {
-        _logger.LogInformation("提交所有更改: {Path}, 消息: {Message}", path, message);
+        logger.LogInformation("提交所有更改: {Path}, 消息: {Message}", path, message);
 
         using var repo = new Repository(path);
 
@@ -56,30 +47,30 @@ public class GitService : IGitService
         var status = repo.RetrieveStatus();
         if (!status.IsDirty)
         {
-            _logger.LogDebug("没有需要提交的更改");
+            logger.LogDebug("没有需要提交的更改");
             return;
         }
 
         // Use a default signature for auto-commits
         var signature = new Signature("SMTMS Auto", "auto@smtms.local", DateTimeOffset.Now);
         var commit = repo.Commit(message, signature, signature);
-        _logger.LogInformation("提交成功: {CommitId}", commit.Id.ToString().Substring(0, 7));
+        logger.LogInformation("提交成功: {CommitId}", commit.Id.ToString()[..7]);
     }
 
     public void Checkout(string path, string branchName)
     {
-        _logger.LogInformation("切换分支: {Path} => {BranchName}", path, branchName);
+        logger.LogInformation("切换分支: {Path} => {BranchName}", path, branchName);
 
         using var repo = new Repository(path);
         var branch = repo.Branches[branchName];
         if (branch != null)
         {
             Commands.Checkout(repo, branch);
-            _logger.LogInformation("分支切换成功");
+            logger.LogInformation("分支切换成功");
         }
         else
         {
-            _logger.LogError("分支不存在: {BranchName}", branchName);
+            logger.LogError("分支不存在: {BranchName}", branchName);
             throw new Exception($"Branch '{branchName}' not found.");
         }
     }
@@ -91,12 +82,12 @@ public class GitService : IGitService
         return status.Where(s => s.State != FileStatus.Ignored).Select(s => s.FilePath).ToList();
     }
 
-    public IEnumerable<SMTMS.Core.Models.GitCommitModel> GetHistory(string path)
+    public IEnumerable<GitCommitModel> GetHistory(string path)
     {
         using var repo = new Repository(path);
-        return repo.Commits.Take(50).Select(c => new SMTMS.Core.Models.GitCommitModel
+        return repo.Commits.Take(50).Select(c => new GitCommitModel
         {
-            ShortHash = c.Sha.Substring(0, 7),
+            ShortHash = c.Sha[..7],
             FullHash = c.Sha,
             Message = c.MessageShort,
             Author = c.Author.Name,
@@ -117,7 +108,7 @@ public class GitService : IGitService
 
          var changes = repo.Diff.Compare<TreeChanges>(parentTree, tree);
 
-         if (!changes.Any()) return "No changes (Empty Commit)";
+         if (changes.Count == 0) return "No changes (Empty Commit)";
 
          foreach (var change in changes)
          {
@@ -132,7 +123,7 @@ public class GitService : IGitService
     {
         using var repo = new Repository(repoPath);
         var commit = repo.Lookup<Commit>(commitHash);
-        if (commit == null) return Enumerable.Empty<ModDiffModel>();
+        if (commit == null) return [];
 
         var parent = commit.Parents.FirstOrDefault();
         var tree = commit.Tree;
@@ -143,8 +134,8 @@ public class GitService : IGitService
         // 筛选出所有 manifest.json 文件
         var manifestChanges = changes.Where(c => c.Path.EndsWith("manifest.json", StringComparison.OrdinalIgnoreCase)).ToList();
 
-        if (!manifestChanges.Any())
-            return Enumerable.Empty<ModDiffModel>();
+        if (manifestChanges.Count == 0)
+            return [];
 
         var diffModels = new List<ModDiffModel>(manifestChanges.Count);
 
@@ -188,7 +179,7 @@ public class GitService : IGitService
                 diffModel.ModName = newManifest?.Name ?? oldManifest?.Name ?? "Unknown Mod";
 
                 // 比较字段变更
-                int changeCount = 0;
+                var changeCount = 0;
 
                 // 名称变更
                 if (oldManifest?.Name != newManifest?.Name)
@@ -254,10 +245,7 @@ public class GitService : IGitService
         Task.WaitAll(processingTasks);
 
         // 收集结果
-        foreach (var task in processingTasks)
-        {
-            diffModels.Add(task.Result);
-        }
+        diffModels.AddRange(processingTasks.Select(task => task.Result));
 
         return diffModels;
     }
@@ -267,14 +255,10 @@ public class GitService : IGitService
         // 从路径中提取文件夹名称
         // 例如: "Mods/MyMod/manifest.json" -> "MyMod"
         var parts = path.Replace("\\", "/").Split('/');
-        if (parts.Length >= 2)
-        {
-            return parts[parts.Length - 2];
-        }
-        return path;
+        return parts.Length >= 2 ? parts[^2] : path;
     }
     
-    public IEnumerable<SMTMS.Core.Models.GitCommitModel> GetFileHistory(string repoPath, string relativeFilePath)
+    public IEnumerable<GitCommitModel> GetFileHistory(string repoPath, string relativeFilePath)
     {
         using var repo = new Repository(repoPath);
         
@@ -283,9 +267,9 @@ public class GitService : IGitService
         
         var entries = repo.Commits.QueryBy(normalizedPath);
 
-        return entries.Select(c => new SMTMS.Core.Models.GitCommitModel
+        return entries.Select(c => new GitCommitModel
         {
-            ShortHash = c.Commit.Sha.Substring(0, 7),
+            ShortHash = c.Commit.Sha[..7],
             FullHash = c.Commit.Sha,
             Message = c.Commit.MessageShort,
             Author = c.Commit.Author.Name,
@@ -304,9 +288,7 @@ public class GitService : IGitService
         if (treeEntry == null) return string.Empty;
 
         var blob = treeEntry.Target as Blob;
-        if (blob == null) return string.Empty;
-
-        return blob.GetContentText();
+        return blob == null ? string.Empty : blob.GetContentText();
     }
 
     public void Reset(string path, string commitHash)
@@ -335,12 +317,12 @@ public class GitService : IGitService
         // Checkout the specific file from the given commit
         // Force checkout to overwrite local changes
         var options = new CheckoutOptions { CheckoutModifiers = CheckoutModifiers.Force };
-        repo.CheckoutPaths(commit.Sha, new[] { relativeFilePath }, options);
+        repo.CheckoutPaths(commit.Sha, [relativeFilePath], options);
     }
     public void DeleteRepository(string path)
     {
-        var gitDir = System.IO.Path.Combine(path, ".git");
-        if (System.IO.Directory.Exists(gitDir))
+        var gitDir = Path.Combine(path, ".git");
+        if (Directory.Exists(gitDir))
         {
             DeleteDirectory(gitDir);
         }
@@ -348,17 +330,17 @@ public class GitService : IGitService
 
     private void DeleteDirectory(string path)
     {
-        foreach (var file in System.IO.Directory.GetFiles(path))
+        foreach (var file in Directory.GetFiles(path))
         {
-            System.IO.File.SetAttributes(file, System.IO.FileAttributes.Normal);
-            System.IO.File.Delete(file);
+            File.SetAttributes(file, FileAttributes.Normal);
+            File.Delete(file);
         }
 
-        foreach (var dir in System.IO.Directory.GetDirectories(path))
+        foreach (var dir in Directory.GetDirectories(path))
         {
             DeleteDirectory(dir);
         }
 
-        System.IO.Directory.Delete(path, false);
+        Directory.Delete(path, false);
     }
 }

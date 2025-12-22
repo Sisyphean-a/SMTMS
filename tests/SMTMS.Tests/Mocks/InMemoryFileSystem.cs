@@ -9,7 +9,7 @@ public class InMemoryFileSystem : IFileSystem
 {
     private readonly Dictionary<string, string> _textFiles = new();
     private readonly Dictionary<string, byte[]> _binaryFiles = new();
-    private readonly HashSet<string> _directories = new();
+    private readonly HashSet<string> _directories = [];
 
     public Task<string> ReadAllTextAsync(string path, CancellationToken cancellationToken = default)
     {
@@ -134,7 +134,7 @@ public class InMemoryFileSystem : IFileSystem
                         return false;
 
                     // 确保没有更深层的子目录
-                    var relativePart = normalizedDir.Substring(normalizedPath.Length + 1);
+                    var relativePart = normalizedDir[(normalizedPath.Length + 1)..];
                     return !relativePart.Contains("/");
                 })
                 .Where(d => MatchesPattern(Path.GetFileName(d), searchPattern))

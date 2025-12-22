@@ -5,15 +5,8 @@ using SMTMS.Core.Models;
 
 namespace SMTMS.Data.Repositories;
 
-public class ModRepository : IModRepository
+public class ModRepository(AppDbContext context) : IModRepository
 {
-    private readonly AppDbContext _context;
-
-    public ModRepository(AppDbContext context)
-    {
-        _context = context;
-    }
-
     /// <summary>
     /// 获取所有 Mod 元数据（只读查询，使用 AsNoTracking 优化性能）
     /// </summary>
@@ -21,7 +14,7 @@ public class ModRepository : IModRepository
     {
         // 🔥 EF Core 优化：只读查询使用 AsNoTracking() 减少内存占用
         // 🔥 支持取消令牌
-        return await _context.ModMetadata.AsNoTracking().ToListAsync(cancellationToken);
+        return await context.ModMetadata.AsNoTracking().ToListAsync(cancellationToken);
     }
 
     /// <summary>
@@ -30,30 +23,30 @@ public class ModRepository : IModRepository
     public async Task<ModMetadata?> GetModAsync(string uniqueId, CancellationToken cancellationToken = default)
     {
         // 🔥 支持取消令牌
-        return await _context.ModMetadata.FindAsync(new object[] { uniqueId }, cancellationToken);
+        return await context.ModMetadata.FindAsync([uniqueId], cancellationToken);
     }
 
     public async Task UpsertModAsync(ModMetadata mod, CancellationToken cancellationToken = default)
     {
         // 🔥 支持取消令牌
-        var existing = await _context.ModMetadata.FindAsync(new object[] { mod.UniqueID }, cancellationToken);
+        var existing = await context.ModMetadata.FindAsync([mod.UniqueID], cancellationToken);
         if (existing == null)
         {
-            await _context.ModMetadata.AddAsync(mod, cancellationToken);
+            await context.ModMetadata.AddAsync(mod, cancellationToken);
         }
         else
         {
             // Update fields. Be careful not to overwrite user changes with old file data if logic requires.
             // For now, assume this method is called to update data.
-            _context.Entry(existing).CurrentValues.SetValues(mod);
+            context.Entry(existing).CurrentValues.SetValues(mod);
         }
-        await _context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
     }
 
     public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         // 🔥 支持取消令牌
-        await _context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
     }
 
     /// <summary>
@@ -64,14 +57,14 @@ public class ModRepository : IModRepository
         CancellationToken cancellationToken = default)
     {
         var idList = uniqueIds.ToList();
-        if (!idList.Any())
+        if (idList.Count == 0)
         {
             return new Dictionary<string, ModMetadata>();
         }
 
         // 🔥 EF Core 优化：只读查询使用 AsNoTracking() 减少内存占用
         // 🔥 支持取消令牌
-        var mods = await _context.ModMetadata
+        var mods = await context.ModMetadata
             .AsNoTracking()
             .Where(m => idList.Contains(m.UniqueID))
             .ToListAsync(cancellationToken);
@@ -86,7 +79,7 @@ public class ModRepository : IModRepository
     public async Task UpsertModsAsync(IEnumerable<ModMetadata> mods, CancellationToken cancellationToken = default)
     {
         var modList = mods.ToList();
-        if (!modList.Any())
+        if (modList.Count == 0)
         {
             return;
         }
@@ -94,7 +87,7 @@ public class ModRepository : IModRepository
         // 批量获取所有现有的 Mod
         var uniqueIds = modList.Select(m => m.UniqueID).ToList();
         // 🔥 支持取消令牌
-        var existingModsList = await _context.ModMetadata
+        var existingModsList = await context.ModMetadata
             .Where(m => uniqueIds.Contains(m.UniqueID))
             .ToListAsync(cancellationToken);
         var existingMods = existingModsList.ToDictionary(m => m.UniqueID);
@@ -107,17 +100,17 @@ public class ModRepository : IModRepository
             if (existingMods.TryGetValue(mod.UniqueID, out var existing))
             {
                 // 更新现有记录
-                _context.Entry(existing).CurrentValues.SetValues(mod);
+                context.Entry(existing).CurrentValues.SetValues(mod);
             }
             else
             {
                 // 添加新记录
-                await _context.ModMetadata.AddAsync(mod, cancellationToken);
+                await context.ModMetadata.AddAsync(mod, cancellationToken);
             }
         }
 
         // 一次性保存所有变更
         // 🔥 支持取消令牌
-        await _context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
     }
 }

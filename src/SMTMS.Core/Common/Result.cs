@@ -65,7 +65,7 @@ public class BatchResult : Result
     }
 
     public static BatchResult Success(int successCount) 
-        => new(true, successCount, 0, new List<string>());
+        => new(true, successCount, 0, []);
     
     public static BatchResult PartialSuccess(int successCount, int failureCount, List<string> errors)
         => new(successCount > 0, successCount, failureCount, errors, 

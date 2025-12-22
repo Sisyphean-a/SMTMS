@@ -18,7 +18,7 @@ public partial class CommitDialog : Window
     {
         if (string.IsNullOrWhiteSpace(MessageTextBox.Text))
         {
-            System.Windows.MessageBox.Show("Please enter a commit message.", "Warning", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+            System.Windows.MessageBox.Show("Please enter a commit message.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 

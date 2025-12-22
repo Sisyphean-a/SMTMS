@@ -3,7 +3,6 @@ using CommunityToolkit.Mvvm.Input;
 using SMTMS.Core.Interfaces;
 using SMTMS.Core.Models;
 using System.IO;
-using Newtonsoft.Json;
 
 namespace SMTMS.UI.ViewModels;
 
@@ -14,10 +13,10 @@ public partial class ModViewModel : ObservableObject
     private ModMetadata? _metadata;
 
     // 原始值用于检测更改
-    private string _originalName = string.Empty;
-    private string _originalAuthor = string.Empty;
-    private string _originalVersion = string.Empty;
-    private string _originalDescription = string.Empty;
+    private string _originalName;
+    private string _originalAuthor;
+    private string _originalVersion;
+    private string _originalDescription;
 
     public ModViewModel(ModManifest manifest, IGitService gitService, ModMetadata? metadata = null) // Updated signature
     {
@@ -48,7 +47,7 @@ public partial class ModViewModel : ObservableObject
     private string? _dbTranslatedDescription;
 
     [ObservableProperty]
-    private bool _isDirty = false;
+    private bool _isDirty;
 
     /// <summary>
     /// 更新IsDirty状态（检查是否有未保存的更改）
@@ -91,8 +90,8 @@ public partial class ModViewModel : ObservableObject
         DbTranslatedName = _metadata.TranslatedName;
         DbTranslatedDescription = _metadata.TranslatedDescription;
 
-        bool nameMatch = string.IsNullOrEmpty(_metadata.TranslatedName) || _metadata.TranslatedName == Name;
-        bool descMatch = string.IsNullOrEmpty(_metadata.TranslatedDescription) || _metadata.TranslatedDescription == Description;
+        var nameMatch = string.IsNullOrEmpty(_metadata.TranslatedName) || _metadata.TranslatedName == Name;
+        var descMatch = string.IsNullOrEmpty(_metadata.TranslatedDescription) || _metadata.TranslatedDescription == Description;
 
         if (nameMatch && descMatch)
         {
@@ -116,13 +115,11 @@ public partial class ModViewModel : ObservableObject
         get => _manifest.Name;
         set
         {
-            if (_manifest.Name != value)
-            {
-                _manifest.Name = value;
-                OnPropertyChanged();
-                CheckDirty();
-                UpdateStatus();
-            }
+            if (_manifest.Name == value) return;
+            _manifest.Name = value;
+            OnPropertyChanged();
+            CheckDirty();
+            UpdateStatus();
         }
     }
     
@@ -131,12 +128,10 @@ public partial class ModViewModel : ObservableObject
         get => _manifest.Author;
         set
         {
-            if (_manifest.Author != value)
-            {
-                _manifest.Author = value;
-                OnPropertyChanged();
-                CheckDirty();
-            }
+            if (_manifest.Author == value) return;
+            _manifest.Author = value;
+            OnPropertyChanged();
+            CheckDirty();
         }
     }
 
@@ -145,12 +140,10 @@ public partial class ModViewModel : ObservableObject
         get => _manifest.Version;
         set
         {
-            if (_manifest.Version != value)
-            {
-                _manifest.Version = value;
-                OnPropertyChanged();
-                CheckDirty();
-            }
+            if (_manifest.Version == value) return;
+            _manifest.Version = value;
+            OnPropertyChanged();
+            CheckDirty();
         }
     }
 
@@ -159,13 +152,11 @@ public partial class ModViewModel : ObservableObject
         get => _manifest.Description;
         set
         {
-            if (_manifest.Description != value)
-            {
-                _manifest.Description = value;
-                OnPropertyChanged();
-                CheckDirty();
-                UpdateStatus();
-            }
+            if (_manifest.Description == value) return;
+            _manifest.Description = value;
+            OnPropertyChanged();
+            CheckDirty();
+            UpdateStatus();
         }
     }
 
@@ -174,11 +165,9 @@ public partial class ModViewModel : ObservableObject
         get => _manifest.UniqueID;
         set
         {
-            if (_manifest.UniqueID != value)
-            {
-                _manifest.UniqueID = value;
-                OnPropertyChanged();
-            }
+            if (_manifest.UniqueID == value) return;
+            _manifest.UniqueID = value;
+            OnPropertyChanged();
         }
     }
     
@@ -201,24 +190,24 @@ public partial class ModViewModel : ObservableObject
 
             var history = await Task.Run(() => _gitService.GetFileHistory(appDataPath, repoRelativePath));
 
-            if (!history.Any())
+            var gitCommitModels = history.ToList();
+            if (gitCommitModels.Count == 0)
             {
                 System.Windows.MessageBox.Show("此模组没有历史记录。", "提示", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
                 return;
             }
 
-            var dialog = new SMTMS.UI.Views.ModHistoryDialog(Name, history, _gitService, appDataPath, repoRelativePath);
-            dialog.Owner = System.Windows.Application.Current.MainWindow;
-
-            if (dialog.ShowDialog() == true && dialog.SelectedCommit != null && dialog.SelectedManifest != null)
-            {
-                if (dialog.Action == SMTMS.UI.Views.ModHistoryDialog.DialogAction.ApplyToEditor)
+            var dialog = new Views.ModHistoryDialog(Name, gitCommitModels, _gitService, appDataPath, repoRelativePath)
                 {
-                    // 应用到编辑框（不保存到文件）
-                    Name = dialog.SelectedManifest.Name;
-                    Description = dialog.SelectedManifest.Description;
-                    UpdateStatus(); // 更新状态显示
-                }
+                    Owner = System.Windows.Application.Current.MainWindow
+                };
+
+            if (dialog.ShowDialog() == true && dialog.SelectedCommit != null && dialog is { SelectedManifest: not null, Action: Views.ModHistoryDialog.DialogAction.ApplyToEditor })
+            {
+                // 应用到编辑框（不保存到文件）
+                Name = dialog.SelectedManifest.Name;
+                Description = dialog.SelectedManifest.Description;
+                UpdateStatus(); // 更新状态显示
             }
         }
         catch (Exception ex)
@@ -258,7 +247,7 @@ public partial class ModViewModel : ObservableObject
                     UpdateStatus(); // Will likely show "Changed" because DB is still at HEAD (or different)
                 }
                 
-                System.Windows.MessageBox.Show($"Rolled back '{Name}' to version {commitHash.Substring(0,7)}.", "Success");
+                System.Windows.MessageBox.Show($"Rolled back '{Name}' to version {commitHash[..7]}.", "Success");
             }
         }
         catch (Exception ex)

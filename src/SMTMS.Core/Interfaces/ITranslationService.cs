@@ -1,5 +1,4 @@
 using SMTMS.Core.Common;
-using SMTMS.Core.Models;
 
 namespace SMTMS.Core.Interfaces;
 
