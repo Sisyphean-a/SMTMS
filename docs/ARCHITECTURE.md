@@ -56,20 +56,17 @@ flowchart LR
 
 - **SMTMS.Translation**：翻译服务实现
 
-  - 核心实现 `TranslationService : ITranslationService`，负责在 "本地 manifest.json" 与 "SQLite 数据库" 之间双向同步翻译数据 (Extract/Restore)。
-  - **架构改进**：
-    - 从 Core 层移至独立的 Translation 层，实现真正的分层架构。
-    - 使用构造函数注入 `ILogger<TranslationService>`、`IServiceScopeFactory` 和 `IFileSystem`。
-    - 所有方法返回 `OperationResult`，提供统一的错误处理和详细的操作结果。
-    - 通过 `IFileSystem` 抽象所有文件操作，实现可测试性。
+  - **服务架构**（协调器模式）：
+    - `TranslationService`：协调器，实现 `ITranslationService` 接口，委托给专门服务
+    - `LegacyImportService`：处理旧版 JSON 翻译导入
+    - `TranslationScanService`：扫描 manifest.json 并保存翻译到数据库
+    - `TranslationRestoreService`：从数据库恢复翻译到 manifest.json
+    - `GitTranslationService`：处理 Git 仓库的翻译导入导出
   - **性能优化**：
-    - 使用 C# 11+ `[GeneratedRegex]` 特性，编译时生成优化的正则表达式代码。
-    - 并行文件处理（`Task.WhenAll`），充分利用多核 CPU。
-    - 批量数据库操作，减少往返次数。
-    - 支持 `CancellationToken`，允许取消长时间操作。
-  - **日志改进**：
-    - 结构化日志记录，包含关键业务上下文（文件数量、成功/失败计数、错误详情）。
-    - 使用适当的日志级别（Debug/Information/Warning/Error）。
+    - 并行文件处理（`Task.WhenAll`），充分利用多核 CPU
+    - 批量数据库操作，减少往返次数
+    - 文件 Hash 缓存，避免重复处理未变更文件
+    - 支持 `CancellationToken`，允许取消长时间操作
 
 - **SMTMS.Tests**：单元测试项目
 
@@ -224,7 +221,12 @@ flowchart TD
   - `AddScoped<IModRepository, ModRepository>()`。
   - `AddScoped<IGitDiffCacheService, GitDiffCacheService>()`。
   - `AddScoped<ISettingsService, SettingsService>()`。
-  - `AddSingleton<ITranslationService, SMTMS.Translation.Services.TranslationService>()`。
+  - 翻译服务（Translation Services）：
+    - `AddSingleton<LegacyImportService>()`
+    - `AddSingleton<TranslationScanService>()`
+    - `AddSingleton<TranslationRestoreService>()`
+    - `AddSingleton<GitTranslationService>()`
+    - `AddSingleton<ITranslationService, TranslationService>()`
   - `AddSingleton<ModListViewModel>()`, `AddSingleton<HistoryViewModel>()`。
   - `AddSingleton<MainViewModel>()`, `AddSingleton<MainWindow>()`。
 - **MVVM 架构**：

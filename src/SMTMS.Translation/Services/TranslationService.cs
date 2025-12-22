@@ -1,147 +1,36 @@
-using System.Security.Cryptography;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using SMTMS.Core.Common;
-using SMTMS.Core.Infrastructure;
 using SMTMS.Core.Interfaces;
-using SMTMS.Core.Models;
-using SMTMS.Translation.Helpers;
 
 namespace SMTMS.Translation.Services;
 
 /// <summary>
-/// 翻译服务实现 - 负责翻译数据的提取、恢复和同步
+/// 翻译服务协调器 - 负责协调各个专门的翻译服务
 /// </summary>
 public class TranslationService(
     IServiceScopeFactory scopeFactory,
-    ILogger<TranslationService> logger,
-    IFileSystem fileSystem)
+    LegacyImportService legacyImportService,
+    TranslationScanService scanService,
+    TranslationRestoreService restoreService,
+    GitTranslationService gitService)
     : ITranslationService
 {
-    private readonly JsonSerializerSettings _jsonSettings = new()
-    {
-        Formatting = Formatting.Indented,
-        NullValueHandling = NullValueHandling.Ignore
-    };
     private readonly IServiceScopeFactory _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
-    private readonly ILogger<TranslationService> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-    private readonly IFileSystem _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+    private readonly LegacyImportService _legacyImportService = legacyImportService ?? throw new ArgumentNullException(nameof(legacyImportService));
+    private readonly TranslationScanService _scanService = scanService ?? throw new ArgumentNullException(nameof(scanService));
+    private readonly TranslationRestoreService _restoreService = restoreService ?? throw new ArgumentNullException(nameof(restoreService));
+    private readonly GitTranslationService _gitService = gitService ?? throw new ArgumentNullException(nameof(gitService));
 
     /// <summary>
     /// 从旧版 JSON 文件导入翻译数据
     /// </summary>
     public async Task<OperationResult> ImportFromLegacyJsonAsync(
-        string jsonPath, 
+        string jsonPath,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("开始从旧版 JSON 导入翻译: {JsonPath}", jsonPath);
-
-        if (!_fileSystem.FileExists(jsonPath))
-        {
-            _logger.LogWarning("备份文件不存在: {JsonPath}", jsonPath);
-            return OperationResult.Failure("备份文件不存在");
-        }
-
-        var successCount = 0;
-        var errorCount = 0;
-        var errors = new List<string>();
-
-        try
-        {
-            var json = await _fileSystem.ReadAllTextAsync(jsonPath, cancellationToken);
-            var translationsData = JsonConvert.DeserializeObject<Dictionary<string, TranslationBackupEntry>>(json);
-
-            if (translationsData == null || translationsData.Count == 0)
-            {
-                _logger.LogWarning("备份文件为空或格式无效");
-                return OperationResult.Failure("备份文件为空或格式无效");
-            }
-
-            using var scope = _scopeFactory.CreateScope();
-            var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
-
-            foreach (var (modName, modData) in translationsData)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                try
-                {
-                    if (string.IsNullOrWhiteSpace(modData.UniqueID))
-                    {
-                        errors.Add($"模组 {modName} 缺少 UniqueID");
-                        errorCount++;
-                        continue;
-                    }
-
-                    var mod = await modRepo.GetModAsync(modData.UniqueID, cancellationToken);
-                    if (mod == null)
-                    {
-                        mod = new ModMetadata { UniqueID = modData.UniqueID };
-                    }
-
-                    var updated = false;
-                    if (modData.IsChinese)
-                    {
-                        if (!string.IsNullOrEmpty(modData.Name))
-                        {
-                            mod.TranslatedName = modData.Name;
-                            updated = true;
-                        }
-                        if (!string.IsNullOrEmpty(modData.Description))
-                        {
-                            mod.TranslatedDescription = modData.Description;
-                            updated = true;
-                        }
-                    }
-                    else
-                    {
-                        // Fallback: 检测是否包含中文
-                        if (!string.IsNullOrEmpty(modData.Name) && ManifestTextReplacer.ContainsChinese(modData.Name))
-                        {
-                            mod.TranslatedName = modData.Name;
-                            updated = true;
-                        }
-                        if (!string.IsNullOrEmpty(modData.Description) && ManifestTextReplacer.ContainsChinese(modData.Description))
-                        {
-                            mod.TranslatedDescription = modData.Description;
-                            updated = true;
-                        }
-                    }
-
-                    if (updated)
-                    {
-                        mod.LastTranslationUpdate = DateTime.Now;
-                        await modRepo.UpsertModAsync(mod, cancellationToken);
-                        successCount++;
-                        _logger.LogDebug("成功导入模组翻译: {UniqueId}", modData.UniqueID);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "导入模组 {ModName} 时出错", modName);
-                    errors.Add($"{modName}: {ex.Message}");
-                    errorCount++;
-                }
-            }
-
-            _logger.LogInformation("导入完成: 成功 {SuccessCount}, 失败 {ErrorCount}", successCount, errorCount);
-            
-            if (errorCount == 0)
-            {
-                return OperationResult.Success(successCount, $"成功导入 {successCount} 个翻译");
-            }
-            else
-            {
-                return OperationResult.PartialSuccess(successCount, errorCount, 
-                    $"导入完成: {successCount} 成功, {errorCount} 失败", errors);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "导入失败");
-            return OperationResult.Failure($"导入失败: {ex.Message}");
-        }
+        using var scope = _scopeFactory.CreateScope();
+        var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
+        return await _legacyImportService.ImportFromLegacyJsonAsync(jsonPath, modRepo, cancellationToken);
     }
 
     /// <summary>
@@ -151,121 +40,9 @@ public class TranslationService(
         string modDirectory,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("开始保存翻译到数据库: {ModDirectory}", modDirectory);
-
-        if (!_fileSystem.DirectoryExists(modDirectory))
-        {
-            _logger.LogWarning("模组目录不存在: {ModDirectory}", modDirectory);
-            return OperationResult.Failure("模组目录不存在");
-        }
-
-        var modFiles = _fileSystem.GetFiles(modDirectory, "manifest.json", SearchOption.AllDirectories);
-        _logger.LogInformation("找到 {Count} 个 manifest.json 文件", modFiles.Length);
-
-        var successCount = 0;
-        var errorCount = 0;
-        var errors = new List<string>();
-
         using var scope = _scopeFactory.CreateScope();
         var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
-
-        // 🔥 性能优化：并行计算文件 Hash
-        var fileHashTasks = modFiles.Select(async file =>
-        {
-            try
-            {
-                var content = await _fileSystem.ReadAllBytesAsync(file, cancellationToken);
-                var hash = Convert.ToBase64String(MD5.HashData(content));
-                return (file, hash, success: true);
-            }
-            catch
-            {
-                return (file, string.Empty, success: false);
-            }
-        }).ToArray();
-
-        var fileHashes = await Task.WhenAll(fileHashTasks);
-
-        foreach (var (file, hash, success) in fileHashes)
-        {
-            if (!success)
-            {
-                errorCount++;
-                errors.Add($"无法读取文件: {_fileSystem.GetFileName(file)}");
-                continue;
-            }
-
-            cancellationToken.ThrowIfCancellationRequested();
-
-            try
-            {
-                var json = await _fileSystem.ReadAllTextAsync(file, cancellationToken);
-                var manifest = JsonConvert.DeserializeObject<ModManifest>(json);
-
-                if (manifest == null || string.IsNullOrWhiteSpace(manifest.UniqueID))
-                {
-                    _logger.LogWarning("跳过无效的 manifest: {File}", file);
-                    continue;
-                }
-
-                var mod = await modRepo.GetModAsync(manifest.UniqueID, cancellationToken);
-                if (mod == null)
-                {
-                    mod = new ModMetadata
-                    {
-                        UniqueID = manifest.UniqueID,
-                        RelativePath = _fileSystem.GetRelativePath(modDirectory, file)
-                    };
-                }
-
-                // 🔥 性能优化：使用 Hash 快速判断文件是否变更
-                if (mod.LastFileHash == hash)
-                {
-                    continue; // 文件未变更，跳过
-                }
-
-                var updated = false;
-
-                // 保存当前状态到翻译字段
-                if (mod.TranslatedName != manifest.Name)
-                {
-                    mod.TranslatedName = manifest.Name;
-                    updated = true;
-                }
-                if (mod.TranslatedDescription != manifest.Description)
-                {
-                    mod.TranslatedDescription = manifest.Description;
-                    updated = true;
-                }
-
-                if (updated || mod.LastTranslationUpdate == null)
-                {
-                    mod.LastTranslationUpdate = DateTime.Now;
-                    mod.LastFileHash = hash;
-                    await modRepo.UpsertModAsync(mod, cancellationToken);
-                    successCount++;
-                    _logger.LogDebug("保存翻译: {UniqueId}", manifest.UniqueID);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "保存翻译失败: {File}", file);
-                errors.Add($"{_fileSystem.GetFileName(file)}: {ex.Message}");
-                errorCount++;
-            }
-        }
-
-        _logger.LogInformation("保存完成: 成功 {SuccessCount}, 失败 {ErrorCount}", successCount, errorCount);
-
-        if (errorCount == 0)
-        {
-            return OperationResult.Success(successCount, $"成功保存 {successCount} 个翻译");
-        }
-        else
-        {
-            return OperationResult.PartialSuccess(successCount, errorCount,
-                $"保存完成: {successCount} 成功, {errorCount} 失败", errors);
-        }
+        return await _scanService.SaveTranslationsToDbAsync(modDirectory, modRepo, cancellationToken);
     }
 
     /// <summary>
@@ -275,113 +52,9 @@ public class TranslationService(
         string modDirectory,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("开始从数据库恢复翻译: {ModDirectory}", modDirectory);
-
-        if (!_fileSystem.DirectoryExists(modDirectory))
-        {
-            _logger.LogWarning("模组目录不存在: {ModDirectory}", modDirectory);
-            return OperationResult.Failure("模组目录不存在");
-        }
-
         using var scope = _scopeFactory.CreateScope();
         var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
-        var allTranslatedMods = (await modRepo.GetAllModsAsync(cancellationToken))
-            .Where(m => !string.IsNullOrEmpty(m.TranslatedName) || !string.IsNullOrEmpty(m.TranslatedDescription))
-            .ToList();
-
-        _logger.LogInformation("找到 {Count} 个已翻译的模组", allTranslatedMods.Count);
-
-        if (allTranslatedMods.Count == 0)
-        {
-            return OperationResult.Success(0, "没有需要恢复的翻译");
-        }
-
-        var translationMap = allTranslatedMods.ToDictionary(m => m.UniqueID);
-        var modFiles = _fileSystem.GetFiles(modDirectory, "manifest.json", SearchOption.AllDirectories);
-
-        var successCount = 0;
-        var errorCount = 0;
-        var errors = new List<string>();
-
-        // 🔥 性能优化：并行处理所有文件
-        var tasks = modFiles.Select(async file =>
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            try
-            {
-                var content = await _fileSystem.ReadAllTextAsync(file, cancellationToken);
-                var manifest = JsonConvert.DeserializeObject<ModManifest>(content);
-
-                if (manifest == null || string.IsNullOrWhiteSpace(manifest.UniqueID))
-                {
-                    return (success: false, error: $"无效的 manifest: {_fileSystem.GetFileName(file)}");
-                }
-
-                if (translationMap.TryGetValue(manifest.UniqueID, out var dbMod))
-                {
-                    // 🔥 使用纯函数工具类进行替换
-                    var originalContent = content;
-
-                    // 只在需要时替换 Name
-                    if (!string.IsNullOrEmpty(dbMod.TranslatedName) && manifest.Name != dbMod.TranslatedName)
-                    {
-                        content = ManifestTextReplacer.ReplaceName(content, dbMod.TranslatedName);
-                    }
-
-                    // 只在需要时替换 Description
-                    if (!string.IsNullOrEmpty(dbMod.TranslatedDescription) && manifest.Description != dbMod.TranslatedDescription)
-                    {
-                        content = ManifestTextReplacer.ReplaceDescription(content, dbMod.TranslatedDescription);
-                    }
-
-                    // 如果内容发生变化,写入文件
-                    if (content != originalContent)
-                    {
-                        await _fileSystem.WriteAllTextAsync(file, content, cancellationToken);
-                        _logger.LogDebug("恢复翻译: {UniqueId}", manifest.UniqueID);
-                        return (success: true, error: (string?)null);
-                    }
-                }
-
-                return (success: true, error: (string?)null);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "恢复翻译失败: {File}", file);
-                return (success: false, error: $"{_fileSystem.GetFileName(file)}: {ex.Message}");
-            }
-        }).ToArray();
-
-        var results = await Task.WhenAll(tasks);
-
-        foreach (var (success, error) in results)
-        {
-            if (success)
-            {
-                successCount++;
-            }
-            else
-            {
-                errorCount++;
-                if (error != null)
-                {
-                    errors.Add(error);
-                }
-            }
-        }
-
-        _logger.LogInformation("恢复完成: 成功 {SuccessCount}, 失败 {ErrorCount}", successCount, errorCount);
-
-        if (errorCount == 0)
-        {
-            return OperationResult.Success(successCount, $"成功恢复 {successCount} 个翻译");
-        }
-        else
-        {
-            return OperationResult.PartialSuccess(successCount, errorCount,
-                $"恢复完成: {successCount} 成功, {errorCount} 失败", errors);
-        }
+        return await _restoreService.RestoreTranslationsFromDbAsync(modDirectory, modRepo, cancellationToken);
     }
 
     /// <summary>
@@ -392,109 +65,9 @@ public class TranslationService(
         string repoPath,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("开始导出翻译到 Git 仓库: {RepoPath}", repoPath);
-
         using var scope = _scopeFactory.CreateScope();
         var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
-        var allMods = (await modRepo.GetAllModsAsync(cancellationToken)).ToList();
-
-        // 确保仓库 Mods 文件夹存在
-        var repoModsPath = _fileSystem.Combine(repoPath, "Mods");
-        if (!_fileSystem.DirectoryExists(repoModsPath))
-        {
-            _fileSystem.CreateDirectory(repoModsPath);
-        }
-
-        var successCount = 0;
-        var errorCount = 0;
-        var errors = new List<string>();
-
-        // 🔥 性能优化：并行导出所有文件
-        var tasks = allMods.Select(async mod =>
-        {
-            if (string.IsNullOrEmpty(mod.RelativePath))
-            {
-                return (success: true, error: (string?)null);
-            }
-
-            cancellationToken.ThrowIfCancellationRequested();
-
-            try
-            {
-                var sourcePath = _fileSystem.Combine(modDirectory, mod.RelativePath);
-                if (!_fileSystem.FileExists(sourcePath))
-                {
-                    return (success: true, error: (string?)null); // 模组可能已删除
-                }
-
-                // 读取源文件
-                var json = await _fileSystem.ReadAllTextAsync(sourcePath, cancellationToken);
-                var manifest = JsonConvert.DeserializeObject<ModManifest>(json);
-                if (manifest == null)
-                {
-                    return (success: false, error: $"无法解析: {mod.RelativePath}");
-                }
-
-                // 应用数据库中的翻译
-                if (!string.IsNullOrEmpty(mod.TranslatedName))
-                {
-                    manifest.Name = mod.TranslatedName;
-                }
-                if (!string.IsNullOrEmpty(mod.TranslatedDescription))
-                {
-                    manifest.Description = mod.TranslatedDescription;
-                }
-
-                // 写入到 Git 仓库
-                var targetPath = _fileSystem.Combine(repoPath, mod.RelativePath);
-                var targetDir = _fileSystem.GetDirectoryName(targetPath);
-                if (!string.IsNullOrEmpty(targetDir) && !_fileSystem.DirectoryExists(targetDir))
-                {
-                    _fileSystem.CreateDirectory(targetDir);
-                }
-
-                var outputJson = JsonConvert.SerializeObject(manifest, _jsonSettings);
-                await _fileSystem.WriteAllTextAsync(targetPath, outputJson, cancellationToken);
-
-                _logger.LogDebug("导出翻译: {UniqueId}", mod.UniqueID);
-                return (success: true, error: (string?)null);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "导出翻译失败: {RelativePath}", mod.RelativePath);
-                return (success: false, error: $"{mod.RelativePath}: {ex.Message}");
-            }
-        }).ToArray();
-
-        var results = await Task.WhenAll(tasks);
-
-        foreach (var (success, error) in results)
-        {
-            if (success)
-            {
-                successCount++;
-            }
-            else
-            {
-                errorCount++;
-                if (error != null)
-                {
-                    errors.Add(error);
-                }
-            }
-        }
-
-        _logger.LogInformation("导出完成: 成功 {SuccessCount}, 失败 {ErrorCount}", successCount, errorCount);
-
-        if (errorCount == 0)
-        {
-            return OperationResult.Success(successCount, $"成功导出 {successCount} 个翻译");
-        }
-        else
-        {
-            return OperationResult.PartialSuccess(successCount, errorCount,
-                $"导出完成: {successCount} 成功, {errorCount} 失败", errors);
-        }
+        return await _gitService.ExportTranslationsToGitRepoAsync(modDirectory, repoPath, modRepo, cancellationToken);
     }
 
     /// <summary>
@@ -504,108 +77,8 @@ public class TranslationService(
         string repoPath,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("开始从 Git 仓库导入翻译: {RepoPath}", repoPath);
-
-        var repoModsPath = _fileSystem.Combine(repoPath, "Mods");
-        if (!_fileSystem.DirectoryExists(repoModsPath))
-        {
-            _logger.LogWarning("Git 仓库 Mods 目录不存在: {RepoModsPath}", repoModsPath);
-            return OperationResult.Failure("Git 仓库 Mods 目录不存在");
-        }
-
-        var modFiles = _fileSystem.GetFiles(repoModsPath, "manifest.json", SearchOption.AllDirectories);
-        _logger.LogInformation("找到 {Count} 个 manifest.json 文件", modFiles.Length);
-
-        var successCount = 0;
-        var errorCount = 0;
-        var errors = new List<string>();
-
         using var scope = _scopeFactory.CreateScope();
         var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
-
-        // 🔥 性能优化：并行读取和解析所有文件
-        var tasks = modFiles.Select(async file =>
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            try
-            {
-                var json = await _fileSystem.ReadAllTextAsync(file, cancellationToken);
-                var manifest = JsonConvert.DeserializeObject<ModManifest>(json);
-
-                if (manifest == null || string.IsNullOrWhiteSpace(manifest.UniqueID))
-                {
-                    return (success: false, error: $"无效的 manifest: {_fileSystem.GetFileName(file)}", mod: (ModMetadata?)null);
-                }
-
-                var mod = await modRepo.GetModAsync(manifest.UniqueID, cancellationToken);
-                if (mod == null)
-                {
-                    mod = new ModMetadata
-                    {
-                        UniqueID = manifest.UniqueID,
-                        RelativePath = _fileSystem.GetRelativePath(repoModsPath, file)
-                    };
-                }
-
-                // 更新翻译数据
-                mod.TranslatedName = manifest.Name;
-                mod.TranslatedDescription = manifest.Description;
-                mod.LastTranslationUpdate = DateTime.Now;
-
-                return (success: true, error: (string?)null, mod);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "读取文件失败: {File}", file);
-                return (success: false, error: $"{_fileSystem.GetFileName(file)}: {ex.Message}", mod: (ModMetadata?)null);
-            }
-        }).ToArray();
-
-        var results = await Task.WhenAll(tasks);
-
-        // 收集所有成功的 Mod
-        var modsToUpdate = results
-            .Where(r => r.success && r.mod != null)
-            .Select(r => r.mod!)
-            .ToList();
-
-        // 批量更新数据库
-        if (modsToUpdate.Count != 0)
-        {
-            try
-            {
-                await modRepo.UpsertModsAsync(modsToUpdate, cancellationToken);
-                successCount = modsToUpdate.Count;
-                _logger.LogInformation("批量更新了 {Count} 个模组", successCount);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "批量更新数据库失败");
-                return OperationResult.Failure($"批量更新数据库失败: {ex.Message}");
-            }
-        }
-
-        // 收集错误
-        foreach (var (success, error, _) in results)
-        {
-            if (!success && error != null)
-            {
-                errorCount++;
-                errors.Add(error);
-            }
-        }
-
-        _logger.LogInformation("导入完成: 成功 {SuccessCount}, 失败 {ErrorCount}", successCount, errorCount);
-
-        if (errorCount == 0)
-        {
-            return OperationResult.Success(successCount, $"成功导入 {successCount} 个翻译");
-        }
-        else
-        {
-            return OperationResult.PartialSuccess(successCount, errorCount,
-                $"导入完成: {successCount} 成功, {errorCount} 失败", errors);
-        }
+        return await _gitService.ImportTranslationsFromGitRepoAsync(repoPath, modRepo, cancellationToken);
     }
 }

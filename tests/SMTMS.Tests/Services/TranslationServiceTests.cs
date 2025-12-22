@@ -12,30 +12,48 @@ public class TranslationServiceTests
     private readonly InMemoryFileSystem _fileSystem;
     private readonly InMemoryModRepository _modRepository;
     private readonly IServiceScopeFactory _scopeFactory;
-    private readonly ILogger<TranslationService> _logger;
+    private readonly TranslationService _service;
 
     public TranslationServiceTests()
     {
         _fileSystem = new InMemoryFileSystem();
         _modRepository = new InMemoryModRepository();
-        
+
         // 创建 Mock ServiceProvider
         var services = new ServiceCollection();
         services.AddScoped<IModRepository>(_ => _modRepository);
         var serviceProvider = services.BuildServiceProvider();
-        
+
         _scopeFactory = serviceProvider.GetRequiredService<IServiceScopeFactory>();
-        _logger = new LoggerFactory().CreateLogger<TranslationService>();
+
+        // 创建所有必需的服务
+        var loggerFactory = new LoggerFactory();
+        var legacyImportService = new LegacyImportService(
+            loggerFactory.CreateLogger<LegacyImportService>(),
+            _fileSystem);
+        var scanService = new TranslationScanService(
+            loggerFactory.CreateLogger<TranslationScanService>(),
+            _fileSystem);
+        var restoreService = new TranslationRestoreService(
+            loggerFactory.CreateLogger<TranslationRestoreService>(),
+            _fileSystem);
+        var gitService = new GitTranslationService(
+            loggerFactory.CreateLogger<GitTranslationService>(),
+            _fileSystem);
+
+        _service = new TranslationService(
+            _scopeFactory,
+            legacyImportService,
+            scanService,
+            restoreService,
+            gitService);
     }
 
     [Fact]
     public async Task SaveTranslationsToDbAsync_DirectoryNotExists_ReturnsFailure()
     {
-        // Arrange
-        var service = new TranslationService(_scopeFactory, _logger, _fileSystem);
-
         // Act
-        var result = await service.SaveTranslationsToDbAsync("/nonexistent");
+        var result = await _service.SaveTranslationsToDbAsync("/nonexistent");
 
         // Assert
         Assert.False(result.IsSuccess);
@@ -60,10 +78,9 @@ public class TranslationServiceTests
         """;
 
         await _fileSystem.WriteAllTextAsync("/mods/TestMod/manifest.json", manifestJson);
-        var service = new TranslationService(_scopeFactory, _logger, _fileSystem);
 
         // Act
-        var result = await service.SaveTranslationsToDbAsync("/mods");
+        var result = await _service.SaveTranslationsToDbAsync("/mods");
 
         // Assert
         Assert.True(result.IsSuccess, $"Expected success but got: {result.Message}. Details: {string.Join(", ", result.Details)}");
@@ -78,11 +95,8 @@ public class TranslationServiceTests
     [Fact]
     public async Task RestoreTranslationsFromDbAsync_DirectoryNotExists_ReturnsFailure()
     {
-        // Arrange
-        var service = new TranslationService(_scopeFactory, _logger, _fileSystem);
-
         // Act
-        var result = await service.RestoreTranslationsFromDbAsync("/nonexistent");
+        var result = await _service.RestoreTranslationsFromDbAsync("/nonexistent");
 
         // Assert
         Assert.False(result.IsSuccess);
@@ -94,10 +108,9 @@ public class TranslationServiceTests
     {
         // Arrange
         _fileSystem.CreateDirectory("/mods");
-        var service = new TranslationService(_scopeFactory, _logger, _fileSystem);
 
         // Act
-        var result = await service.RestoreTranslationsFromDbAsync("/mods");
+        var result = await _service.RestoreTranslationsFromDbAsync("/mods");
 
         // Assert
         Assert.True(result.IsSuccess);
@@ -132,10 +145,8 @@ public class TranslationServiceTests
             RelativePath = "TestMod/manifest.json"
         });
 
-        var service = new TranslationService(_scopeFactory, _logger, _fileSystem);
-
         // Act
-        var result = await service.RestoreTranslationsFromDbAsync("/mods");
+        var result = await _service.RestoreTranslationsFromDbAsync("/mods");
 
         // Assert
         Assert.True(result.IsSuccess);

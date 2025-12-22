@@ -21,7 +21,7 @@ public partial class App : System.Windows.Application
     public App()
     {
         _host = Host.CreateDefaultBuilder()
-            .ConfigureServices((context, services) =>
+            .ConfigureServices((_, services) =>
             {
                 var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
                 var smtmsPath = Path.Combine(appDataPath, "SMTMS");
@@ -37,13 +37,20 @@ public partial class App : System.Windows.Application
                 // Infrastructure
                 services.AddSingleton<IFileSystem, PhysicalFileSystem>();
 
-                services.AddSingleton<IGitService, SMTMS.GitProvider.Services.GitService>();
+                services.AddSingleton<IGitService, GitProvider.Services.GitService>();
                 services.AddSingleton<IModService, ModService>();
                 services.AddSingleton<IGamePathService, RegistryGamePathService>();
-                services.AddScoped<IModRepository, SMTMS.Data.Repositories.ModRepository>(); // Scoped for EF
-                services.AddSingleton<ITranslationService, SMTMS.Translation.Services.TranslationService>();
-                services.AddScoped<ISettingsService, SMTMS.Data.Services.SettingsService>();
-                services.AddScoped<IGitDiffCacheService, SMTMS.Data.Services.GitDiffCacheService>(); // Scoped for EF
+                services.AddScoped<IModRepository, Data.Repositories.ModRepository>(); // Scoped for EF
+
+                // Translation Services
+                services.AddSingleton<Translation.Services.LegacyImportService>();
+                services.AddSingleton<Translation.Services.TranslationScanService>();
+                services.AddSingleton<Translation.Services.TranslationRestoreService>();
+                services.AddSingleton<Translation.Services.GitTranslationService>();
+                services.AddSingleton<ITranslationService, Translation.Services.TranslationService>();
+
+                services.AddScoped<ISettingsService, Data.Services.SettingsService>();
+                services.AddScoped<IGitDiffCacheService, Data.Services.GitDiffCacheService>(); // Scoped for EF
 
                 // ViewModels - 注册子 ViewModels 为 Singleton
                 services.AddSingleton<ModListViewModel>();

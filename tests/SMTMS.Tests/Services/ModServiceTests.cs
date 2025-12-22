@@ -119,7 +119,7 @@ public class ModServiceTests
         // Arrange
         var fileSystem = new InMemoryFileSystem();
         var service = new ModService(fileSystem);
-        var manifest = new SMTMS.Core.Models.ModManifest
+        var manifest = new Core.Models.ModManifest
         {
             Name = "Test Mod",
             Author = "Test Author",
