@@ -6,18 +6,40 @@ using SMTMS.Core.Models;
 using SMTMS.Core.Aspects;
 using Microsoft.Extensions.DependencyInjection;
 using System.Security.Cryptography;
+using Microsoft.Extensions.Logging;
 
 namespace SMTMS.Core.Services;
 
 [Log]
-public class TranslationService : ITranslationService
+public partial class TranslationService : ITranslationService
 {
     private readonly JsonSerializerSettings _jsonSettings;
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ILogger<TranslationService> _logger;
 
-    public TranslationService(IServiceScopeFactory scopeFactory)
+    // 🔥 正则表达式缓存优化 - 使用 GeneratedRegex (C# 11+)
+    [GeneratedRegex(@"[\u4e00-\u9fff]")]
+    private static partial Regex ChinesePatternRegex();
+
+    [GeneratedRegex(@"[\u4e00-\u9fa5]")]
+    private static partial Regex ChineseSimplifiedRegex();
+
+    [GeneratedRegex(@"""Name""\s*:\s*""[^""]*""")]
+    private static partial Regex NameFieldRegex();
+
+    [GeneratedRegex(@"(""Name""\s*:\s*"")[^""]*("")")]
+    private static partial Regex NameReplaceRegex();
+
+    [GeneratedRegex(@"""Description""\s*:\s*""[^""]*""")]
+    private static partial Regex DescriptionFieldRegex();
+
+    [GeneratedRegex(@"(""Description""\s*:\s*"")[^""]*("")")]
+    private static partial Regex DescriptionReplaceRegex();
+
+    public TranslationService(IServiceScopeFactory scopeFactory, ILogger<TranslationService> logger)
     {
         _scopeFactory = scopeFactory;
+        _logger = logger;
         _jsonSettings = new JsonSerializerSettings
         {
             Formatting = Formatting.Indented,
@@ -25,7 +47,9 @@ public class TranslationService : ITranslationService
         };
     }
 
-    public async Task<(int successCount, int errorCount, string message)> ImportFromLegacyJsonAsync(string jsonPath)
+    public async Task<(int successCount, int errorCount, string message)> ImportFromLegacyJsonAsync(
+        string jsonPath,
+        CancellationToken cancellationToken = default)
     {
         if (!File.Exists(jsonPath))
         {
@@ -37,7 +61,8 @@ public class TranslationService : ITranslationService
 
         try
         {
-            string json = await File.ReadAllTextAsync(jsonPath);
+            // 🔥 支持取消令牌
+            string json = await File.ReadAllTextAsync(jsonPath, cancellationToken);
             var translationsData = JsonConvert.DeserializeObject<Dictionary<string, TranslationBackupEntry>>(json);
 
             if (translationsData == null || !translationsData.Any())
@@ -50,6 +75,9 @@ public class TranslationService : ITranslationService
 
             foreach (var kvp in translationsData)
             {
+                // 🔥 检查取消请求
+                cancellationToken.ThrowIfCancellationRequested();
+
                 try
                 {
                     var modData = kvp.Value;
@@ -87,13 +115,13 @@ public class TranslationService : ITranslationService
                     else
                     {
                         // Fallback heuristic: check if content contains chinese
-                        var chinesePattern = new Regex(@"[\u4e00-\u9fff]");
-                         if (!string.IsNullOrEmpty(modData.Name) && chinesePattern.IsMatch(modData.Name))
+                        // 🔥 使用缓存的正则表达式
+                        if (!string.IsNullOrEmpty(modData.Name) && ChinesePatternRegex().IsMatch(modData.Name))
                         {
                             mod.TranslatedName = modData.Name;
                             updated = true;
                         }
-                        if (!string.IsNullOrEmpty(modData.Description) && chinesePattern.IsMatch(modData.Description))
+                        if (!string.IsNullOrEmpty(modData.Description) && ChinesePatternRegex().IsMatch(modData.Description))
                         {
                             mod.TranslatedDescription = modData.Description;
                             updated = true;
@@ -107,8 +135,10 @@ public class TranslationService : ITranslationService
                         successCount++;
                     }
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    // 🔥 使用 ILogger 替代 Console.WriteLine
+                    _logger.LogError(ex, "导入翻译数据失败: {UniqueID}", kvp.Key);
                     errorCount++;
                 }
             }
@@ -121,10 +151,10 @@ public class TranslationService : ITranslationService
         }
     }
 
-    public async Task SaveTranslationsToDbAsync(string modDirectory)
+    public async Task SaveTranslationsToDbAsync(string modDirectory, CancellationToken cancellationToken = default)
     {
         var modFiles = Directory.GetFiles(modDirectory, "manifest.json", SearchOption.AllDirectories);
-        var chineseRegex = new Regex(@"[\u4e00-\u9fa5]");
+        // 🔥 使用缓存的正则表达式，不再每次创建新实例
 
         using var scope = _scopeFactory.CreateScope();
         var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
@@ -139,6 +169,9 @@ public class TranslationService : ITranslationService
         // 🔥 并行处理所有文件（第一阶段：快速指纹检查）
         var fileInfoTasks = modFiles.Select(async file =>
         {
+            // 🔥 检查取消请求
+            cancellationToken.ThrowIfCancellationRequested();
+
             var relativePath = Path.GetRelativePath(modDirectory, file);
             var currentHash = ComputeMD5(file);
 
@@ -161,7 +194,8 @@ public class TranslationService : ITranslationService
             {
                 try
                 {
-                    var json = await File.ReadAllTextAsync(info.file);
+                    // 🔥 支持取消令牌
+                    var json = await File.ReadAllTextAsync(info.file, cancellationToken);
                     var manifest = JsonConvert.DeserializeObject<ModManifest>(json);
 
                     if (manifest == null || string.IsNullOrWhiteSpace(manifest.UniqueID))
@@ -217,7 +251,8 @@ public class TranslationService : ITranslationService
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error saving to DB from {info.file}: {ex.Message}");
+                    // 🔥 使用 ILogger 替代 Console.WriteLine
+                    _logger.LogError(ex, "保存翻译到数据库失败: {FilePath}", info.file);
                     return null;
                 }
             }).ToList();
@@ -242,7 +277,7 @@ public class TranslationService : ITranslationService
         return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
     }
 
-    public async Task RestoreTranslationsFromDbAsync(string modDirectory)
+    public async Task RestoreTranslationsFromDbAsync(string modDirectory, CancellationToken cancellationToken = default)
     {
         using var scope = _scopeFactory.CreateScope();
         var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
@@ -260,7 +295,8 @@ public class TranslationService : ITranslationService
         {
             try
             {
-                var content = await File.ReadAllTextAsync(file);
+                // 🔥 支持取消令牌
+                var content = await File.ReadAllTextAsync(file, cancellationToken);
                 var manifest = JsonConvert.DeserializeObject<ModManifest>(content);
 
                 if (manifest == null || string.IsNullOrWhiteSpace(manifest.UniqueID))
@@ -274,9 +310,10 @@ public class TranslationService : ITranslationService
                     if (!string.IsNullOrEmpty(dbMod.TranslatedName) && manifest.Name != dbMod.TranslatedName)
                     {
                         string escapedName = JsonConvert.ToString(dbMod.TranslatedName).Trim('"');
-                        if (Regex.IsMatch(content, @"""Name""\s*:\s*""[^""]*"""))
+                        // 🔥 使用缓存的正则表达式
+                        if (NameFieldRegex().IsMatch(content))
                         {
-                            string newContent = Regex.Replace(content, @"(""Name""\s*:\s*"")[^""]*("")", $"${{1}}{escapedName}${{2}}");
+                            string newContent = NameReplaceRegex().Replace(content, $"${{1}}{escapedName}${{2}}");
                             if (content != newContent)
                             {
                                 content = newContent;
@@ -289,9 +326,10 @@ public class TranslationService : ITranslationService
                     if (!string.IsNullOrEmpty(dbMod.TranslatedDescription) && manifest.Description != dbMod.TranslatedDescription)
                     {
                          string escapedDesc = JsonConvert.ToString(dbMod.TranslatedDescription).Trim('"');
-                         if (Regex.IsMatch(content, @"""Description""\s*:\s*""[^""]*"""))
+                         // 🔥 使用缓存的正则表达式
+                         if (DescriptionFieldRegex().IsMatch(content))
                         {
-                            string newContent = Regex.Replace(content, @"(""Description""\s*:\s*"")[^""]*("")", $"${{1}}{escapedDesc}${{2}}");
+                            string newContent = DescriptionReplaceRegex().Replace(content, $"${{1}}{escapedDesc}${{2}}");
                             if (content != newContent)
                             {
                                 content = newContent;
@@ -302,19 +340,21 @@ public class TranslationService : ITranslationService
 
                     if (changed)
                     {
-                        await File.WriteAllTextAsync(file, content);
+                        // 🔥 支持取消令牌
+                        await File.WriteAllTextAsync(file, content, cancellationToken);
                     }
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error restoring to {file}: {ex.Message}");
+                // 🔥 使用 ILogger 替代 Console.WriteLine
+                _logger.LogError(ex, "恢复翻译失败: {FilePath}", file);
             }
         }).ToList();
 
         await Task.WhenAll(tasks);
     }
-    public async Task ExportTranslationsToGitRepo(string modDirectory, string repoPath)
+    public async Task ExportTranslationsToGitRepo(string modDirectory, string repoPath, CancellationToken cancellationToken = default)
     {
         using var scope = _scopeFactory.CreateScope();
         var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
@@ -334,11 +374,14 @@ public class TranslationService : ITranslationService
             {
                 try
                 {
+                    // 🔥 检查取消请求
+                    cancellationToken.ThrowIfCancellationRequested();
+
                     var sourcePath = Path.Combine(modDirectory, mod.RelativePath);
                     if (!File.Exists(sourcePath)) return; // Mod might have been deleted
 
                     // Read source
-                    var json = await File.ReadAllTextAsync(sourcePath);
+                    var json = await File.ReadAllTextAsync(sourcePath, cancellationToken);
                     var manifest = JsonConvert.DeserializeObject<ModManifest>(json);
                     if (manifest == null) return;
 
@@ -355,17 +398,18 @@ public class TranslationService : ITranslationService
                     }
 
                     var outputJson = JsonConvert.SerializeObject(manifest, Formatting.Indented);
-                    await File.WriteAllTextAsync(destPath, outputJson);
+                    await File.WriteAllTextAsync(destPath, outputJson, cancellationToken);
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error exporting mod {mod.UniqueID}: {ex.Message}");
+                    // 🔥 使用 ILogger 替代 Console.WriteLine
+                    _logger.LogError(ex, "导出模组失败: {UniqueID}", mod.UniqueID);
                 }
             }).ToList();
 
         await Task.WhenAll(tasks);
     }
-    public async Task ImportTranslationsFromGitRepoAsync(string repoPath)
+    public async Task ImportTranslationsFromGitRepoAsync(string repoPath, CancellationToken cancellationToken = default)
     {
         var repoModsPath = Path.Combine(repoPath, "Mods");
         if (!Directory.Exists(repoModsPath))
@@ -383,7 +427,8 @@ public class TranslationService : ITranslationService
         {
             try
             {
-                var json = await File.ReadAllTextAsync(file);
+                // 🔥 支持取消令牌
+                var json = await File.ReadAllTextAsync(file, cancellationToken);
                 var manifest = JsonConvert.DeserializeObject<ModManifest>(json);
 
                 if (manifest == null || string.IsNullOrWhiteSpace(manifest.UniqueID))
@@ -393,7 +438,8 @@ public class TranslationService : ITranslationService
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error parsing Git Repo file {file}: {ex.Message}");
+                // 🔥 使用 ILogger 替代 Console.WriteLine
+                _logger.LogError(ex, "解析 Git 仓库文件失败: {FilePath}", file);
                 return ((ModManifest?)null, (string?)null);
             }
         }).ToList();

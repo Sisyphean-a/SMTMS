@@ -26,13 +26,14 @@ public class GitDiffCacheService : IGitDiffCacheService
     /// <summary>
     /// 从缓存中获取指定提交的 Diff 数据
     /// </summary>
-    public async Task<List<ModDiffModel>?> GetCachedDiffAsync(string commitHash)
+    public async Task<List<ModDiffModel>?> GetCachedDiffAsync(string commitHash, CancellationToken cancellationToken = default)
     {
         try
         {
+            // 🔥 支持取消令牌
             var cache = await _context.GitDiffCache
                 .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.CommitHash == commitHash);
+                .FirstOrDefaultAsync(c => c.CommitHash == commitHash, cancellationToken);
 
             if (cache == null)
             {
@@ -63,7 +64,7 @@ public class GitDiffCacheService : IGitDiffCacheService
     /// <summary>
     /// 保存 Diff 数据到缓存
     /// </summary>
-    public async Task SaveDiffCacheAsync(string commitHash, List<ModDiffModel> diffData)
+    public async Task SaveDiffCacheAsync(string commitHash, List<ModDiffModel> diffData, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -71,8 +72,9 @@ public class GitDiffCacheService : IGitDiffCacheService
             var serializedData = MessagePackSerializer.Serialize(diffData);
 
             // 检查是否已存在
+            // 🔥 支持取消令牌
             var existingCache = await _context.GitDiffCache
-                .FirstOrDefaultAsync(c => c.CommitHash == commitHash);
+                .FirstOrDefaultAsync(c => c.CommitHash == commitHash, cancellationToken);
 
             if (existingCache != null)
             {
@@ -93,11 +95,12 @@ public class GitDiffCacheService : IGitDiffCacheService
                     CreatedAt = DateTime.UtcNow,
                     FormatVersion = CurrentFormatVersion
                 };
-                await _context.GitDiffCache.AddAsync(cache);
+                await _context.GitDiffCache.AddAsync(cache, cancellationToken);
             }
 
-            await _context.SaveChangesAsync();
-            _logger.LogInformation("缓存已保存: {CommitHash}, 包含 {Count} 个模组变更, 大小: {Size} bytes", 
+            // 🔥 支持取消令牌
+            await _context.SaveChangesAsync(cancellationToken);
+            _logger.LogInformation("缓存已保存: {CommitHash}, 包含 {Count} 个模组变更, 大小: {Size} bytes",
                 commitHash, diffData.Count, serializedData.Length);
         }
         catch (Exception ex)
@@ -108,21 +111,24 @@ public class GitDiffCacheService : IGitDiffCacheService
     }
 
     /// <summary>
-    /// 清理旧的缓存数据
+    /// 清理旧的缓存数据（基于时间）
     /// </summary>
-    public async Task<int> ClearOldCachesAsync(int daysToKeep = 30)
+    public async Task<int> ClearOldCachesAsync(int daysToKeep = 30, CancellationToken cancellationToken = default)
     {
         try
         {
             var cutoffDate = DateTime.UtcNow.AddDays(-daysToKeep);
+            // 🔥 EF Core 优化：只读查询使用 AsNoTracking()
+            // 🔥 支持取消令牌
             var oldCaches = await _context.GitDiffCache
+                .AsNoTracking()
                 .Where(c => c.CreatedAt < cutoffDate)
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
 
             if (oldCaches.Any())
             {
                 _context.GitDiffCache.RemoveRange(oldCaches);
-                await _context.SaveChangesAsync();
+                await _context.SaveChangesAsync(cancellationToken);
                 _logger.LogInformation("已清理 {Count} 个旧缓存（超过 {Days} 天）", oldCaches.Count, daysToKeep);
                 return oldCaches.Count;
             }
@@ -132,6 +138,89 @@ public class GitDiffCacheService : IGitDiffCacheService
         catch (Exception ex)
         {
             _logger.LogError(ex, "清理旧缓存失败");
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// 🔥 LRU 缓存清理策略：保留最近访问的 N 个缓存，删除其余
+    /// </summary>
+    /// <param name="maxCacheCount">最大缓存数量，默认 100</param>
+    /// <param name="cancellationToken">🔥 取消令牌</param>
+    /// <returns>清理的缓存数量</returns>
+    public async Task<int> ClearLRUCachesAsync(int maxCacheCount = 100, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // 获取当前缓存总数
+            // 🔥 支持取消令牌
+            var totalCount = await _context.GitDiffCache.CountAsync(cancellationToken);
+
+            if (totalCount <= maxCacheCount)
+            {
+                _logger.LogDebug("缓存数量 {Count} 未超过限制 {Max}，无需清理", totalCount, maxCacheCount);
+                return 0;
+            }
+
+            // 按创建时间降序排序，保留最新的 maxCacheCount 个
+            // 🔥 支持取消令牌
+            var cachesToDelete = await _context.GitDiffCache
+                .AsNoTracking()
+                .OrderByDescending(c => c.CreatedAt)
+                .Skip(maxCacheCount)
+                .ToListAsync(cancellationToken);
+
+            if (cachesToDelete.Any())
+            {
+                _context.GitDiffCache.RemoveRange(cachesToDelete);
+                await _context.SaveChangesAsync(cancellationToken);
+                _logger.LogInformation("LRU 清理完成：删除 {Count} 个旧缓存，保留最新 {Max} 个",
+                    cachesToDelete.Count, maxCacheCount);
+                return cachesToDelete.Count;
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "LRU 缓存清理失败");
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// 🔥 智能缓存清理：结合时间和数量限制
+    /// </summary>
+    /// <param name="daysToKeep">保留天数，默认 30 天</param>
+    /// <param name="maxCacheCount">最大缓存数量，默认 100</param>
+    /// <param name="cancellationToken">🔥 取消令牌</param>
+    /// <returns>清理的缓存数量</returns>
+    public async Task<int> SmartClearCachesAsync(int daysToKeep = 30, int maxCacheCount = 100, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var totalCleared = 0;
+
+            // 第一步：清理过期缓存
+            // 🔥 支持取消令牌
+            var oldCleared = await ClearOldCachesAsync(daysToKeep, cancellationToken);
+            totalCleared += oldCleared;
+
+            // 第二步：如果仍然超过数量限制，执行 LRU 清理
+            // 🔥 支持取消令牌
+            var lruCleared = await ClearLRUCachesAsync(maxCacheCount, cancellationToken);
+            totalCleared += lruCleared;
+
+            if (totalCleared > 0)
+            {
+                _logger.LogInformation("智能缓存清理完成：共清理 {Count} 个缓存", totalCleared);
+            }
+
+            return totalCleared;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "智能缓存清理失败");
             return 0;
         }
     }
