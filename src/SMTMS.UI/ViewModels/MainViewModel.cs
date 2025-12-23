@@ -20,6 +20,7 @@ public partial class MainViewModel : ObservableObject
     private readonly ITranslationService _translationService;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<MainViewModel> _logger;
+    private int _isSyncing = 0;
 
     [ObservableProperty]
     private string _applicationTitle = "SMTMS - Stardew Mod Translation & Management System";
@@ -195,19 +196,27 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task SyncToDatabaseAsync()
     {
-        var dialog = new Views.CommitDialog($"Scan & Update {DateTime.Now:yyyy/MM/dd HH:mm}");
-        if (dialog.ShowDialog() != true)
+        // 防止重入（并发保护）
+        if (Interlocked.CompareExchange(ref _isSyncing, 1, 0) == 1)
         {
+            WeakReferenceMessenger.Default.Send(new StatusMessage("正在后台同步中，请稍候...", StatusLevel.Warning));
             return;
         }
 
-        var commitMessage = dialog.CommitMessage;
-
-        WeakReferenceMessenger.Default.Send(new StatusMessage("正在同步到数据库..."));
-
         try
         {
-            // 1. 提取/更新数据库
+            var dialog = new Views.CommitDialog($"Scan & Update {DateTime.Now:yyyy/MM/dd HH:mm}");
+            if (dialog.ShowDialog() != true)
+            {
+                return;
+            }
+
+            var commitMessage = dialog.CommitMessage;
+            WeakReferenceMessenger.Default.Send(new StatusMessage("正在扫描并更新数据库..."));
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+
+            // 1. 同步到数据库 (快速操作 - 前台等待)
             var saveResult = await _translationService.SaveTranslationsToDbAsync(ModsDirectory);
             if (!saveResult.IsSuccess)
             {
@@ -216,30 +225,61 @@ public partial class MainViewModel : ObservableObject
                 return;
             }
 
-            // 2. 导出到 Git 仓库
-            var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
-            var exportResult = await _translationService.ExportTranslationsToGitRepo(ModsDirectory, appDataPath);
-            if (!exportResult.IsSuccess)
-            {
-                WeakReferenceMessenger.Default.Send(new StatusMessage($"导出失败: {exportResult.Message}", StatusLevel.Error));
-                _logger.LogError("导出翻译失败: {Message}", exportResult.Message);
-                return;
-            }
+            sw.Stop();
+            var dbTime = sw.ElapsedMilliseconds;
 
-            // 3. 创建 Git 快照
-            _gitService.CommitAll(appDataPath, commitMessage);
-
-            WeakReferenceMessenger.Default.Send(new StatusMessage($"同步成功：{saveResult.Message}", StatusLevel.Success));
-            _logger.LogInformation("同步成功: {Message}", saveResult.Message);
-
-            // 刷新历史和模组列表
+            // UI 立即响应：数据库已完成
+            WeakReferenceMessenger.Default.Send(new StatusMessage($"数据库更新完成 ({dbTime}ms)。正在后台备份到 Git...", StatusLevel.Info));
+            
+            // 刷新历史和模组列表 (让用户立刻看到变动)
             HistoryViewModel.LoadHistory();
             WeakReferenceMessenger.Default.Send(RefreshModsRequestMessage.Instance);
+
+            // 2. Git 备份 (耗时操作 - 后台异步)
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                   var swGit = System.Diagnostics.Stopwatch.StartNew();
+                   var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
+                   
+                   // 2.1 导出文件
+                   var exportResult = await _translationService.ExportTranslationsToGitRepo(ModsDirectory, appDataPath);
+                   if (!exportResult.IsSuccess)
+                   {
+                       WeakReferenceMessenger.Default.Send(new StatusMessage($"Git 导出失败: {exportResult.Message}", StatusLevel.Error));
+                       return;
+                   }
+
+                   // 2.2 提交 (CPU/IO 密集型)
+                   // _gitService.CommitAll 是同步方法，但在 Task.Run 中运行不会卡 UI
+                   _gitService.CommitAll(appDataPath, commitMessage);
+                   
+                   swGit.Stop();
+                   _logger.LogInformation("✅ [Git Background Sync] {Elapsed}ms.", swGit.ElapsedMilliseconds);
+                   
+                   // 完成通知
+                   WeakReferenceMessenger.Default.Send(new StatusMessage($"同步全部完成 (DB: {dbTime}ms, Git: {swGit.ElapsedMilliseconds}ms)", StatusLevel.Success));
+                   
+                   // 再次刷新历史以显示新提交
+                   // HistoryViewModel.LoadHistory(); // 需要切回主线程，简单起见这里省略或通过消息通知，StatusMessage 已足够
+                }
+                catch (Exception ex)
+                {
+                     _logger.LogError(ex, "后台 Git 提交失败");
+                     WeakReferenceMessenger.Default.Send(new StatusMessage($"后台备份失败: {ex.Message}", StatusLevel.Error));
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref _isSyncing, 0);
+                }
+            });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "同步过程发生异常");
             WeakReferenceMessenger.Default.Send(new StatusMessage($"同步错误: {ex.Message}", StatusLevel.Error));
+            Interlocked.Exchange(ref _isSyncing, 0);
         }
     }
 

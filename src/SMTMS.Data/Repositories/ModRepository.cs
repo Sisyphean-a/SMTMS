@@ -1,12 +1,15 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SMTMS.Core.Interfaces;
 using SMTMS.Data.Context;
 using SMTMS.Core.Models;
 
 namespace SMTMS.Data.Repositories;
 
-public class ModRepository(AppDbContext context) : IModRepository
+public class ModRepository(AppDbContext context, ILogger<ModRepository> logger) : IModRepository
 {
+    private readonly ILogger<ModRepository> _logger = logger;
+
     /// <summary>
     /// 获取所有 Mod 元数据（只读查询，使用 AsNoTracking 优化性能）
     /// </summary>
@@ -96,6 +99,7 @@ public class ModRepository(AppDbContext context) : IModRepository
             .ToListAsync(cancellationToken);
         var existingMods = existingModsList.ToDictionary(m => m.UniqueID);
 
+        var debugCount = 0;
         foreach (var mod in modList)
         {
             // 🔥 检查取消请求
@@ -103,7 +107,19 @@ public class ModRepository(AppDbContext context) : IModRepository
 
             if (existingMods.TryGetValue(mod.UniqueID, out var existing))
             {
-                // 更新现有记录
+                if (debugCount < 5 && existing.RelativePath != mod.RelativePath)
+                {
+                   _logger.LogInformation("🔄 更新DB路径 [{ID}]: '{Old}' -> '{New}'", mod.UniqueID, existing.RelativePath, mod.RelativePath);
+                }
+
+                // Update properties explicitly to ensure they stick
+                existing.RelativePath = mod.RelativePath;
+                existing.LastFileHash = mod.LastFileHash;
+                existing.LastTranslationUpdate = mod.LastTranslationUpdate;
+                existing.TranslatedName = mod.TranslatedName;
+                existing.TranslatedDescription = mod.TranslatedDescription;
+                
+                // Fallback to SetValues for any other properties I missed
                 context.Entry(existing).CurrentValues.SetValues(mod);
             }
             else
@@ -111,6 +127,7 @@ public class ModRepository(AppDbContext context) : IModRepository
                 // 添加新记录
                 await context.ModMetadata.AddAsync(mod, cancellationToken);
             }
+            debugCount++;
         }
 
         // 一次性保存所有变更

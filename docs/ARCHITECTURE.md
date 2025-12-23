@@ -329,26 +329,35 @@ sequenceDiagram
     MainVM->>U: 弹出 CommitDialog
     U->>MainVM: 输入提交信息 (Message) & 确认
 
-    MainVM->>Msg: Send(StatusMessage("正在同步..."))
+    MainVM->>Msg: Send(StatusMessage("正在扫描并更新数据库..."))
+    
+    note right of MainVM: === Phase 1: 数据库同步 (前台等待) ===
+
     MainVM->>TS: SaveTranslationsToDbAsync(ModsDirectory)
     TS->>FS: 并行计算所有文件 Hash (Task.WhenAll)
-    TS->>TS: 对比数据库 LastFileHash，过滤未变更文件
-    TS->>FS: 并行读取和解析变更的 JSON (Task.WhenAll)
-    TS->>Repo: GetModsByIdsAsync(uniqueIds) - 批量查询
-    Repo->>DB: 一次性查询所有 Mod
+    TS->>Repo: LoadDatabaseModsAsync() - 加载现有数据
+    TS->>TS: 遍历文件: 对比 Hash 过滤未变更文件
+    TS->>FS: 读取并解析变更的 manifest.json
     TS->>Repo: UpsertModsAsync(mods) - 批量保存
     Repo->>DB: 一次性提交所有变更
+    
+    MainVM->>Msg: Send(StatusMessage("数据库更新完成"))
+    MainVM->>HistoryVM: LoadHistory()
+    MainVM->>Msg: Send(RefreshModsRequestMessage)
 
-    MainVM->>TS: ExportTranslationsToGitRepo(ModsDirectory, AppDataPath)
+    note right of MainVM: === Phase 2: Git 备份 (后台异步) ===
+    
+    MainVM-)MainVM: Task.Run (Background)
+    activate MainVM
+    
+    MainVM->>TS: ExportTranslationsToGitRepo(...)
     TS->>FS: 并行导出所有 manifest.json (Task.WhenAll)
 
     MainVM->>GB: CommitAll(AppDataPath, message)
     GB->>GB: Stage * -> Commit
-
-    MainVM->>Msg: Send(StatusMessage("同步成功"))
-    MainVM->>HistoryVM: LoadHistory() (通过消息或直接调用)
-    MainVM->>Msg: Send(RefreshModsRequestMessage)
-    ModListVM->>ModListVM: 接收消息并刷新
+    
+    MainVM->>Msg: Send(StatusMessage("同步全部完成 (DB + Git)"))
+    deactivate MainVM
 ```
 
 ### 3.6 单模组回滚 (Single Mod Rollback)

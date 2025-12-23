@@ -29,7 +29,7 @@ public class GitService(ILogger<GitService> logger) : IGitService
 
     public void CommitAll(string path, string message)
     {
-        logger.LogInformation("提交所有更改: {Path}, 消息: {Message}", path, message);
+        // logger.LogInformation("提交所有更改: {Path}, 消息: {Message}", path, message);
 
         using var repo = new Repository(path);
 
@@ -40,31 +40,36 @@ public class GitService(ILogger<GitService> logger) : IGitService
              File.WriteAllText(gitIgnorePath, "smtms.db\nsmtms.db-shm\nsmtms.db-wal\n");
         }
 
-        // Auto-stage everything (respecting .gitignore)
-        logger.LogInformation("暂存所有文件...");
-        Commands.Stage(repo, "*");
-
-        // Check if there are changes to commit
+        // Optimize: Retrieve status first to find what actually changed, instead of blind Stage("*")
         var status = repo.RetrieveStatus();
+        
+        if (!status.IsDirty)
+        {
+            logger.LogWarning("没有需要提交的更改");
+            return;
+        }
+
         logger.LogInformation("仓库状态: IsDirty={IsDirty}, Added={Added}, Modified={Modified}, Removed={Removed}",
             status.IsDirty,
             status.Added.Count(),
             status.Modified.Count(),
             status.Removed.Count());
 
-        if (status.IsDirty)
+        // Stage only the changed files
+        var filesToStage = status.Where(s => s.State != FileStatus.Ignored).Select(s => s.FilePath).ToList();
+        if (filesToStage.Count > 0)
+        {
+            // logger.LogInformation("暂存 {Count} 个文件...", filesToStage.Count);
+            Commands.Stage(repo, filesToStage);
+        }
+
+        if (filesToStage.Count > 0)
         {
             // 记录变更的文件
             foreach (var item in status.Where(s => s.State != FileStatus.Ignored))
             {
                 logger.LogInformation("变更文件: {FilePath} ({State})", item.FilePath, item.State);
             }
-        }
-
-        if (!status.IsDirty)
-        {
-            logger.LogWarning("没有需要提交的更改");
-            return;
         }
 
         // Use a default signature for auto-commits

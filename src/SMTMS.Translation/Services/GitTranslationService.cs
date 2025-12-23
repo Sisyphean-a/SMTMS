@@ -31,6 +31,7 @@ public class GitTranslationService(
         IModRepository modRepo,
         CancellationToken cancellationToken = default)
     {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         _logger.LogInformation("开始导出翻译到 Git 仓库: {RepoPath}", repoPath);
 
         var allMods = (await modRepo.GetAllModsAsync(cancellationToken)).ToList();
@@ -66,7 +67,8 @@ public class GitTranslationService(
             }
         }
 
-        _logger.LogInformation("导出完成: 成功 {SuccessCount}, 失败 {ErrorCount}", successCount, errorCount);
+        sw.Stop();
+        _logger.LogInformation("导出完成 ({Elapsed}ms): 成功 {SuccessCount}, 失败 {ErrorCount}", sw.ElapsedMilliseconds, successCount, errorCount);
 
         return CreateOperationResult(successCount, errorCount, errors, "导出");
     }
@@ -171,7 +173,7 @@ public class GitTranslationService(
             ApplyTranslationsToManifest(manifest, mod);
 
             // LOGGING DEBUG: Check what we are about to write
-            _logger.LogInformation("准备导出 [{UniqueId}]: Name='{Name}'", mod.UniqueID, manifest.Name);
+            _logger.LogDebug("准备导出 [{UniqueId}]: Name='{Name}'", mod.UniqueID, manifest.Name);
 
             // 写入到 Git 仓库
             await WriteManifestToGitRepoAsync(manifest, mod.RelativePath, repoPath, cancellationToken);
@@ -294,7 +296,7 @@ public class GitTranslationService(
         }
 
         await _fileSystem.WriteAllTextAsync(targetPath, outputJson, cancellationToken);
-        _logger.LogInformation("已写入文件: {RelativePath}", relativePath);
+        _logger.LogDebug("已写入文件: {RelativePath}", relativePath);
     }
 
     /// <summary>

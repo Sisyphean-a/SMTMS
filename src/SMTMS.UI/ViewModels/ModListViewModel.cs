@@ -99,13 +99,12 @@ public partial class ModListViewModel : ObservableObject
                 if (mod == null)
                 {
                     // 新模组 - 创建元数据记录
-                    var modDir = Path.GetDirectoryName(manifest.ManifestPath);
                     mod = new Core.Models.ModMetadata
                     {
                         UniqueID = manifest.UniqueID,
                         OriginalName = manifest.Name,
                         OriginalDescription = manifest.Description,
-                        RelativePath = modDir != null ? Path.GetRelativePath(ModsDirectory, modDir) : string.Empty,
+                        RelativePath = string.IsNullOrEmpty(manifest.ManifestPath) ? string.Empty : Path.GetRelativePath(ModsDirectory, manifest.ManifestPath).Replace('\\', '/'),
                         LastTranslationUpdate = DateTime.UtcNow
                     };
                     modsToUpdate.Add(mod);
@@ -113,8 +112,7 @@ public partial class ModListViewModel : ObservableObject
                 else
                 {
                     // 更新路径（如果需要）
-                    var modDir = Path.GetDirectoryName(manifest.ManifestPath);
-                    var currentRelativePath = modDir != null ? Path.GetRelativePath(ModsDirectory, modDir) : string.Empty;
+                    var currentRelativePath = string.IsNullOrEmpty(manifest.ManifestPath) ? string.Empty : Path.GetRelativePath(ModsDirectory, manifest.ManifestPath).Replace('\\', '/');
 
                     if (mod.RelativePath != currentRelativePath)
                     {
