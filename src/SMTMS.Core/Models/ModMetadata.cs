@@ -30,4 +30,15 @@ public class ModMetadata
     
     // Content Fingerprint
     public string? LastFileHash { get; set; }
+
+    // JSON Content Versioning
+    /// <summary>
+    /// 首次扫描到的原始 JSON 内容（用于对比或重置）
+    /// </summary>
+    public string? OriginalJson { get; set; }
+
+    /// <summary>
+    /// 当前编辑/保存后的 JSON 内容
+    /// </summary>
+    public string? CurrentJson { get; set; }
 }

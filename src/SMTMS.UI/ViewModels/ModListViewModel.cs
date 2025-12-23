@@ -16,7 +16,6 @@ namespace SMTMS.UI.ViewModels;
 public partial class ModListViewModel : ObservableObject
 {
     private readonly IModService _modService;
-    private readonly IGitService _gitService;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<ModListViewModel> _logger;
 
@@ -33,12 +32,10 @@ public partial class ModListViewModel : ObservableObject
 
     public ModListViewModel(
         IModService modService,
-        IGitService gitService,
         IServiceScopeFactory scopeFactory,
         ILogger<ModListViewModel> logger)
     {
         _modService = modService;
-        _gitService = gitService;
         _scopeFactory = scopeFactory;
         _logger = logger;
 
@@ -122,7 +119,7 @@ public partial class ModListViewModel : ObservableObject
                 }
 
                 // 添加到 UI 集合
-                var viewModel = new ModViewModel(manifest, _gitService, mod);
+                var viewModel = new ModViewModel(manifest, mod);
                 Mods.Add(viewModel);
             }
 
@@ -204,4 +201,3 @@ public partial class ModListViewModel : ObservableObject
         }
     }
 }
-

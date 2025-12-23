@@ -22,6 +22,10 @@ public class TranslationServiceTests
         // 创建 Mock ServiceProvider
         var services = new ServiceCollection();
         services.AddScoped<IModRepository>(_ => _modRepository);
+        // Added Mock HistoryRepository
+        var mockHistoryRepo = new Moq.Mock<IHistoryRepository>();
+        services.AddScoped<IHistoryRepository>(_ => mockHistoryRepo.Object);
+        
         var serviceProvider = services.BuildServiceProvider();
 
         _scopeFactory = serviceProvider.GetRequiredService<IServiceScopeFactory>();
@@ -37,16 +41,14 @@ public class TranslationServiceTests
         var restoreService = new TranslationRestoreService(
             loggerFactory.CreateLogger<TranslationRestoreService>(),
             _fileSystem);
-        var gitService = new GitTranslationService(
-            loggerFactory.CreateLogger<GitTranslationService>(),
-            _fileSystem);
+        
+        // Removed GitTranslationService
 
         _service = new TranslationService(
             _scopeFactory,
             legacyImportService,
             scanService,
-            restoreService,
-            gitService);
+            restoreService);
     }
 
     [Fact]
@@ -100,7 +102,7 @@ public class TranslationServiceTests
 
         // Assert
         Assert.False(result.IsSuccess);
-        Assert.Contains("目录不存在", result.Message);
+        Assert.Contains("模组目录不存在", result.Message); // Updated expectation to match implementation
     }
 
     [Fact]
@@ -156,4 +158,3 @@ public class TranslationServiceTests
         Assert.Contains("这是一个测试模组", restoredContent);
     }
 }
-

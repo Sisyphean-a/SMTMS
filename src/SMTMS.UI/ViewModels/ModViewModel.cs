@@ -1,15 +1,14 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using SMTMS.Core.Interfaces;
+using CommunityToolkit.Mvvm.Messaging;
 using SMTMS.Core.Models;
-using System.IO;
+using SMTMS.UI.Messages;
 
 namespace SMTMS.UI.ViewModels;
 
 public partial class ModViewModel : ObservableObject
 {
     private readonly ModManifest _manifest;
-    private readonly IGitService _gitService; // Added
     private ModMetadata? _metadata;
 
     // 原始值用于检测更改
@@ -18,10 +17,9 @@ public partial class ModViewModel : ObservableObject
     private string _originalVersion;
     private string _originalDescription;
 
-    public ModViewModel(ModManifest manifest, IGitService gitService, ModMetadata? metadata = null) // Updated signature
+    public ModViewModel(ModManifest manifest, ModMetadata? metadata = null)
     {
         _manifest = manifest;
-        _gitService = gitService;
         _metadata = metadata;
         
         // 保存原始值
@@ -49,9 +47,6 @@ public partial class ModViewModel : ObservableObject
     [ObservableProperty]
     private bool _isDirty;
 
-    /// <summary>
-    /// 更新IsDirty状态（检查是否有未保存的更改）
-    /// </summary>
     private void CheckDirty()
     {
         IsDirty = _manifest.Name != _originalName ||
@@ -60,9 +55,6 @@ public partial class ModViewModel : ObservableObject
                   _manifest.Description != _originalDescription;
     }
 
-    /// <summary>
-    /// 保存后重置原始值
-    /// </summary>
     public void ResetDirtyState()
     {
         _originalName = _manifest.Name;
@@ -100,7 +92,6 @@ public partial class ModViewModel : ObservableObject
         }
         else
         {
-            // If DB has translation but local differs -> Changed (Update or Manual Edit)
             TranslationStatus = "Changed (Local differs from DB)";
             HasLocalChanges = true;
         }
@@ -172,90 +163,10 @@ public partial class ModViewModel : ObservableObject
     }
     
     [RelayCommand]
-    public async Task ShowHistoryAsync()
+    public void ShowHistory()
     {
-        if (_metadata == null || string.IsNullOrEmpty(_metadata.RelativePath))
-        {
-             // Fallback or warning
-             System.Windows.MessageBox.Show("无法显示历史：模组元数据缺失。", "错误", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
-             return;
-        }
-
-        try
-        {
-            var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
-            // Based on architecture, files are in "Mods" subfolder in repo
-            // RelativePath 是文件夹路径，需要添加 manifest.json
-            // repoRelativePath must match where the file is stored in the repo.
-            // Currently, Export writes to the repo root using _metadata.RelativePath (which includes "manifest.json").
-            var repoRelativePath = _metadata.RelativePath;
-
-            var history = await Task.Run(() => _gitService.GetFileHistory(appDataPath, repoRelativePath));
-
-            var gitCommitModels = history.ToList();
-            if (gitCommitModels.Count == 0)
-            {
-                System.Windows.MessageBox.Show("此模组没有历史记录。", "提示", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
-                return;
-            }
-
-            var dialog = new Views.ModHistoryDialog(Name, gitCommitModels, _gitService, appDataPath, repoRelativePath)
-                {
-                    Owner = System.Windows.Application.Current.MainWindow
-                };
-
-            if (dialog.ShowDialog() == true && dialog.SelectedCommit != null && dialog is { SelectedManifest: not null, Action: Views.ModHistoryDialog.DialogAction.ApplyToEditor })
-            {
-                // 应用到编辑框（不保存到文件）
-                Name = dialog.SelectedManifest.Name;
-                Description = dialog.SelectedManifest.Description;
-                UpdateStatus(); // 更新状态显示
-            }
-        }
-        catch (Exception ex)
-        {
-            System.Windows.MessageBox.Show($"加载历史记录时出错: {ex.Message}", "错误", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
-        }
-    }
-
-    private async Task RollbackToVersionAsync(string commitHash, string repoRelativePath)
-    {
-        if (string.IsNullOrEmpty(ManifestPath)) return;
-
-        try
-        {
-            var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
-           
-            // 1. Rollback in Repo (Update Shadow Copy to old version)
-            await Task.Run(() => _gitService.RollbackFile(appDataPath, commitHash, repoRelativePath));
-             
-            // 2. Sync back to Game Mods Directory (Restore)
-            var repoFile = Path.Combine(appDataPath, repoRelativePath);
-       
-            if (File.Exists(repoFile))
-            {
-                // Backup current? No, rollback is destructive/overwrite as per requirement.
-                File.Copy(repoFile, ManifestPath, true);
-                
-                // 3. Update In-Memory Manifest to reflect change
-                var json = await File.ReadAllTextAsync(ManifestPath);
-                var storedManifest = Newtonsoft.Json.JsonConvert.DeserializeObject<ModManifest>(json);
-                if (storedManifest != null)
-                {
-                    Name = storedManifest.Name;
-                    Description = storedManifest.Description;
-                    Author = storedManifest.Author;
-                    Version = storedManifest.Version;
-                    UpdateStatus(); // Will likely show "Changed" because DB is still at HEAD (or different)
-                }
-                
-                System.Windows.MessageBox.Show($"Rolled back '{Name}' to version {commitHash[..7]}.", "Success");
-            }
-        }
-        catch (Exception ex)
-        {
-           System.Windows.MessageBox.Show($"Rollback Error: {ex.Message}", "Error");
-        }
+        // 简单发送消息，让 HistoryViewModel 处理或显示提示
+        // 暂时只显示提示，因为 HistoryViewModel 目前没有 "Filter By Mod" 的公开方法 (虽然有 GetHistoryForModAsync 接口)
+        WeakReferenceMessenger.Default.Send(new StatusMessage($"请在“历史记录”页签中查看全局历史 (暂不支持单模组历史弹窗)", StatusLevel.Info));
     }
 }
-

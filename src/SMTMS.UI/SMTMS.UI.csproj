@@ -3,7 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\SMTMS.Core\SMTMS.Core.csproj" />
     <ProjectReference Include="..\SMTMS.Data\SMTMS.Data.csproj" />
-    <ProjectReference Include="..\SMTMS.GitProvider\SMTMS.GitProvider.csproj" />
+
     <ProjectReference Include="..\SMTMS.NexusClient\SMTMS.NexusClient.csproj" />
     <ProjectReference Include="..\SMTMS.Translation\SMTMS.Translation.csproj" />
   </ItemGroup>

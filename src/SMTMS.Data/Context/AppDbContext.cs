@@ -8,7 +8,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ModMetadata> ModMetadata { get; set; }
     public DbSet<TranslationMemory> TranslationMemory { get; set; }
     public DbSet<AppSettings> AppSettings { get; set; }
-    public DbSet<GitDiffCache> GitDiffCache { get; set; }
+    public DbSet<HistorySnapshot> HistorySnapshots { get; set; }
+    public DbSet<ModTranslationHistory> ModTranslationHistories { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -41,8 +42,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<TranslationMemory>()
             .HasIndex(t => t.Timestamp);
 
-        // 为 GitDiffCache 添加索引
-        modelBuilder.Entity<GitDiffCache>()
-            .HasIndex(g => g.CreatedAt);
+        // HistorySnapshot 索引
+        modelBuilder.Entity<HistorySnapshot>()
+            .HasIndex(h => h.Timestamp);
+
+        // ModTranslationHistory 索引
+        modelBuilder.Entity<ModTranslationHistory>()
+            .HasIndex(h => h.SnapshotId);
+
+        modelBuilder.Entity<ModTranslationHistory>()
+            .HasIndex(h => h.ModUniqueId);
     }
 }
