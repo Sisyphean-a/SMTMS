@@ -83,14 +83,18 @@ public class GitTranslationService(
     {
         _logger.LogInformation("开始从 Git 仓库导入翻译: {RepoPath}", repoPath);
 
-        var repoModsPath = _fileSystem.Combine(repoPath, "Mods");
-        if (!_fileSystem.DirectoryExists(repoModsPath))
-        {
-            _logger.LogWarning("Git 仓库 Mods 目录不存在: {RepoModsPath}", repoModsPath);
-            return OperationResult.Failure("Git 仓库 Mods 目录不存在");
-        }
+        // Align with Export: Scan from Repo Root
+        // var repoModsPath = _fileSystem.Combine(repoPath, "Mods");
+        // if (!_fileSystem.DirectoryExists(repoModsPath))
+        // {
+        //     _logger.LogWarning("Git 仓库 Mods 目录不存在: {RepoModsPath}", repoModsPath);
+        //     return OperationResult.Failure("Git 仓库 Mods 目录不存在");
+        // }
+        
+        // Use repoPath directly
+        var searchPath = repoPath;
 
-        var modFiles = _fileSystem.GetFiles(repoModsPath, "manifest.json", SearchOption.AllDirectories);
+        var modFiles = _fileSystem.GetFiles(searchPath, "manifest.json", SearchOption.AllDirectories);
         _logger.LogInformation("找到 {Count} 个 manifest.json 文件", modFiles.Length);
 
         var successCount = 0;
@@ -98,7 +102,7 @@ public class GitTranslationService(
         var errors = new List<string>();
 
         // 🔥 性能优化：并行读取和解析所有文件
-        var tasks = modFiles.Select(file => ParseModFromGitRepoAsync(file, repoModsPath, modRepo, cancellationToken)).ToArray();
+        var tasks = modFiles.Select(file => ParseModFromGitRepoAsync(file, searchPath, modRepo, cancellationToken)).ToArray();
         var results = await Task.WhenAll(tasks);
 
         // 收集所有成功的 Mod

@@ -40,8 +40,13 @@ public class GitService(ILogger<GitService> logger) : IGitService
              File.WriteAllText(gitIgnorePath, "smtms.db\nsmtms.db-shm\nsmtms.db-wal\n");
         }
 
-        // Optimize: Retrieve status first to find what actually changed, instead of blind Stage("*")
-        var status = repo.RetrieveStatus();
+        var statusOptions = new StatusOptions 
+        { 
+            PathSpec = ["**/manifest.json", "manifest.json"],
+            IncludeUntracked = true,
+            RecurseUntrackedDirs = true
+        };
+        var status = repo.RetrieveStatus(statusOptions);
         
         if (!status.IsDirty)
         {

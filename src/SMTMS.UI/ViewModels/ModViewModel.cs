@@ -186,7 +186,9 @@ public partial class ModViewModel : ObservableObject
             var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
             // Based on architecture, files are in "Mods" subfolder in repo
             // RelativePath 是文件夹路径，需要添加 manifest.json
-            var repoRelativePath = Path.Combine("Mods", _metadata.RelativePath, "manifest.json");
+            // repoRelativePath must match where the file is stored in the repo.
+            // Currently, Export writes to the repo root using _metadata.RelativePath (which includes "manifest.json").
+            var repoRelativePath = _metadata.RelativePath;
 
             var history = await Task.Run(() => _gitService.GetFileHistory(appDataPath, repoRelativePath));
 
