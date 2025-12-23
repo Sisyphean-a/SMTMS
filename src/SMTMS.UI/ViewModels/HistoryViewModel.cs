@@ -118,8 +118,8 @@ public partial class HistoryViewModel : ObservableObject
             var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
             
             // 获取该快照时刻的所有 Mod 记录 (或者是该快照中变更的部分)
-            // 根据 IHistoryRepository 的实现，GetModHistoriesForSnapshotAsync 返回快照时刻所有 Mod 的最新状态
-            var histories = await historyRepo.GetModHistoriesForSnapshotAsync(snapshot.Id);
+            // 修改：只获取当前 Snapshot 发生变更的记录，而不是所有 Mod 的状态
+            var histories = await historyRepo.GetSnapshotChangesAsync(snapshot.Id);
             
             var diffModels = new List<ModDiffModel>();
             foreach (var h in histories)
@@ -135,7 +135,7 @@ public partial class HistoryViewModel : ObservableObject
                 var oldJson = prevHistory?.JsonContent ?? "";
                 var newJson = h.JsonContent;
 
-                var diff = BuildModDiffModel(h.ModUniqueId, oldJson, newJson);
+                var diff = BuildModDiffModel(h.ModUniqueId, oldJson, newJson, h.ModMetadata?.RelativePath);
                 diffModels.Add(diff);
             }
 
@@ -156,7 +156,7 @@ public partial class HistoryViewModel : ObservableObject
         }
     }
 
-    private ModDiffModel BuildModDiffModel(string uniqueId, string? oldJson, string? newJson)
+    private ModDiffModel BuildModDiffModel(string uniqueId, string? oldJson, string? newJson, string? relativePath)
     {
         var model = new ModDiffModel { UniqueID = uniqueId };
         
@@ -167,7 +167,17 @@ public partial class HistoryViewModel : ObservableObject
         try { if (!string.IsNullOrEmpty(newJson)) newM = Newtonsoft.Json.JsonConvert.DeserializeObject<ModManifest>(newJson); } catch { }
 
         model.ModName = newM?.Name ?? oldM?.Name ?? uniqueId;
-        model.FolderName = ""; // 暂时留空或从数据库读
+        
+        // Use relative path but remove 'manifest.json' if present for cleaner display
+        if (!string.IsNullOrEmpty(relativePath))
+        {
+            model.FolderName = relativePath.Replace("/manifest.json", "", StringComparison.OrdinalIgnoreCase)
+                                           .Replace("\\manifest.json", "", StringComparison.OrdinalIgnoreCase);
+        }
+        else 
+        {
+            model.FolderName = ""; 
+        }
 
         model.NameChange = new FieldChange { FieldName = "Name", OldValue = oldM?.Name, NewValue = newM?.Name };
         model.DescriptionChange = new FieldChange { FieldName = "Description", OldValue = oldM?.Description, NewValue = newM?.Description };

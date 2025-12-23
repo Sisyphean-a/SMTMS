@@ -43,4 +43,10 @@ public interface IHistoryRepository
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     Task<List<ModTranslationHistory>> GetModHistoriesForSnapshotAsync(int snapshotId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 获取某个快照中实际发生变更的 Mod 历史记录（用于查看变更详情）
+    /// 仅返回 SnapshotId 严格匹配的记录
+    /// </summary>
+    Task<List<ModTranslationHistory>> GetSnapshotChangesAsync(int snapshotId, CancellationToken cancellationToken = default);
 }

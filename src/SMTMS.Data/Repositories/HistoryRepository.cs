@@ -82,4 +82,13 @@ public class HistoryRepository(AppDbContext context, ILogger<HistoryRepository> 
             .Include(h => h.ModMetadata) // 需要元数据来恢复文件路径等
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<List<ModTranslationHistory>> GetSnapshotChangesAsync(int snapshotId, CancellationToken cancellationToken = default)
+    {
+        return await context.ModTranslationHistories
+            .AsNoTracking()
+            .Where(h => h.SnapshotId == snapshotId)
+            .Include(h => h.ModMetadata) 
+            .ToListAsync(cancellationToken);
+    }
 }
