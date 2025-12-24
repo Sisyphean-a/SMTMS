@@ -1,5 +1,5 @@
 using FluentAssertions;
-using SMTMS.Translation.Helpers;
+using SMTMS.Core.Helpers;
 
 namespace SMTMS.Tests.Translation;
 

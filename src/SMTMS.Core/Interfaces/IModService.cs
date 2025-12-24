@@ -5,17 +5,22 @@ namespace SMTMS.Core.Interfaces;
 public interface IModService
 {
     /// <summary>
-    /// Scans a directory for mods and returns a list of valid manifests.
+    /// 扫描目录中的 Mod 并返回有效的清单列表。
     /// </summary>
     Task<IEnumerable<ModManifest>> ScanModsAsync(string modsDirectory);
 
     /// <summary>
-    /// Reads a single manifest file.
+    /// 读取单个清单文件。
     /// </summary>
     Task<ModManifest?> ReadManifestAsync(string manifestPath);
 
     /// <summary>
-    /// Saves changes to a manifest file.
+    /// 将更改保存到清单文件。
     /// </summary>
     Task WriteManifestAsync(string manifestPath, ModManifest manifest);
+
+    /// <summary>
+    /// 更新清单中的特定字段，确保保留格式注释。
+    /// </summary>
+    Task UpdateModManifestAsync(string manifestPath, string? newName, string? newDescription);
 }

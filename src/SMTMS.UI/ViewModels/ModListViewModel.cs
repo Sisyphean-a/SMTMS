@@ -157,34 +157,14 @@ public partial class ModListViewModel : ObservableObject
             await Task.Delay(50);
 
             var manifestPath = SelectedMod.ManifestPath;
-            if (string.IsNullOrEmpty(manifestPath) || !File.Exists(manifestPath))
+            if (string.IsNullOrEmpty(manifestPath))
             {
-                WeakReferenceMessenger.Default.Send(new StatusMessage($"文件不存在: {manifestPath}", StatusLevel.Error));
+                WeakReferenceMessenger.Default.Send(new StatusMessage($"文件路径无效", StatusLevel.Error));
                 return;
             }
 
-            // 读取原始 JSON
-            var originalJson = await File.ReadAllTextAsync(manifestPath);
-
-            // 使用正则替换保留格式和注释
-            var updatedJson = originalJson;
-
-            // 替换 Name
-            updatedJson = System.Text.RegularExpressions.Regex.Replace(
-                updatedJson,
-                @"""Name"":\s*""[^""]*""",
-                $@"""Name"": ""{SelectedMod.Name.Replace("\"", "\\\"")}""",
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-
-            // 替换 Description
-            updatedJson = System.Text.RegularExpressions.Regex.Replace(
-                updatedJson,
-                @"""Description"":\s*""[^""]*""",
-                $@"""Description"": ""{SelectedMod.Description.Replace("\"", "\\\"")}""",
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-
-            // 写回文件
-            await File.WriteAllTextAsync(manifestPath, updatedJson);
+            // 使用 Service 层更新文件，不再直接操作文件系统
+            await _modService.UpdateModManifestAsync(manifestPath, SelectedMod.Name, SelectedMod.Description);
 
             // 重置 IsDirty 状态
             SelectedMod.ResetDirtyState();

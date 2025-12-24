@@ -4,7 +4,7 @@ using SMTMS.Core.Common;
 using SMTMS.Core.Infrastructure;
 using SMTMS.Core.Interfaces;
 using SMTMS.Core.Models;
-using SMTMS.Translation.Helpers;
+using SMTMS.Core.Helpers;
 
 namespace SMTMS.Translation.Services;
 

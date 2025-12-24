@@ -4,7 +4,7 @@ using SMTMS.Core.Common;
 using SMTMS.Core.Infrastructure;
 using SMTMS.Core.Interfaces;
 using SMTMS.Core.Models;
-using SMTMS.Translation.Helpers;
+using SMTMS.Core.Helpers;
 
 namespace SMTMS.Translation.Services;
 
@@ -52,7 +52,7 @@ public class TranslationRestoreService(
         var errorCount = 0;
         var errors = new List<string>();
 
-        // 🔥 性能优化：并行处理所有文件
+        // 性能优化：并行处理所有文件
         var tasks = modFiles.Select(file => RestoreTranslationToFileAsync(file, translationMap, cancellationToken)).ToArray();
         var results = await Task.WhenAll(tasks);
 

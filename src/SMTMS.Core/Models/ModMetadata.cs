@@ -9,7 +9,7 @@ public class ModMetadata
 
     public string? UserCategory { get; set; }
     
-    // Cached data from Nexus
+    // 来自 Nexus 的缓存数据
     public string? NexusSummary { get; set; }
     public string? NexusDescription { get; set; }
     public string? NexusImageUrl { get; set; }
@@ -17,21 +17,21 @@ public class ModMetadata
     public long? NexusEndorsementCount { get; set; }
     public DateTime? LastNexusCheck { get; set; }
 
-    // Translation Data
-    public string? OriginalName { get; set; } // Name from manifest when first scanned (likely English)
+    // 翻译数据
+    public string? OriginalName { get; set; } // 首次扫描时的原始名称（通常为英文）
     public string? OriginalDescription { get; set; }
     
     public string? TranslatedName { get; set; }
     public string? TranslatedDescription { get; set; }
     
-    public string? RelativePath { get; set; } // Path relative to Mods folder
+    public string? RelativePath { get; set; } // 相对于 Mods 文件夹的路径
     public bool IsMachineTranslated { get; set; }
     public DateTime? LastTranslationUpdate { get; set; }
     
-    // Content Fingerprint
+    // 内容指纹
     public string? LastFileHash { get; set; }
 
-    // JSON Content Versioning
+    // JSON 内容版本控制
     /// <summary>
     /// 首次扫描到的原始 JSON 内容（用于对比或重置）
     /// </summary>

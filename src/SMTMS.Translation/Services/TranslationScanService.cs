@@ -40,37 +40,54 @@ public class TranslationScanService(
         // 2. 扫描文件
         var (modFiles, scanElapsed) = await ScanManifestFilesAsync(modDirectory);
 
-        // 3. 创建快照 (即使没有变更也创建，作为检查点)
-        // 使用 "手动同步" 或自动生成的消息
-        var snapshotId = await historyRepo.CreateSnapshotAsync($"Sync {modFiles.Length} mods", modFiles.Length, cancellationToken);
-
-        // 4. 计算文件 Hash
+        // 3. 计算文件 Hash
         var (fileHashes, hashElapsed) = await ComputeFileHashesWithTimingAsync(modFiles, cancellationToken);
 
-        // 5. 加载数据库数据
+        // 4. 加载数据库数据
         var (keyPathMap, keyIdMap, dbLoadElapsed) = await LoadDatabaseModsAsync(modRepo, cancellationToken);
 
-        // 6. 处理文件 (生成 ModsUpsert 和 HistoryInsert)
+        // 5. 处理文件 (生成 ModsUpsert 和 HistoryInsert)
+        // 暂时使用 0 作为 snapshotId，稍后如果有需要我们会分配真正的 ID
         var processResult = await ProcessManifestFilesAsync(
             modDirectory,
             fileHashes,
             keyPathMap,
             keyIdMap,
-            snapshotId,
+            0, 
             cancellationToken);
 
-        // 7. 批量保存 Mods
-        var saveModsElapsed = await SaveModsToDbAsync(modRepo, processResult.ModsToUpsert, cancellationToken);
-        
-        // 8. 批量保存 History (如有变更)
+        // 检查是否需要保存任何内容
+        long saveModsElapsed = 0;
         long saveHistoryElapsed = 0;
-        if (processResult.HistoriesToInsert.Count > 0)
+        int snapshotId = 0;
+
+        if (processResult.HistoriesToInsert.Count > 0 || processResult.ModsToUpsert.Count > 0)
         {
-            var swHistory = System.Diagnostics.Stopwatch.StartNew();
-            await historyRepo.SaveModHistoriesAsync(processResult.HistoriesToInsert, cancellationToken);
-            swHistory.Stop();
-            saveHistoryElapsed = swHistory.ElapsedMilliseconds;
-            _logger.LogInformation("已保存 {Count} 条历史记录", processResult.HistoriesToInsert.Count);
+            // 6. 只有存在变更时，才创建快照
+            snapshotId = await historyRepo.CreateSnapshotAsync($"Sync {modFiles.Length} mods", modFiles.Length, cancellationToken);
+            
+            // 回填 SnapshotId
+            foreach (var history in processResult.HistoriesToInsert)
+            {
+                history.SnapshotId = snapshotId;
+            }
+
+            // 7. 批量保存 Mods
+            saveModsElapsed = await SaveModsToDbAsync(modRepo, processResult.ModsToUpsert, cancellationToken);
+        
+            // 8. 批量保存 History
+            if (processResult.HistoriesToInsert.Count > 0)
+            {
+                var swHistory = System.Diagnostics.Stopwatch.StartNew();
+                await historyRepo.SaveModHistoriesAsync(processResult.HistoriesToInsert, cancellationToken);
+                swHistory.Stop();
+                saveHistoryElapsed = swHistory.ElapsedMilliseconds;
+                _logger.LogInformation("已保存 {Count} 条历史记录 (Snapshot {SnapshotId})", processResult.HistoriesToInsert.Count, snapshotId);
+            }
+        }
+        else
+        {
+            _logger.LogInformation("没有检测到任何变更，跳过保存和快照生成。");
         }
 
         // 9. 记录总结
@@ -93,10 +110,23 @@ public class TranslationScanService(
     private async Task<(string[] files, long elapsed)> ScanManifestFilesAsync(string modDirectory)
     {
         var sw = System.Diagnostics.Stopwatch.StartNew();
-        var modFiles = _fileSystem.GetFiles(modDirectory, "manifest.json", SearchOption.AllDirectories);
+        
+        // 与 ModService 逻辑匹配：仅扫描一级子目录下的 manifest.json
+        // 这确保了你在 UI (ModService) 中看到的内容与同步到数据库 (ScanService) 的内容一致
+        string[] modFiles = [];
+        
+        if (_fileSystem.DirectoryExists(modDirectory))
+        {
+            var subDirectories = _fileSystem.GetDirectories(modDirectory);
+            modFiles = subDirectories
+                .Select(dir => _fileSystem.Combine(dir, "manifest.json"))
+                .Where(path => _fileSystem.FileExists(path))
+                .ToArray();
+        }
+
         sw.Stop();
         
-        _logger.LogInformation("扫描文件完成 ({Elapsed}ms): 找到 {Count} 个 manifest.json 文件", 
+        _logger.LogInformation("扫描文件完成 ({Elapsed}ms): 找到 {Count} 个 manifest.json 文件 (Shallow Scan)", 
             sw.ElapsedMilliseconds, modFiles.Length);
         
         return await Task.FromResult((modFiles, sw.ElapsedMilliseconds));
@@ -156,9 +186,9 @@ public class TranslationScanService(
 
             var relativePath = _fileSystem.GetRelativePath(modDirectory, file).Replace('\\', '/');
             
-            // Check if skip is possible (Only if EXACT match)
-            // But we need to be careful: if we want to ensure history is correct, 
-            // we rely on ModMetadata.LastFileHash being accurate.
+            // 检查是否可以跳过（仅在完全匹配时）
+            // 但我们需要小心：如果我们想确保历史记录正确，
+            // 则需要依赖 ModMetadata.LastFileHash 的准确性。
             if (ShouldSkipFile(relativePath, hash, keyPathMap))
             {
                 result.SkipCount++;
@@ -208,7 +238,7 @@ public class TranslationScanService(
 
             var mod = GetOrCreateMod(manifest.UniqueID, keyIdMap);
             
-            // Handle New Mod - Set OriginalJson
+            // 处理新 Mod - 设置 OriginalJson
             if (string.IsNullOrEmpty(mod.OriginalJson))
             {
                 mod.OriginalJson = json;
@@ -216,12 +246,12 @@ public class TranslationScanService(
 
             UpdateModPath(mod, relativePath);
 
-            // Always update CurrentJson if we are here (because we passed ShouldSkipFile check)
+            // 如果能执行到这里，说明一定需要更新 CurrentJson（因为没通过 ShouldSkipFile 检查）
             mod.CurrentJson = json;
             
             var changes = GetModChanges(mod, manifest);
             
-            // Always update metadata if we are processing
+            // 只要在处理中，就始终更新元数据
             ApplyChangesToMod(mod, manifest);
             mod.LastTranslationUpdate = DateTime.Now;
             mod.LastFileHash = hash;
@@ -230,14 +260,14 @@ public class TranslationScanService(
             if (changes.Count > 0) LogModChanges(manifest.UniqueID, changes);
             result.SuccessCount++;
             
-            // Create History Record (Incremental)
-            // We save a history record because the file has changed (hash mismatch caught by ShouldSkipFile)
+            // 创建历史记录（增量）
+            // 因为文件已更改（ShouldSkipFile 捕获到 Hash 不匹配），所以保存一条历史记录
             var history = new ModTranslationHistory
             {
                 SnapshotId = snapshotId,
                 ModUniqueId = mod.UniqueID,
                 JsonContent = json,
-                PreviousHash = hash // Using current hash as the "Signature" of this history
+                PreviousHash = hash // 使用当前 Hash 作为此历史记录的“特征指纹”
             };
             result.HistoriesToInsert.Add(history);
         }
@@ -262,7 +292,7 @@ public class TranslationScanService(
     {
         if (string.Equals(mod.RelativePath, relativePath, StringComparison.OrdinalIgnoreCase)) return;
         mod.RelativePath = relativePath;
-        mod.LastFileHash = string.Empty; // Force update
+        mod.LastFileHash = string.Empty; // 强制更新
     }
 
     private List<string> GetModChanges(ModMetadata mod, ModManifest manifest)

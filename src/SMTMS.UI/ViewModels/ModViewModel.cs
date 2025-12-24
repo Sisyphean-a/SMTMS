@@ -31,7 +31,7 @@ public partial class ModViewModel : ObservableObject
         UpdateStatus();
     }
     
-    // Status Logic
+    // 状态逻辑
     [ObservableProperty]
     private string _translationStatus = "Unknown";
 

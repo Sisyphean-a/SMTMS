@@ -1,7 +1,7 @@
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 
-namespace SMTMS.Translation.Helpers;
+namespace SMTMS.Core.Helpers;
 
 /// <summary>
 /// 纯函数工具类 - 负责 manifest.json 文本的正则替换逻辑
@@ -146,4 +146,3 @@ public static partial class ManifestTextReplacer
         return DescriptionFieldRegex().IsMatch(jsonContent);
     }
 }
-

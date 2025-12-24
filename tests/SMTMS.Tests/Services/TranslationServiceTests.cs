@@ -54,10 +54,10 @@ public class TranslationServiceTests
     [Fact]
     public async Task SaveTranslationsToDbAsync_DirectoryNotExists_ReturnsFailure()
     {
-        // Act
+        // 执行
         var result = await _service.SaveTranslationsToDbAsync("/nonexistent");
 
-        // Assert
+        // 断言
         Assert.False(result.IsSuccess);
         Assert.Contains("目录不存在", result.Message);
     }
@@ -65,7 +65,7 @@ public class TranslationServiceTests
     [Fact]
     public async Task SaveTranslationsToDbAsync_ValidManifest_SavesTranslation()
     {
-        // Arrange
+        // 准备
         _fileSystem.CreateDirectory("/mods");
         _fileSystem.CreateDirectory("/mods/TestMod");
 
@@ -156,5 +156,44 @@ public class TranslationServiceTests
         var restoredContent = await _fileSystem.ReadAllTextAsync("/mods/TestMod/manifest.json");
         Assert.Contains("测试模组", restoredContent);
         Assert.Contains("这是一个测试模组", restoredContent);
+    }
+    [Fact]
+    public async Task SaveTranslationsToDbAsync_NestedMod_Ignored()
+    {
+        // Arrange
+        _fileSystem.CreateDirectory("/mods");
+        _fileSystem.CreateDirectory("/mods/Group");
+        _fileSystem.CreateDirectory("/mods/Group/NestedMod");
+
+        var manifestJson = """
+        {
+            "Name": "Deep Nested Mod",
+            "Author": "Test Author",
+            "Version": "1.0.0",
+            "UniqueID": "TestAuthor.NestedMod"
+        }
+        """;
+
+        // Write manifest deep in the structure
+        await _fileSystem.WriteAllTextAsync("/mods/Group/NestedMod/manifest.json", manifestJson);
+
+        // Act
+        // 当前逻辑：ScanManifestFilesAsync 仅扫描 /mods 的一级子目录。
+        // /mods/Group 不包含 manifest.json（在此上下文中它是一个文件夹，而不是模组根目录）
+        // /mods/Group/NestedMod 包含 manifest.json 但深度为 2 层。
+        // 等等，TranslationScanService 逻辑：
+        // var subDirectories = _fileSystem.GetDirectories(modDirectory); --> 返回 /mods/Group
+        // 检查 /mods/Group/manifest.json --> False。
+        // 因此它应该找到 0 个模组。
+        var result = await _service.SaveTranslationsToDbAsync("/mods");
+
+        // Assert
+        // Expect 0 success because it should not find the nested mod
+        Assert.True(result.IsSuccess); // It succeeds in "doing nothing" or finding 0 mods
+        Assert.Equal(0, result.SuccessCount); 
+        
+        // Ensure not saved to DB
+        var mod = await _modRepository.GetModAsync("TestAuthor.NestedMod");
+        Assert.Null(mod);
     }
 }
