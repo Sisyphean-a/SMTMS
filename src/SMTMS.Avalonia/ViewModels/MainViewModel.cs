@@ -25,6 +25,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<MainViewModel> _logger;
     private readonly IFolderPickerService _folderPickerService;
+    private readonly ICommitMessageService _commitMessageService;
     private int _isSyncing;
 
     [ObservableProperty]
@@ -50,7 +51,8 @@ public partial class MainViewModel : ObservableObject
         ITranslationService translationService,
         IServiceScopeFactory scopeFactory,
         ILogger<MainViewModel> logger,
-        IFolderPickerService folderPickerService)
+        IFolderPickerService folderPickerService,
+        ICommitMessageService commitMessageService)
     {
         ModListViewModel = modListViewModel;
         HistoryViewModel = historyViewModel;
@@ -59,6 +61,7 @@ public partial class MainViewModel : ObservableObject
         _scopeFactory = scopeFactory;
         _logger = logger;
         _folderPickerService = folderPickerService;
+        _commitMessageService = commitMessageService;
 
         _logger.LogInformation("MainViewModel 初始化");
 
@@ -185,8 +188,15 @@ public partial class MainViewModel : ObservableObject
 
             var sw = System.Diagnostics.Stopwatch.StartNew();
 
+            var commitMessage = await _commitMessageService.ShowDialogAsync();
+            if (commitMessage == null)
+            {
+               WeakReferenceMessenger.Default.Send(new StatusMessage("同步已取消。", StatusLevel.Info));
+               return;
+            }
+
             // 1. 同步到数据库
-            var saveResult = await Task.Run(async () => await _translationService.SaveTranslationsToDbAsync(ModsDirectory));
+            var saveResult = await Task.Run(async () => await _translationService.SaveTranslationsToDbAsync(ModsDirectory, commitMessage));
             
             sw.Stop();
 

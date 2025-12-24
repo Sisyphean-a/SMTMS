@@ -18,8 +18,6 @@
         <!--  History List  -->
         <DataGrid
             AutoGenerateColumns="False"
-            BorderBrush="#E0E0E0"
-            BorderThickness="1"
             Grid.Row="0"
             IsReadOnly="True"
             ItemsSource="{Binding HistoryItems}"
@@ -60,9 +58,8 @@
                 Foreground="Gray"
                 Text="提示: 选中一行点击应用，将该行的名称/描述覆盖到当前编辑中。"
                 VerticalAlignment="Center" />
-            <Button Command="{Binding CloseCommand}" Content="关闭" />
+            <Button Command="{Binding CloseCommand}" Content="关闭" Theme="{DynamicResource LightButton}"/>
             <Button
-                Classes="Primary"
                 Command="{Binding ApplyCommand}"
                 Content="应用选中版本"
                 IsEnabled="{Binding SelectedHistoryItem, Converter={x:Static ObjectConverters.IsNotNull}}"
@@ -71,14 +68,14 @@
 
         <!--  Loading Overlay  -->
         <Border
-            Background="#80FFFFFF"
+            Background="#40000000"
             Grid.Row="0"
             Grid.RowSpan="2"
             IsVisible="{Binding IsLoading}">
             <TextBlock
                 FontSize="20"
                 FontWeight="Bold"
-                Foreground="#007ACC"
+                Foreground="White"
                 HorizontalAlignment="Center"
                 Text="正在加载历史..."
                 VerticalAlignment="Center" />

@@ -15,7 +15,7 @@ public interface ITranslationService
     /// <summary>
     /// 扫描 manifest.json 文件并保存翻译到数据库
     /// </summary>
-    Task<OperationResult> SaveTranslationsToDbAsync(string modDirectory, CancellationToken cancellationToken = default);
+    Task<OperationResult> SaveTranslationsToDbAsync(string modDirectory, string? commitMessage = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 从数据库恢复翻译到 manifest.json 文件

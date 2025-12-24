@@ -25,6 +25,7 @@ public class TranslationScanService(
         string modDirectory,
         IModRepository modRepo,
         IHistoryRepository historyRepo,
+        string? commitMessage = null,
         CancellationToken cancellationToken = default)
     {
         var swTotal = System.Diagnostics.Stopwatch.StartNew();
@@ -64,7 +65,11 @@ public class TranslationScanService(
         if (processResult.HistoriesToInsert.Count > 0 || processResult.ModsToUpsert.Count > 0)
         {
             // 6. 只有存在变更时，才创建快照
-            snapshotId = await historyRepo.CreateSnapshotAsync($"Sync {modFiles.Length} mods", modFiles.Length, cancellationToken);
+            var finalMessage = !string.IsNullOrWhiteSpace(commitMessage) 
+                ? commitMessage 
+                : $"Sync {modFiles.Length} mods";
+            
+            snapshotId = await historyRepo.CreateSnapshotAsync(finalMessage, modFiles.Length, cancellationToken);
             
             // 回填 SnapshotId
             foreach (var history in processResult.HistoriesToInsert)
