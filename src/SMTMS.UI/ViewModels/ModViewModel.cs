@@ -1,15 +1,14 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using SMTMS.Core.Interfaces;
+using CommunityToolkit.Mvvm.Messaging;
 using SMTMS.Core.Models;
-using System.IO;
+using SMTMS.UI.Messages;
 
 namespace SMTMS.UI.ViewModels;
 
 public partial class ModViewModel : ObservableObject
 {
     private readonly ModManifest _manifest;
-    private readonly IGitService _gitService; // Added
     private ModMetadata? _metadata;
 
     // 原始值用于检测更改
@@ -18,10 +17,9 @@ public partial class ModViewModel : ObservableObject
     private string _originalVersion;
     private string _originalDescription;
 
-    public ModViewModel(ModManifest manifest, IGitService gitService, ModMetadata? metadata = null) // Updated signature
+    public ModViewModel(ModManifest manifest, ModMetadata? metadata = null)
     {
         _manifest = manifest;
-        _gitService = gitService;
         _metadata = metadata;
         
         // 保存原始值
@@ -33,7 +31,7 @@ public partial class ModViewModel : ObservableObject
         UpdateStatus();
     }
     
-    // Status Logic
+    // 状态逻辑
     [ObservableProperty]
     private string _translationStatus = "Unknown";
 
@@ -49,9 +47,6 @@ public partial class ModViewModel : ObservableObject
     [ObservableProperty]
     private bool _isDirty;
 
-    /// <summary>
-    /// 更新IsDirty状态（检查是否有未保存的更改）
-    /// </summary>
     private void CheckDirty()
     {
         IsDirty = _manifest.Name != _originalName ||
@@ -60,9 +55,6 @@ public partial class ModViewModel : ObservableObject
                   _manifest.Description != _originalDescription;
     }
 
-    /// <summary>
-    /// 保存后重置原始值
-    /// </summary>
     public void ResetDirtyState()
     {
         _originalName = _manifest.Name;
@@ -100,7 +92,6 @@ public partial class ModViewModel : ObservableObject
         }
         else
         {
-            // If DB has translation but local differs -> Changed (Update or Manual Edit)
             TranslationStatus = "Changed (Local differs from DB)";
             HasLocalChanges = true;
         }
@@ -172,90 +163,62 @@ public partial class ModViewModel : ObservableObject
     }
     
     [RelayCommand]
-    public async Task ShowHistoryAsync()
+    public void ShowHistory()
     {
-        if (_metadata == null || string.IsNullOrEmpty(_metadata.RelativePath))
-        {
-             // Fallback or warning
-             System.Windows.MessageBox.Show("无法显示历史：模组元数据缺失。", "错误", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
-             return;
-        }
-
         try
         {
-            var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
-            // Based on architecture, files are in "Mods" subfolder in repo
-            // RelativePath 是文件夹路径，需要添加 manifest.json
-            // repoRelativePath must match where the file is stored in the repo.
-            // Currently, Export writes to the repo root using _metadata.RelativePath (which includes "manifest.json").
-            var repoRelativePath = _metadata.RelativePath;
-
-            var history = await Task.Run(() => _gitService.GetFileHistory(appDataPath, repoRelativePath));
-
-            var gitCommitModels = history.ToList();
-            if (gitCommitModels.Count == 0)
+            // 解析依赖
+            var scopeFactory = CommunityToolkit.Mvvm.DependencyInjection.Ioc.Default.GetRequiredService<Microsoft.Extensions.DependencyInjection.IServiceScopeFactory>();
+            
+            // 创建 History VM
+            var historyVm = new ModHistoryViewModel(UniqueID, scopeFactory);
+            
+            // 订阅 Apply 事件
+            historyVm.OnApplyHistory += (selectedManifest) =>
             {
-                System.Windows.MessageBox.Show("此模组没有历史记录。", "提示", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
-                return;
-            }
-
-            var dialog = new Views.ModHistoryDialog(Name, gitCommitModels, _gitService, appDataPath, repoRelativePath)
-                {
-                    Owner = System.Windows.Application.Current.MainWindow
-                };
-
-            if (dialog.ShowDialog() == true && dialog.SelectedCommit != null && dialog is { SelectedManifest: not null, Action: Views.ModHistoryDialog.DialogAction.ApplyToEditor })
-            {
-                // 应用到编辑框（不保存到文件）
-                Name = dialog.SelectedManifest.Name;
-                Description = dialog.SelectedManifest.Description;
-                UpdateStatus(); // 更新状态显示
-            }
-        }
-        catch (Exception ex)
-        {
-            System.Windows.MessageBox.Show($"加载历史记录时出错: {ex.Message}", "错误", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
-        }
-    }
-
-    private async Task RollbackToVersionAsync(string commitHash, string repoRelativePath)
-    {
-        if (string.IsNullOrEmpty(ManifestPath)) return;
-
-        try
-        {
-            var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
-           
-            // 1. Rollback in Repo (Update Shadow Copy to old version)
-            await Task.Run(() => _gitService.RollbackFile(appDataPath, commitHash, repoRelativePath));
-             
-            // 2. Sync back to Game Mods Directory (Restore)
-            var repoFile = Path.Combine(appDataPath, repoRelativePath);
-       
-            if (File.Exists(repoFile))
-            {
-                // Backup current? No, rollback is destructive/overwrite as per requirement.
-                File.Copy(repoFile, ManifestPath, true);
+                if (selectedManifest == null) return;
                 
-                // 3. Update In-Memory Manifest to reflect change
-                var json = await File.ReadAllTextAsync(ManifestPath);
-                var storedManifest = Newtonsoft.Json.JsonConvert.DeserializeObject<ModManifest>(json);
-                if (storedManifest != null)
+                // 只保留用户需要的字段：名称和描述（也许还有作者？）
+                // 用户需求：“应用选中行的名称/描述”
+                // History item VM 逻辑决定显示什么，但传回的是完整的 Manifest 对象。
+                // 此外用户说：“如果我选了第一行... 名称从 C 变为 B”。
+                // 所以我们直接取快照 Manifest 中的值。
+                
+                if (!string.IsNullOrEmpty(selectedManifest.Name))
                 {
-                    Name = storedManifest.Name;
-                    Description = storedManifest.Description;
-                    Author = storedManifest.Author;
-                    Version = storedManifest.Version;
-                    UpdateStatus(); // Will likely show "Changed" because DB is still at HEAD (or different)
+                    Name = selectedManifest.Name;
                 }
                 
-                System.Windows.MessageBox.Show($"Rolled back '{Name}' to version {commitHash[..7]}.", "Success");
-            }
+                if (!string.IsNullOrEmpty(selectedManifest.Description))
+                {
+                    Description = selectedManifest.Description;
+                }
+                
+                // 如果需要作者/版本，也可以在这里添加。
+                // 目前用户强调了名称/描述。
+                // 为了保险起见，我们把作者也加上，因为它是标识的一部分。
+                if (!string.IsNullOrEmpty(selectedManifest.Author))
+                {
+                    Author = selectedManifest.Author;
+                }
+                
+                WeakReferenceMessenger.Default.Send(new StatusMessage($"已应用历史版本: {selectedManifest.Name}", StatusLevel.Success));
+            };
+
+            // 打开窗口
+            // 理想情况下应该使用 WindowService，但为了简化直接实例化
+            var window = new SMTMS.UI.Views.ModHistoryWindow(historyVm);
+            window.Owner = System.Windows.Application.Current.MainWindow;
+            window.ShowDialog();
         }
         catch (Exception ex)
         {
-           System.Windows.MessageBox.Show($"Rollback Error: {ex.Message}", "Error");
+             var errorMsg = $"打开历史失败: {ex.Message}";
+             if (ex.InnerException != null)
+             {
+                 errorMsg += $"\nInner: {ex.InnerException.Message}";
+             }
+             WeakReferenceMessenger.Default.Send(new StatusMessage(errorMsg, StatusLevel.Error));
         }
     }
 }
-

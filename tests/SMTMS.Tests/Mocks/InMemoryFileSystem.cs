@@ -13,21 +13,16 @@ public class InMemoryFileSystem : IFileSystem
 
     public Task<string> ReadAllTextAsync(string path, CancellationToken cancellationToken = default)
     {
-        if (!_textFiles.ContainsKey(path))
-            throw new FileNotFoundException($"File not found: {path}");
-        return Task.FromResult(_textFiles[path]);
+        return !_textFiles.TryGetValue(path, out var file) ? throw new FileNotFoundException($"File not found: {path}") : Task.FromResult(file);
     }
 
     public Task<byte[]> ReadAllBytesAsync(string path, CancellationToken cancellationToken = default)
     {
         // 优先从 binary files 读取,如果不存在则尝试从 text files 转换
-        if (_binaryFiles.ContainsKey(path))
-            return Task.FromResult(_binaryFiles[path]);
+        if (_binaryFiles.TryGetValue(path, out var file))
+            return Task.FromResult(file);
 
-        if (_textFiles.ContainsKey(path))
-            return Task.FromResult(System.Text.Encoding.UTF8.GetBytes(_textFiles[path]));
-
-        throw new FileNotFoundException($"File not found: {path}");
+        return _textFiles.TryGetValue(path, out var textFile) ? Task.FromResult(System.Text.Encoding.UTF8.GetBytes(textFile)) : throw new FileNotFoundException($"File not found: {path}");
     }
 
     public Task WriteAllTextAsync(string path, string contents, CancellationToken cancellationToken = default)
@@ -135,7 +130,7 @@ public class InMemoryFileSystem : IFileSystem
 
                     // 确保没有更深层的子目录
                     var relativePart = normalizedDir[(normalizedPath.Length + 1)..];
-                    return !relativePart.Contains("/");
+                    return !relativePart.Contains('/');
                 })
                 .Where(d => MatchesPattern(Path.GetFileName(d), searchPattern))
                 .ToArray();
@@ -168,9 +163,9 @@ public class InMemoryFileSystem : IFileSystem
 
     private static bool MatchesPattern(string fileName, string pattern)
     {
-        if (pattern == "*") return true;
-        // 简单的通配符匹配
-        return fileName.EndsWith(pattern.TrimStart('*'));
+        return pattern == "*" ||
+               // 简单的通配符匹配
+               fileName.EndsWith(pattern.TrimStart('*'));
     }
 }
 

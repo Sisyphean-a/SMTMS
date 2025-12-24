@@ -26,7 +26,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\SMTMS.Core\SMTMS.Core.csproj" />
     <ProjectReference Include="..\..\src\SMTMS.Translation\SMTMS.Translation.csproj" />
-    <ProjectReference Include="..\..\src\SMTMS.GitProvider\SMTMS.GitProvider.csproj" />
   </ItemGroup>
 
   <ItemGroup>

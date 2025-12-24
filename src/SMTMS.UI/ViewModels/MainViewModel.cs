@@ -7,6 +7,7 @@ using SMTMS.UI.Messages;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
+using SMTMS.Data.Context;
 
 namespace SMTMS.UI.ViewModels;
 
@@ -15,7 +16,6 @@ namespace SMTMS.UI.ViewModels;
 /// </summary>
 public partial class MainViewModel : ObservableObject
 {
-    private readonly IGitService _gitService;
     private readonly IGamePathService _gamePathService;
     private readonly ITranslationService _translationService;
     private readonly IServiceScopeFactory _scopeFactory;
@@ -41,7 +41,6 @@ public partial class MainViewModel : ObservableObject
     public MainViewModel(
         ModListViewModel modListViewModel,
         HistoryViewModel historyViewModel,
-        IGitService gitService,
         IGamePathService gamePathService,
         ITranslationService translationService,
         IServiceScopeFactory scopeFactory,
@@ -49,7 +48,6 @@ public partial class MainViewModel : ObservableObject
     {
         ModListViewModel = modListViewModel;
         HistoryViewModel = historyViewModel;
-        _gitService = gitService;
         _gamePathService = gamePathService;
         _translationService = translationService;
         _scopeFactory = scopeFactory;
@@ -93,7 +91,7 @@ public partial class MainViewModel : ObservableObject
                 }
             }
 
-            // 3. 初始化 Git 仓库
+            // 3. 确保数据库目录存在 (原 Git Init 逻辑已移除)
             var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
             var smtmsPath = Path.Combine(appDataPath, "SMTMS");
 
@@ -101,13 +99,6 @@ public partial class MainViewModel : ObservableObject
             {
                 Directory.CreateDirectory(smtmsPath);
             }
-
-            if (!_gitService.IsRepository(smtmsPath))
-            {
-                _gitService.Init(smtmsPath);
-            }
-
-            // 4. (已通过属性变更通知 OnModsDirectoryChanged 自动发送消息，此处无需重复发送)
             
             StatusMessage = "初始化完成";
         }
@@ -128,14 +119,16 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task BrowseFolderAsync()
     {
-        var dialog = new FolderBrowserDialog
+        // 注意：FolderBrowserDialog 在 WPF 中可能需要引用 System.Windows.Forms 或使用 Windows API Code Pack
+        // 这里假设已有相应实现
+        using var dialog = new System.Windows.Forms.FolderBrowserDialog
         {
-            Description = "选择Stardew Valley的Mods目录",
+            Description = "选择 Stardew Valley 的 Mods 目录",
             ShowNewFolderButton = false,
             SelectedPath = ModsDirectory
         };
 
-        if (dialog.ShowDialog() == DialogResult.OK)
+        if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
         {
             ModsDirectory = dialog.SelectedPath;
 
@@ -148,8 +141,6 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-
-
     [RelayCommand]
     private async Task HardResetAsync()
     {
@@ -160,8 +151,7 @@ public partial class MainViewModel : ObservableObject
 
             var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
 
-            // 1. 删除 .git 文件夹
-            await Task.Run(() => _gitService.DeleteRepository(appDataPath));
+            // 1. (已移除) 删除 .git 文件夹
 
             // 2. 删除数据库文件
             var dbPath = Path.Combine(appDataPath, "smtms.db");
@@ -173,16 +163,13 @@ public partial class MainViewModel : ObservableObject
             // 3. 重新创建数据库表
             using (var scope = _scopeFactory.CreateScope())
             {
-                var context = scope.ServiceProvider.GetRequiredService<Data.Context.AppDbContext>();
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 await context.Database.MigrateAsync();
             }
 
-            // 4. 重新初始化 Git
-            _gitService.Init(appDataPath);
-
             WeakReferenceMessenger.Default.Send(new StatusMessage("初始化完成。所有历史和数据已清空。", StatusLevel.Success));
 
-            // 5. 请求刷新
+            // 4. 请求刷新
             WeakReferenceMessenger.Default.Send(RefreshModsRequestMessage.Instance);
             HistoryViewModel.LoadHistory();
         }
@@ -205,19 +192,20 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            var dialog = new Views.CommitDialog($"Scan & Update {DateTime.Now:yyyy/MM/dd HH:mm}");
-            if (dialog.ShowDialog() != true)
-            {
-                return;
-            }
-
-            var commitMessage = dialog.CommitMessage;
+            // 这里移除了 Git Commit Message 弹窗，因为现在是自动快照
+            // 如果需要手动输入快照信息，可以保留弹窗，并在 saveResult 中传入 Message
+            // 目前简化为自动处理。如果后续需要，可以加回弹窗调用 CreateSnapshotAsync
+            
             WeakReferenceMessenger.Default.Send(new StatusMessage("正在扫描并更新数据库..."));
 
             var sw = System.Diagnostics.Stopwatch.StartNew();
 
-            // 1. 同步到数据库 (快速操作 - 前台等待)
-            var saveResult = await _translationService.SaveTranslationsToDbAsync(ModsDirectory);
+            // 1. 同步到数据库 (包含自动创建快照和增量历史)
+            // 这是一个后台操作，可以在 Task.Run 中执行以防卡 UI
+            var saveResult = await Task.Run(async () => await _translationService.SaveTranslationsToDbAsync(ModsDirectory));
+            
+            sw.Stop();
+
             if (!saveResult.IsSuccess)
             {
                 WeakReferenceMessenger.Default.Send(new StatusMessage($"保存失败: {saveResult.Message}", StatusLevel.Error));
@@ -225,60 +213,20 @@ public partial class MainViewModel : ObservableObject
                 return;
             }
 
-            sw.Stop();
-            var dbTime = sw.ElapsedMilliseconds;
-
-            // UI 立即响应：数据库已完成
-            WeakReferenceMessenger.Default.Send(new StatusMessage($"数据库更新完成 ({dbTime}ms)。正在后台备份到 Git...", StatusLevel.Info));
+            // 2. 完成
+            WeakReferenceMessenger.Default.Send(new StatusMessage($"同步完成 ({sw.ElapsedMilliseconds}ms)。", StatusLevel.Success));
             
-            // 刷新历史和模组列表 (让用户立刻看到变动)
+            // 3. 刷新历史和模组列表
             HistoryViewModel.LoadHistory();
             WeakReferenceMessenger.Default.Send(RefreshModsRequestMessage.Instance);
-
-            // 2. Git 备份 (耗时操作 - 后台异步)
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                   var swGit = System.Diagnostics.Stopwatch.StartNew();
-                   var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
-                   
-                   // 2.1 导出文件
-                   var exportResult = await _translationService.ExportTranslationsToGitRepo(ModsDirectory, appDataPath);
-                   if (!exportResult.IsSuccess)
-                   {
-                       WeakReferenceMessenger.Default.Send(new StatusMessage($"Git 导出失败: {exportResult.Message}", StatusLevel.Error));
-                       return;
-                   }
-
-                   // 2.2 提交 (CPU/IO 密集型)
-                   // _gitService.CommitAll 是同步方法，但在 Task.Run 中运行不会卡 UI
-                   _gitService.CommitAll(appDataPath, commitMessage);
-                   
-                   swGit.Stop();
-                   _logger.LogInformation("✅ [Git Background Sync] {Elapsed}ms.", swGit.ElapsedMilliseconds);
-                   
-                   // 完成通知
-                   WeakReferenceMessenger.Default.Send(new StatusMessage($"同步全部完成 (DB: {dbTime}ms, Git: {swGit.ElapsedMilliseconds}ms)", StatusLevel.Success));
-                   
-                   // 再次刷新历史以显示新提交
-                   // HistoryViewModel.LoadHistory(); // 需要切回主线程，简单起见这里省略或通过消息通知，StatusMessage 已足够
-                }
-                catch (Exception ex)
-                {
-                     _logger.LogError(ex, "后台 Git 提交失败");
-                     WeakReferenceMessenger.Default.Send(new StatusMessage($"后台备份失败: {ex.Message}", StatusLevel.Error));
-                }
-                finally
-                {
-                    Interlocked.Exchange(ref _isSyncing, 0);
-                }
-            });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "同步过程发生异常");
             WeakReferenceMessenger.Default.Send(new StatusMessage($"同步错误: {ex.Message}", StatusLevel.Error));
+        }
+        finally
+        {
             Interlocked.Exchange(ref _isSyncing, 0);
         }
     }

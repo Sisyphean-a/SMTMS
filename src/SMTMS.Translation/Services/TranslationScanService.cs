@@ -24,6 +24,7 @@ public class TranslationScanService(
     public async Task<OperationResult> SaveTranslationsToDbAsync(
         string modDirectory,
         IModRepository modRepo,
+        IHistoryRepository historyRepo,
         CancellationToken cancellationToken = default)
     {
         var swTotal = System.Diagnostics.Stopwatch.StartNew();
@@ -45,30 +46,60 @@ public class TranslationScanService(
         // 4. 加载数据库数据
         var (keyPathMap, keyIdMap, dbLoadElapsed) = await LoadDatabaseModsAsync(modRepo, cancellationToken);
 
-        // 5. 处理文件
+        // 5. 处理文件 (生成 ModsUpsert 和 HistoryInsert)
+        // 暂时使用 0 作为 snapshotId，稍后如果有需要我们会分配真正的 ID
         var processResult = await ProcessManifestFilesAsync(
             modDirectory,
             fileHashes,
             keyPathMap,
             keyIdMap,
+            0, 
             cancellationToken);
 
-        // 6. 批量保存
-        var saveElapsed = await SaveModsToDbAsync(modRepo, processResult.ModsToUpsert, cancellationToken);
+        // 检查是否需要保存任何内容
+        long saveModsElapsed = 0;
+        long saveHistoryElapsed = 0;
+        int snapshotId = 0;
 
-        // 7. 记录总结
+        if (processResult.HistoriesToInsert.Count > 0 || processResult.ModsToUpsert.Count > 0)
+        {
+            // 6. 只有存在变更时，才创建快照
+            snapshotId = await historyRepo.CreateSnapshotAsync($"Sync {modFiles.Length} mods", modFiles.Length, cancellationToken);
+            
+            // 回填 SnapshotId
+            foreach (var history in processResult.HistoriesToInsert)
+            {
+                history.SnapshotId = snapshotId;
+            }
+
+            // 7. 批量保存 Mods
+            saveModsElapsed = await SaveModsToDbAsync(modRepo, processResult.ModsToUpsert, cancellationToken);
+        
+            // 8. 批量保存 History
+            if (processResult.HistoriesToInsert.Count > 0)
+            {
+                var swHistory = System.Diagnostics.Stopwatch.StartNew();
+                await historyRepo.SaveModHistoriesAsync(processResult.HistoriesToInsert, cancellationToken);
+                swHistory.Stop();
+                saveHistoryElapsed = swHistory.ElapsedMilliseconds;
+                _logger.LogInformation("已保存 {Count} 条历史记录 (Snapshot {SnapshotId})", processResult.HistoriesToInsert.Count, snapshotId);
+            }
+        }
+        else
+        {
+            _logger.LogInformation("没有检测到任何变更，跳过保存和快照生成。");
+        }
+
+        // 9. 记录总结
         swTotal.Stop();
         LogProcessingSummary(swTotal.ElapsedMilliseconds, scanElapsed, hashElapsed, dbLoadElapsed,
-            processResult.ProcessElapsed, processResult.ParseCount, saveElapsed, 
-            processResult.ModsToUpsert.Count, processResult.SkipCount);
+            processResult.ProcessElapsed, processResult.ParseCount, saveModsElapsed, 
+            processResult.ModsToUpsert.Count, processResult.SkipCount, saveHistoryElapsed);
 
         return CreateOperationResult(processResult.SuccessCount, processResult.ErrorCount, 
             processResult.Errors, "保存");
     }
 
-    /// <summary>
-    /// 验证模组目录是否存在
-    /// </summary>
     private OperationResult ValidateModDirectory(string modDirectory)
     {
         if (_fileSystem.DirectoryExists(modDirectory)) return OperationResult.Success(0, string.Empty);
@@ -76,39 +107,41 @@ public class TranslationScanService(
         return OperationResult.Failure("模组目录不存在");
     }
 
-    /// <summary>
-    /// 扫描 manifest.json 文件
-    /// </summary>
     private async Task<(string[] files, long elapsed)> ScanManifestFilesAsync(string modDirectory)
     {
         var sw = System.Diagnostics.Stopwatch.StartNew();
-        var modFiles = _fileSystem.GetFiles(modDirectory, "manifest.json", SearchOption.AllDirectories);
+        
+        // 与 ModService 逻辑匹配：仅扫描一级子目录下的 manifest.json
+        // 这确保了你在 UI (ModService) 中看到的内容与同步到数据库 (ScanService) 的内容一致
+        string[] modFiles = [];
+        
+        if (_fileSystem.DirectoryExists(modDirectory))
+        {
+            var subDirectories = _fileSystem.GetDirectories(modDirectory);
+            modFiles = subDirectories
+                .Select(dir => _fileSystem.Combine(dir, "manifest.json"))
+                .Where(path => _fileSystem.FileExists(path))
+                .ToArray();
+        }
+
         sw.Stop();
         
-        _logger.LogInformation("扫描文件完成 ({Elapsed}ms): 找到 {Count} 个 manifest.json 文件", 
+        _logger.LogInformation("扫描文件完成 ({Elapsed}ms): 找到 {Count} 个 manifest.json 文件 (Shallow Scan)", 
             sw.ElapsedMilliseconds, modFiles.Length);
         
         return await Task.FromResult((modFiles, sw.ElapsedMilliseconds));
     }
 
-    /// <summary>
-    /// 计算文件 Hash（带计时）
-    /// </summary>
     private async Task<((string file, string hash, bool success)[] hashes, long elapsed)> 
         ComputeFileHashesWithTimingAsync(string[] files, CancellationToken cancellationToken)
     {
         var sw = System.Diagnostics.Stopwatch.StartNew();
         var fileHashes = await ComputeFileHashesAsync(files, cancellationToken);
         sw.Stop();
-        
         _logger.LogInformation("计算Hash完成 ({Elapsed}ms)", sw.ElapsedMilliseconds);
-        
         return (fileHashes, sw.ElapsedMilliseconds);
     }
 
-    /// <summary>
-    /// 加载数据库中的模组数据并构建查找字典
-    /// </summary>
     private async Task<(
         Dictionary<string, ModMetadata> keyPathMap,
         Dictionary<string, ModMetadata> keyIdMap,
@@ -119,29 +152,22 @@ public class TranslationScanService(
         
         var modMetadatas = allDbMods.ToList();
         
-        // keyPathMap: RelativePath -> Mod (用于快速检测内容是否未变)
         var keyPathMap = modMetadatas
             .Where(m => !string.IsNullOrEmpty(m.RelativePath))
             .ToDictionary(m => m.RelativePath!.Replace('\\', '/'), m => m, StringComparer.OrdinalIgnoreCase);
         
-        // keyIdMap: UniqueID -> Mod (用于处理移动文件或重命名的情况)
         var keyIdMap = modMetadatas.ToDictionary(m => m.UniqueID, m => m);
         
         sw.Stop();
-        _logger.LogInformation("数据库加载完成 ({Elapsed}ms): 已加载 {Count} 个 Mod", 
-            sw.ElapsedMilliseconds, modMetadatas.Count);
-        
         return (keyPathMap, keyIdMap, sw.ElapsedMilliseconds);
     }
 
-    /// <summary>
-    /// 处理所有 manifest 文件
-    /// </summary>
     private async Task<ProcessResult> ProcessManifestFilesAsync(
         string modDirectory,
         (string file, string hash, bool success)[] fileHashes,
         Dictionary<string, ModMetadata> keyPathMap,
         Dictionary<string, ModMetadata> keyIdMap,
+        int snapshotId,
         CancellationToken cancellationToken)
     {
         var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -159,17 +185,18 @@ public class TranslationScanService(
             cancellationToken.ThrowIfCancellationRequested();
 
             var relativePath = _fileSystem.GetRelativePath(modDirectory, file).Replace('\\', '/');
-
-            // ⚡ 优化核心：如果路径匹配且Hash一致，直接跳过
+            
+            // 检查是否可以跳过（仅在完全匹配时）
+            // 但我们需要小心：如果我们想确保历史记录正确，
+            // 则需要依赖 ModMetadata.LastFileHash 的准确性。
             if (ShouldSkipFile(relativePath, hash, keyPathMap))
             {
                 result.SkipCount++;
                 continue;
             }
 
-            // 处理单个文件
             result.ParseCount++;
-            await ProcessSingleManifestAsync(file, hash, relativePath, keyIdMap, result, cancellationToken);
+            await ProcessSingleManifestAsync(file, hash, relativePath, keyIdMap, snapshotId, result, cancellationToken);
         }
 
         sw.Stop();
@@ -177,9 +204,6 @@ public class TranslationScanService(
         return result;
     }
 
-    /// <summary>
-    /// 判断是否应该跳过文件处理
-    /// </summary>
     private static bool ShouldSkipFile(
         string relativePath, 
         string hash, 
@@ -192,14 +216,12 @@ public class TranslationScanService(
         return false;
     }
 
-    /// <summary>
-    /// 处理单个 manifest 文件
-    /// </summary>
     private async Task ProcessSingleManifestAsync(
         string file,
         string hash,
         string relativePath,
         Dictionary<string, ModMetadata> keyIdMap,
+        int snapshotId,
         ProcessResult result,
         CancellationToken cancellationToken)
     {
@@ -215,19 +237,39 @@ public class TranslationScanService(
             }
 
             var mod = GetOrCreateMod(manifest.UniqueID, keyIdMap);
+            
+            // 处理新 Mod - 设置 OriginalJson
+            if (string.IsNullOrEmpty(mod.OriginalJson))
+            {
+                mod.OriginalJson = json;
+            }
+
             UpdateModPath(mod, relativePath);
 
+            // 如果能执行到这里，说明一定需要更新 CurrentJson（因为没通过 ShouldSkipFile 检查）
+            mod.CurrentJson = json;
+            
             var changes = GetModChanges(mod, manifest);
-            if (ShouldUpdateMod(mod, hash, changes))
+            
+            // 只要在处理中，就始终更新元数据
+            ApplyChangesToMod(mod, manifest);
+            mod.LastTranslationUpdate = DateTime.Now;
+            mod.LastFileHash = hash;
+            
+            result.ModsToUpsert.Add(mod);
+            if (changes.Count > 0) LogModChanges(manifest.UniqueID, changes);
+            result.SuccessCount++;
+            
+            // 创建历史记录（增量）
+            // 因为文件已更改（ShouldSkipFile 捕获到 Hash 不匹配），所以保存一条历史记录
+            var history = new ModTranslationHistory
             {
-                ApplyChangesToMod(mod, manifest);
-                mod.LastTranslationUpdate = DateTime.Now;
-                mod.LastFileHash = hash;
-                
-                result.ModsToUpsert.Add(mod);
-                LogModChanges(manifest.UniqueID, changes);
-                result.SuccessCount++;
-            }
+                SnapshotId = snapshotId,
+                ModUniqueId = mod.UniqueID,
+                JsonContent = json,
+                PreviousHash = hash // 使用当前 Hash 作为此历史记录的“特征指纹”
+            };
+            result.HistoriesToInsert.Add(history);
         }
         catch (Exception ex)
         {
@@ -237,22 +279,15 @@ public class TranslationScanService(
         }
     }
 
-    /// <summary>
-    /// 获取或创建模组对象
-    /// </summary>
     private static ModMetadata GetOrCreateMod(string uniqueId, Dictionary<string, ModMetadata> keyIdMap)
     {
         if (keyIdMap.TryGetValue(uniqueId, out var existingMod))
         {
             return existingMod;
         }
-
         return new ModMetadata { UniqueID = uniqueId };
     }
 
-    /// <summary>
-    /// 更新模组路径（如果移动了）
-    /// </summary>
     private static void UpdateModPath(ModMetadata mod, string relativePath)
     {
         if (string.Equals(mod.RelativePath, relativePath, StringComparison.OrdinalIgnoreCase)) return;
@@ -260,28 +295,25 @@ public class TranslationScanService(
         mod.LastFileHash = string.Empty; // 强制更新
     }
 
-    /// <summary>
-    /// 判断是否应该更新模组
-    /// </summary>
-    private static bool ShouldUpdateMod(ModMetadata mod, string hash, List<string> changes)
+    private List<string> GetModChanges(ModMetadata mod, ModManifest manifest)
     {
-        return changes.Count > 0 || mod.LastTranslationUpdate == null || mod.LastFileHash != hash;
+        var changes = new List<string>();
+        if (mod.TranslatedName != manifest.Name) changes.Add($"名称: '{mod.TranslatedName}' -> '{manifest.Name}'");
+        if (mod.TranslatedDescription != manifest.Description) changes.Add("描述已更新");
+        return changes;
     }
 
-    /// <summary>
-    /// 记录模组变更日志
-    /// </summary>
+    private void ApplyChangesToMod(ModMetadata mod, ModManifest manifest)
+    {
+        mod.TranslatedName = manifest.Name;
+        mod.TranslatedDescription = manifest.Description;
+    }
+
     private void LogModChanges(string uniqueId, List<string> changes)
     {
-        foreach (var change in changes)
-        {
-            _logger.LogInformation("变更 [{UniqueId}]: {Change}", uniqueId, change);
-        }
+        _logger.LogInformation("模组 {UniqueId} 变更: {Changes}", uniqueId, string.Join(", ", changes));
     }
 
-    /// <summary>
-    /// 批量保存模组到数据库
-    /// </summary>
     private async Task<long> SaveModsToDbAsync(
         IModRepository modRepo,
         List<ModMetadata> modsToUpsert,
@@ -296,22 +328,30 @@ public class TranslationScanService(
         return sw.ElapsedMilliseconds;
     }
 
-    /// <summary>
-    /// 记录处理总结日志
-    /// </summary>
     private void LogProcessingSummary(
         long totalMs, long scanMs, long hashMs, long dbLoadMs,
-        long processMs, int parseCount, long dbSaveMs, int savedCount, int skipCount)
+        long processMs, int parseCount, long dbSaveMs, int savedCount, int skipCount, long objHistoryMs)
     {
         _logger.LogInformation(
             "✅ 同步完成 Total: {Total}ms | Scan: {Scan}ms | Hash: {Hash}ms | DB Load: {DbLoad}ms | " +
-            "Process: {Process}ms (Parsed: {Parsed}) | DB Save: {DbSave}ms (Saved: {Saved}) | Skipped: {Skipped}",
-            totalMs, scanMs, hashMs, dbLoadMs, processMs, parseCount, dbSaveMs, savedCount, skipCount);
+            "Process: {Process}ms (Parsed: {Parsed}) | Mods Save: {DbSave}ms ({Saved}) | Hist Save: {Hist}ms | Skipped: {Skipped}",
+            totalMs, scanMs, hashMs, dbLoadMs, processMs, parseCount, dbSaveMs, savedCount, objHistoryMs, skipCount);
     }
 
-    /// <summary>
-    /// 处理结果数据类
-    /// </summary>
+    private static OperationResult CreateOperationResult(
+        int successCount,
+        int errorCount,
+        List<string> errors,
+        string operationName)
+    {
+        if (errorCount == 0)
+        {
+            return OperationResult.Success(successCount, $"成功{operationName} {successCount} 个翻译");
+        }
+        return OperationResult.PartialSuccess(successCount, errorCount,
+            $"{operationName}完成: {successCount} 成功, {errorCount} 失败", errors);
+    }
+
     private class ProcessResult
     {
         public int SuccessCount { get; set; }
@@ -321,11 +361,9 @@ public class TranslationScanService(
         public long ProcessElapsed { get; set; }
         public List<string> Errors { get; } = new();
         public List<ModMetadata> ModsToUpsert { get; } = new();
+        public List<ModTranslationHistory> HistoriesToInsert { get; } = new();
     }
 
-    /// <summary>
-    /// 并行计算文件 Hash
-    /// </summary>
     private async Task<(string file, string hash, bool success)[]> ComputeFileHashesAsync(
         string[] files,
         CancellationToken cancellationToken)
@@ -343,56 +381,6 @@ public class TranslationScanService(
                 return (file, string.Empty, success: false);
             }
         }).ToArray();
-
         return await Task.WhenAll(fileHashTasks);
     }
-
-    /// <summary>
-    /// 获取模组变更列表
-    /// </summary>
-    private List<string> GetModChanges(ModMetadata mod, ModManifest manifest)
-    {
-        var changes = new List<string>();
-
-        if (mod.TranslatedName != manifest.Name)
-        {
-            changes.Add($"名称: '{mod.TranslatedName}' -> '{manifest.Name}'");
-        }
-
-        if (mod.TranslatedDescription != manifest.Description)
-        {
-            // 描述可能很长，只记录变更事实
-            changes.Add("描述已更新");
-        }
-
-        return changes;
-    }
-
-    /// <summary>
-    /// 应用变更到模组对象
-    /// </summary>
-    private void ApplyChangesToMod(ModMetadata mod, ModManifest manifest)
-    {
-        mod.TranslatedName = manifest.Name;
-        mod.TranslatedDescription = manifest.Description;
-    }
-
-    /// <summary>
-    /// 创建操作结果
-    /// </summary>
-    private static OperationResult CreateOperationResult(
-        int successCount,
-        int errorCount,
-        List<string> errors,
-        string operationName)
-    {
-        if (errorCount == 0)
-        {
-            return OperationResult.Success(successCount, $"成功{operationName} {successCount} 个翻译");
-        }
-
-        return OperationResult.PartialSuccess(successCount, errorCount,
-            $"{operationName}完成: {successCount} 成功, {errorCount} 失败", errors);
-    }
 }
-

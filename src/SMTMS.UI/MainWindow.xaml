@@ -306,31 +306,31 @@
                     </StackPanel>
 
                     <!--  提交历史列表  -->
-                    <DataGrid
+                        <DataGrid
                         AutoGenerateColumns="False"
                         BorderBrush="LightGray"
                         BorderThickness="1"
                         Grid.Row="1"
                         Height="150"
                         IsReadOnly="True"
-                        ItemsSource="{Binding HistoryViewModel.CommitHistory}"
+                        ItemsSource="{Binding HistoryViewModel.SnapshotHistory}"
                         Margin="0,0,0,10"
-                        SelectedItem="{Binding HistoryViewModel.SelectedCommit}">
+                        SelectedItem="{Binding HistoryViewModel.SelectedSnapshot}">
                         <DataGrid.Columns>
                             <DataGridTextColumn
-                                Binding="{Binding ShortHash}"
-                                Header="哈希"
-                                Width="70" />
+                                Binding="{Binding Id}"
+                                Header="ID"
+                                Width="50" />
                             <DataGridTextColumn
                                 Binding="{Binding Message}"
-                                Header="信息"
+                                Header="描述"
                                 Width="*" />
                             <DataGridTextColumn
-                                Binding="{Binding Author}"
-                                Header="作者"
-                                Width="120" />
+                                Binding="{Binding TotalMods}"
+                                Header="模组数"
+                                Width="80" />
                             <DataGridTextColumn
-                                Binding="{Binding FormattedDate}"
+                                Binding="{Binding Timestamp}"
                                 Header="日期"
                                 Width="150" />
                         </DataGrid.Columns>

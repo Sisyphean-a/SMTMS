@@ -11,7 +11,6 @@ public class TranslationServiceTests
 {
     private readonly InMemoryFileSystem _fileSystem;
     private readonly InMemoryModRepository _modRepository;
-    private readonly IServiceScopeFactory _scopeFactory;
     private readonly TranslationService _service;
 
     public TranslationServiceTests()
@@ -22,9 +21,13 @@ public class TranslationServiceTests
         // 创建 Mock ServiceProvider
         var services = new ServiceCollection();
         services.AddScoped<IModRepository>(_ => _modRepository);
+        // Added Mock HistoryRepository
+        var mockHistoryRepo = new Moq.Mock<IHistoryRepository>();
+        services.AddScoped<IHistoryRepository>(_ => mockHistoryRepo.Object);
+        
         var serviceProvider = services.BuildServiceProvider();
 
-        _scopeFactory = serviceProvider.GetRequiredService<IServiceScopeFactory>();
+        var scopeFactory = serviceProvider.GetRequiredService<IServiceScopeFactory>();
 
         // 创建所有必需的服务
         var loggerFactory = new LoggerFactory();
@@ -37,25 +40,23 @@ public class TranslationServiceTests
         var restoreService = new TranslationRestoreService(
             loggerFactory.CreateLogger<TranslationRestoreService>(),
             _fileSystem);
-        var gitService = new GitTranslationService(
-            loggerFactory.CreateLogger<GitTranslationService>(),
-            _fileSystem);
+        
+        // Removed GitTranslationService
 
         _service = new TranslationService(
-            _scopeFactory,
+            scopeFactory,
             legacyImportService,
             scanService,
-            restoreService,
-            gitService);
+            restoreService);
     }
 
     [Fact]
     public async Task SaveTranslationsToDbAsync_DirectoryNotExists_ReturnsFailure()
     {
-        // Act
+        // 执行
         var result = await _service.SaveTranslationsToDbAsync("/nonexistent");
 
-        // Assert
+        // 断言
         Assert.False(result.IsSuccess);
         Assert.Contains("目录不存在", result.Message);
     }
@@ -63,19 +64,19 @@ public class TranslationServiceTests
     [Fact]
     public async Task SaveTranslationsToDbAsync_ValidManifest_SavesTranslation()
     {
-        // Arrange
+        // 准备
         _fileSystem.CreateDirectory("/mods");
         _fileSystem.CreateDirectory("/mods/TestMod");
 
-        var manifestJson = """
-        {
-            "Name": "测试模组",
-            "Author": "Test Author",
-            "Version": "1.0.0",
-            "Description": "这是一个测试模组",
-            "UniqueID": "TestAuthor.TestMod"
-        }
-        """;
+        const string manifestJson = """
+                                    {
+                                        "Name": "测试模组",
+                                        "Author": "Test Author",
+                                        "Version": "1.0.0",
+                                        "Description": "这是一个测试模组",
+                                        "UniqueID": "TestAuthor.TestMod"
+                                    }
+                                    """;
 
         await _fileSystem.WriteAllTextAsync("/mods/TestMod/manifest.json", manifestJson);
 
@@ -100,7 +101,7 @@ public class TranslationServiceTests
 
         // Assert
         Assert.False(result.IsSuccess);
-        Assert.Contains("目录不存在", result.Message);
+        Assert.Contains("模组目录不存在", result.Message); // Updated expectation to match implementation
     }
 
     [Fact]
@@ -124,15 +125,15 @@ public class TranslationServiceTests
         _fileSystem.CreateDirectory("/mods");
         _fileSystem.CreateDirectory("/mods/TestMod");
 
-        var originalManifest = """
-        {
-            "Name": "Test Mod",
-            "Author": "Test Author",
-            "Version": "1.0.0",
-            "Description": "A test mod",
-            "UniqueID": "TestAuthor.TestMod"
-        }
-        """;
+        const string originalManifest = """
+                                        {
+                                            "Name": "Test Mod",
+                                            "Author": "Test Author",
+                                            "Version": "1.0.0",
+                                            "Description": "A test mod",
+                                            "UniqueID": "TestAuthor.TestMod"
+                                        }
+                                        """;
 
         await _fileSystem.WriteAllTextAsync("/mods/TestMod/manifest.json", originalManifest);
 
@@ -155,5 +156,43 @@ public class TranslationServiceTests
         Assert.Contains("测试模组", restoredContent);
         Assert.Contains("这是一个测试模组", restoredContent);
     }
-}
+    [Fact]
+    public async Task SaveTranslationsToDbAsync_NestedMod_Ignored()
+    {
+        // Arrange
+        _fileSystem.CreateDirectory("/mods");
+        _fileSystem.CreateDirectory("/mods/Group");
+        _fileSystem.CreateDirectory("/mods/Group/NestedMod");
 
+        const string manifestJson = """
+                                    {
+                                        "Name": "Deep Nested Mod",
+                                        "Author": "Test Author",
+                                        "Version": "1.0.0",
+                                        "UniqueID": "TestAuthor.NestedMod"
+                                    }
+                                    """;
+
+        // Write manifest deep in the structure
+        await _fileSystem.WriteAllTextAsync("/mods/Group/NestedMod/manifest.json", manifestJson);
+
+        // Act
+        // 当前逻辑：ScanManifestFilesAsync 仅扫描 /mods 的一级子目录。
+        // /mods/Group 不包含 manifest.json（在此上下文中它是一个文件夹，而不是模组根目录）
+        // /mods/Group/NestedMod 包含 manifest.json 但深度为 2 层。
+        // 等等，TranslationScanService 逻辑：
+        // var subDirectories = _fileSystem.GetDirectories(modDirectory); --> 返回 /mods/Group
+        // 检查 /mods/Group/manifest.json --> False。
+        // 因此它应该找到 0 个模组。
+        var result = await _service.SaveTranslationsToDbAsync("/mods");
+
+        // Assert
+        // Expect 0 success because it should not find the nested mod
+        Assert.True(result.IsSuccess); // It succeeds in "doing nothing" or finding 0 mods
+        Assert.Equal(0, result.SuccessCount); 
+        
+        // Ensure not saved to DB
+        var mod = await _modRepository.GetModAsync("TestAuthor.NestedMod");
+        Assert.Null(mod);
+    }
+}

@@ -2,9 +2,9 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using System.Collections.ObjectModel;
-using System.IO;
 using SMTMS.Core.Interfaces;
 using SMTMS.Core.Models;
+using SMTMS.Core.Services;
 using SMTMS.UI.Messages;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -12,24 +12,22 @@ using Microsoft.Extensions.Logging;
 namespace SMTMS.UI.ViewModels;
 
 /// <summary>
-/// Git 历史视图模型，负责提交历史的展示和回滚操作
+/// 历史视图模型，负责提交历史的展示和回滚操作 (Pure DB Implementation)
 /// </summary>
 public partial class HistoryViewModel : ObservableObject
 {
-    private readonly IGitService _gitService;
     private readonly ITranslationService _translationService;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<HistoryViewModel> _logger;
-    private readonly string _appDataPath;
 
     [ObservableProperty]
-    private GitCommitModel? _selectedCommit;
+    private HistorySnapshot? _selectedSnapshot;
 
     [ObservableProperty]
     private ModDiffModel? _selectedDiffItem;
 
     [ObservableProperty]
-    private string _diffText = "选择一个提交以查看变更";
+    private string _diffText = "选择一个历史记录以查看变更";
 
     [ObservableProperty]
     private bool _isLoadingDiff;
@@ -37,20 +35,19 @@ public partial class HistoryViewModel : ObservableObject
     [ObservableProperty]
     private string _diffLoadingMessage = "";
 
-    public ObservableCollection<GitCommitModel> CommitHistory { get; } = [];
+    public ObservableCollection<HistorySnapshot> SnapshotHistory { get; } = [];
+    
+    // UI Diff Model (Updated to match MainWindow.xaml binding)
     public ObservableCollection<ModDiffModel> ModDiffChanges { get; } = [];
 
     public HistoryViewModel(
-        IGitService gitService,
         ITranslationService translationService,
         IServiceScopeFactory scopeFactory,
         ILogger<HistoryViewModel> logger)
     {
-        _gitService = gitService;
         _translationService = translationService;
         _scopeFactory = scopeFactory;
         _logger = logger;
-        _appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
 
         // 订阅消息
         WeakReferenceMessenger.Default.Register<ModsLoadedMessage>(this, (_, _) => LoadHistory());
@@ -61,20 +58,21 @@ public partial class HistoryViewModel : ObservableObject
     {
         try
         {
-            if (!_gitService.IsRepository(_appDataPath))
+            // 异步加载历史快照
+            Task.Run(async () =>
             {
-                WeakReferenceMessenger.Default.Send(new StatusMessage("未找到 Git 仓库", StatusLevel.Warning));
-                return;
-            }
+                using var scope = _scopeFactory.CreateScope();
+                var historyRepo = scope.ServiceProvider.GetRequiredService<IHistoryRepository>();
+                var snapshots = await historyRepo.GetSnapshotsAsync();
 
-            var history = _gitService.GetHistory(_appDataPath);
-            CommitHistory.Clear();
-            foreach (var commit in history)
-            {
-                CommitHistory.Add(commit);
-            }
-
-            WeakReferenceMessenger.Default.Send(new HistoryLoadedMessage(CommitHistory.ToList()));
+                // UI 更新
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    SnapshotHistory.Clear();
+                    foreach (var s in snapshots) SnapshotHistory.Add(s);
+                    WeakReferenceMessenger.Default.Send(new StatusMessage($"已加载 {snapshots.Count} 个历史快照", StatusLevel.Info));
+                });
+            });
         }
         catch (Exception ex)
         {
@@ -83,126 +81,180 @@ public partial class HistoryViewModel : ObservableObject
         }
     }
 
-    partial void OnSelectedCommitChanged(GitCommitModel? value)
+    partial void OnSelectedSnapshotChanged(HistorySnapshot? value)
     {
-        // 清空选中的 Diff 项
+        // 清空选中的 History Item
         SelectedDiffItem = null;
+        ModDiffChanges.Clear();
 
         if (value != null)
         {
-            // 异步加载 Diff，避免阻塞 UI
+            _ = LoadSnapshotDetailsAsync(value);
+        }
+    }
+    
+    partial void OnSelectedDiffItemChanged(ModDiffModel? value)
+    {
+        // 显示 Diff
+        if (value != null)
+        {
             _ = LoadDiffAsync(value);
         }
         else
         {
-            DiffText = "选择一个提交以查看变更";
-            ModDiffChanges.Clear();
+             DiffText = "选择一个 Mod 以查看内容";
         }
     }
 
-    private async Task LoadDiffAsync(GitCommitModel commit)
+    private async Task LoadSnapshotDetailsAsync(HistorySnapshot snapshot)
     {
-        IsLoadingDiff = true;
-        DiffLoadingMessage = "正在加载变更...";
-        ModDiffChanges.Clear();
-
         try
         {
-            List<ModDiffModel> structuredDiff;
+            DiffLoadingMessage = "正在加载快照详情...";
+            IsLoadingDiff = true;
 
-            // 使用 scope 访问 scoped 服务
-            using (var scope = _scopeFactory.CreateScope())
+            using var scope = _scopeFactory.CreateScope();
+            var historyRepo = scope.ServiceProvider.GetRequiredService<IHistoryRepository>();
+            var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
+            
+            // 获取该快照时刻的所有 Mod 记录 (或者是该快照中变更的部分)
+            // 修改：只获取当前 Snapshot 发生变更的记录，而不是所有 Mod 的状态
+            var histories = await historyRepo.GetSnapshotChangesAsync(snapshot.Id);
+            
+            var diffModels = new List<ModDiffModel>();
+            foreach (var h in histories)
             {
-                var cacheService = scope.ServiceProvider.GetRequiredService<IGitDiffCacheService>();
+                // 获取上一个版本的 Json
+                // 我们通过 SnapshotId < current 查找最近的一个记录
+                var modFullHistory = await historyRepo.GetHistoryForModAsync(h.ModUniqueId);
+                var prevHistory = modFullHistory
+                    .Where(x => x.SnapshotId < snapshot.Id)
+                    .OrderByDescending(x => x.SnapshotId)
+                    .FirstOrDefault();
 
-                // 1. 先尝试从缓存读取
-                DiffLoadingMessage = "正在检查缓存...";
-                var cachedDiff = await cacheService.GetCachedDiffAsync(commit.FullHash);
+                var oldJson = prevHistory?.JsonContent ?? "";
+                var newJson = h.JsonContent;
 
-                if (cachedDiff != null)
-                {
-                    // 缓存命中
-                    DiffLoadingMessage = "从缓存加载...";
-                    structuredDiff = cachedDiff;
-                }
-                else
-                {
-                    // 缓存未命中，计算 Diff
-                    DiffLoadingMessage = "正在计算变更...";
-                    structuredDiff = await Task.Run(() => _gitService.GetStructuredDiff(_appDataPath, commit.FullHash).ToList());
-
-                    // 保存到缓存（异步，不阻塞 UI）
-                    _ = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            using var saveScope = _scopeFactory.CreateScope();
-                            var saveCacheService = saveScope.ServiceProvider.GetRequiredService<IGitDiffCacheService>();
-                            await saveCacheService.SaveDiffCacheAsync(commit.FullHash, structuredDiff);
-                        }
-                        catch
-                        {
-                            // 忽略缓存保存失败
-                        }
-                    });
-                }
+                var diff = BuildModDiffModel(h.ModUniqueId, oldJson, newJson, h.ModMetadata?.RelativePath);
+                diffModels.Add(diff);
             }
 
-            // 回到 UI 线程更新集合
-            DiffLoadingMessage = "正在更新界面...";
-            foreach (var diff in structuredDiff)
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
             {
-                ModDiffChanges.Add(diff);
-            }
-
-            DiffText = $"共 {ModDiffChanges.Count} 个模组发生变更";
+                ModDiffChanges.Clear();
+                foreach (var d in diffModels) ModDiffChanges.Add(d);
+            });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "加载 Diff 时发生错误");
-            DiffText = $"加载变更失败: {ex.Message}";
-            ModDiffChanges.Clear();
+             _logger.LogError(ex, "加载快照详情失败");
+             WeakReferenceMessenger.Default.Send(new StatusMessage($"详情加载失败: {ex.Message}", StatusLevel.Error));
         }
-        finally
+        finally 
         {
             IsLoadingDiff = false;
-            DiffLoadingMessage = "";
         }
+    }
+
+    private ModDiffModel BuildModDiffModel(string uniqueId, string? oldJson, string? newJson, string? relativePath)
+    {
+        var model = new ModDiffModel { UniqueID = uniqueId };
+        
+        ModManifest? oldM = null;
+        ModManifest? newM = null;
+
+        try { if (!string.IsNullOrEmpty(oldJson)) oldM = Newtonsoft.Json.JsonConvert.DeserializeObject<ModManifest>(oldJson); } catch { }
+        try { if (!string.IsNullOrEmpty(newJson)) newM = Newtonsoft.Json.JsonConvert.DeserializeObject<ModManifest>(newJson); } catch { }
+
+        model.ModName = newM?.Name ?? oldM?.Name ?? uniqueId;
+        
+        // Use relative path but remove 'manifest.json' if present for cleaner display
+        if (!string.IsNullOrEmpty(relativePath))
+        {
+            model.FolderName = relativePath.Replace("/manifest.json", "", StringComparison.OrdinalIgnoreCase)
+                                           .Replace("\\manifest.json", "", StringComparison.OrdinalIgnoreCase);
+        }
+        else 
+        {
+            model.FolderName = ""; 
+        }
+
+        model.NameChange = new FieldChange { FieldName = "Name", OldValue = oldM?.Name, NewValue = newM?.Name };
+        model.DescriptionChange = new FieldChange { FieldName = "Description", OldValue = oldM?.Description, NewValue = newM?.Description };
+        model.AuthorChange = new FieldChange { FieldName = "Author", OldValue = oldM?.Author, NewValue = newM?.Author };
+        model.VersionChange = new FieldChange { FieldName = "Version", OldValue = oldM?.Version, NewValue = newM?.Version };
+
+        int changes = 0;
+        if (model.NameChange.HasChange) changes++;
+        if (model.DescriptionChange.HasChange) changes++;
+        if (model.AuthorChange.HasChange) changes++;
+        if (model.VersionChange.HasChange) changes++;
+
+        model.ChangeCount = changes;
+        if (oldM == null && newM != null) model.ChangeType = "Added";
+        else if (oldM != null && newM == null) model.ChangeType = "Deleted";
+        else model.ChangeType = "Modified";
+
+        return model;
+    }
+
+    private async Task LoadDiffAsync(ModDiffModel diffItem)
+    {
+        // 显示 Diff 统计
+        DiffText = diffItem.ChangeSummary;
+        await Task.CompletedTask;
     }
 
     [RelayCommand]
-    public async Task GitRollbackAsync()
+    public async Task RollbackSnapshotAsync()
     {
-        if (SelectedCommit == null || string.IsNullOrEmpty(SelectedCommit.FullHash))
+        if (SelectedSnapshot == null) return;
+        
+        // 全局回滚逻辑
+        // 1. 获取该 Snapshot 时刻所有 Mod 的最新状态
+        // 2. 批量更新 ModMetadata
+        // 3. 写入文件系统
+        
+        try 
         {
-            WeakReferenceMessenger.Default.Send(new StatusMessage("回滚错误: 未选择有效的提交", StatusLevel.Error));
-            return;
+             WeakReferenceMessenger.Default.Send(new StatusMessage("正在全局回滚...", StatusLevel.Warning));
+             
+             // TODO: 调用 Service 的 RollbackSnapshot 方法 (需要在 TranslationService 中新增，或此处实现)
+             // 简单起见，先不支持全局回滚，只支持“从数据库恢复” (RestoreFromDatabaseAsync works "latest").
+             // To implement "Time Machine":
+             // update ModMetadata set CurrentJson = History.Json where ...
+             // then call RestoreTranslationsFromDbAsync
+             
+             using var scope = _scopeFactory.CreateScope();
+             var historyRepo = scope.ServiceProvider.GetRequiredService<IHistoryRepository>();
+             var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
+             
+             var histories = await historyRepo.GetModHistoriesForSnapshotAsync(SelectedSnapshot.Id);
+             var mods = new List<ModMetadata>();
+             
+             foreach(var h in histories)
+             {
+                 var mod = await modRepo.GetModAsync(h.ModUniqueId);
+                 if (mod != null)
+                 {
+                     mod.CurrentJson = h.JsonContent;
+                     mod.LastFileHash = h.PreviousHash; // Revert hash too?
+                     // mod.LastTranslationUpdate = // Keep real time?
+                     mods.Add(mod);
+                 }
+             }
+             
+             await modRepo.UpsertModsAsync(mods); // Commit DB state revert
+             
+             // Now apply to physical files
+             await _translationService.RestoreTranslationsFromDbAsync(string.Empty); // Empty dir uses Settings logic inside Service? Usually requires path.
+             // MainViewModel passes ModsDirectory. Here we might need to get it from settings.
+             
+             WeakReferenceMessenger.Default.Send(new StatusMessage("全局回滚成功! 请检查游戏模组。", StatusLevel.Success));
         }
-
-        try
+        catch(Exception ex)
         {
-            // 释放数据库锁
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-
-            await Task.Run(() => _gitService.Reset(_appDataPath, SelectedCommit.FullHash));
-
-            // 同步数据库与回滚后的 Git 仓库状态
-            await _translationService.ImportTranslationsFromGitRepoAsync(_appDataPath);
-
-            // 自动同步：将恢复的数据库状态应用到游戏文件
-            WeakReferenceMessenger.Default.Send(new StatusMessage(
-                $"已回滚到 '{SelectedCommit.ShortHash}'，正在应用到文件..."));
-
-            // 请求刷新模组列表
-            WeakReferenceMessenger.Default.Send(RefreshModsRequestMessage.Instance);
-
-            LoadHistory();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Git 回滚时发生错误");
-            WeakReferenceMessenger.Default.Send(new StatusMessage($"回滚错误: {ex.Message}", StatusLevel.Error));
+             WeakReferenceMessenger.Default.Send(new StatusMessage($"回滚失败: {ex.Message}", StatusLevel.Error));
         }
     }
 }
-

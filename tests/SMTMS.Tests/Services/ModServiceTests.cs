@@ -8,14 +8,14 @@ public class ModServiceTests
     [Fact]
     public async Task ScanModsAsync_EmptyDirectory_ReturnsEmptyList()
     {
-        // Arrange
+        // 准备
         var fileSystem = new InMemoryFileSystem();
         var service = new ModService(fileSystem);
 
-        // Act
+        // 执行
         var result = await service.ScanModsAsync("/mods");
 
-        // Assert
+        // 断言
         Assert.Empty(result);
     }
 
@@ -27,15 +27,15 @@ public class ModServiceTests
         fileSystem.CreateDirectory("/mods");
         fileSystem.CreateDirectory("/mods/TestMod");
         
-        var manifestJson = """
-        {
-            "Name": "Test Mod",
-            "Author": "Test Author",
-            "Version": "1.0.0",
-            "Description": "A test mod",
-            "UniqueID": "TestAuthor.TestMod"
-        }
-        """;
+        const string manifestJson = """
+                                    {
+                                        "Name": "Test Mod",
+                                        "Author": "Test Author",
+                                        "Version": "1.0.0",
+                                        "Description": "A test mod",
+                                        "UniqueID": "TestAuthor.TestMod"
+                                    }
+                                    """;
         
         await fileSystem.WriteAllTextAsync("/mods/TestMod/manifest.json", manifestJson);
         var service = new ModService(fileSystem);
@@ -78,14 +78,14 @@ public class ModServiceTests
     {
         // Arrange
         var fileSystem = new InMemoryFileSystem();
-        var manifestJson = """
-        {
-            "Name": "Test Mod",
-            "Author": "Test Author",
-            "Version": "1.0.0",
-            "UniqueID": "TestAuthor.TestMod"
-        }
-        """;
+        const string manifestJson = """
+                                    {
+                                        "Name": "Test Mod",
+                                        "Author": "Test Author",
+                                        "Version": "1.0.0",
+                                        "UniqueID": "TestAuthor.TestMod"
+                                    }
+                                    """;
         
         await fileSystem.WriteAllTextAsync("/manifest.json", manifestJson);
         var service = new ModService(fileSystem);
@@ -149,6 +149,62 @@ public class ModServiceTests
 
         // Assert
         Assert.Null(manifest);
+    }
+
+    [Fact]
+    public async Task UpdateModManifestAsync_ValidChange_UpdatesFile()
+    {
+        // Arrange
+        var fileSystem = new InMemoryFileSystem();
+        const string manifestJson = """
+                                    {
+                                        "Name": "Original Name",
+                                        "Description": "Original Description"
+                                    }
+                                    """;
+        await fileSystem.WriteAllTextAsync("/manifest.json", manifestJson);
+        var service = new ModService(fileSystem);
+
+        // Act
+        await service.UpdateModManifestAsync("/manifest.json", "New Name", "New Description");
+
+        // Assert
+        var content = await fileSystem.ReadAllTextAsync("/manifest.json");
+        Assert.Contains("New Name", content);
+        Assert.Contains("New Description", content);
+    }
+
+    [Fact]
+    public async Task UpdateModManifestAsync_NoChange_DoesNotWriteFile()
+    {
+        // Arrange
+        var fileSystem = new InMemoryFileSystem();
+        const string manifestJson = """
+                                    {
+                                        "Name": "Original Name"
+                                    }
+                                    """;
+        await fileSystem.WriteAllTextAsync("/manifest.json", manifestJson);
+        var service = new ModService(fileSystem);
+
+        // Act
+        await service.UpdateModManifestAsync("/manifest.json", "Original Name", null);
+
+        // Assert
+        var content = await fileSystem.ReadAllTextAsync("/manifest.json");
+        Assert.Equal(manifestJson, content);
+    }
+
+    [Fact]
+    public async Task UpdateModManifestAsync_FileNotFound_ThrowsException()
+    {
+        // Arrange
+        var fileSystem = new InMemoryFileSystem();
+        var service = new ModService(fileSystem);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<FileNotFoundException>(() => 
+            service.UpdateModManifestAsync("/nonexistent.json", "Name", "Desc"));
     }
 }
 

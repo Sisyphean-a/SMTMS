@@ -2,6 +2,9 @@ using SMTMS.Core.Common;
 
 namespace SMTMS.Core.Interfaces;
 
+/// <summary>
+/// 翻译服务接口
+/// </summary>
 public interface ITranslationService
 {
     /// <summary>
@@ -18,14 +21,4 @@ public interface ITranslationService
     /// 从数据库恢复翻译到 manifest.json 文件
     /// </summary>
     Task<OperationResult> RestoreTranslationsFromDbAsync(string modDirectory, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// 导出翻译到 Git 仓库
-    /// </summary>
-    Task<OperationResult> ExportTranslationsToGitRepo(string modDirectory, string repoPath, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// 从 Git 仓库读取翻译并更新数据库（用于回滚后同步）
-    /// </summary>
-    Task<OperationResult> ImportTranslationsFromGitRepoAsync(string repoPath, CancellationToken cancellationToken = default);
 }

@@ -11,13 +11,13 @@ public class ModService(IFileSystem fileSystem) : IModService
     {
         Formatting = Formatting.Indented,
         NullValueHandling = NullValueHandling.Ignore,
-        // Handle comments which are common in SMAPI manifests
+        // 处理 SMAPI 清单中常见的注释
         MetadataPropertyHandling = MetadataPropertyHandling.Ignore,
         DateParseHandling = DateParseHandling.None,
     };
     private readonly IFileSystem _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
 
-    // Handle comments which are common in SMAPI manifests
+    // 处理 SMAPI 清单中常见的注释
 
     public async Task<IEnumerable<ModManifest>> ScanModsAsync(string modsDirectory)
     {
@@ -27,14 +27,14 @@ public class ModService(IFileSystem fileSystem) : IModService
         }
 
         // SMAPI mods are usually in subfolders of Mods/
-        // We look for manifest.json in each subfolder
+        // 我们在每个子文件夹中寻找 manifest.json
         var subDirectories = _fileSystem.GetDirectories(modsDirectory);
 
-        // 🔥 并行读取所有 manifest.json 文件
+        // 并行读取所有 manifest.json 文件
         var tasks = subDirectories
             .Select(dir => _fileSystem.Combine(dir, "manifest.json"))
             .Where(path => _fileSystem.FileExists(path))
-            .Select(manifestPath => ReadManifestAsync(manifestPath))
+            .Select(ReadManifestAsync)
             .ToList();
 
         var results = await Task.WhenAll(tasks);
@@ -62,8 +62,8 @@ public class ModService(IFileSystem fileSystem) : IModService
         }
         catch (Exception)
         {
-            // TODO: Log error or return specific error result
-            // For now, return null to indicate failure to parse
+            // TODO: 记录错误或返回特定的错误结果
+            // 目前返回 null 表示解析失败
             return null;
         }
     }
@@ -72,5 +72,25 @@ public class ModService(IFileSystem fileSystem) : IModService
     {
         var json = JsonConvert.SerializeObject(manifest, _jsonSettings);
         await _fileSystem.WriteAllTextAsync(manifestPath, json);
+    }
+
+    public async Task UpdateModManifestAsync(string manifestPath, string? newName, string? newDescription)
+    {
+        if (!_fileSystem.FileExists(manifestPath))
+        {
+            throw new FileNotFoundException("找不到清单文件", manifestPath);
+        }
+
+        // 读取原始内容
+        var originalJson = await _fileSystem.ReadAllTextAsync(manifestPath);
+
+        // 使用 Core 中的 ManifestTextReplacer 替换内容，同时保留结构
+        var updatedJson = SMTMS.Core.Helpers.ManifestTextReplacer.ReplaceNameAndDescription(originalJson, newName, newDescription);
+
+        // 仅在发生更改时写回
+        if (updatedJson != originalJson)
+        {
+            await _fileSystem.WriteAllTextAsync(manifestPath, updatedJson);
+        }
     }
 }

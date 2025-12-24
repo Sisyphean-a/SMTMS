@@ -1,5 +1,5 @@
 using FluentAssertions;
-using SMTMS.Translation.Helpers;
+using SMTMS.Core.Helpers;
 
 namespace SMTMS.Tests.Translation;
 
@@ -70,30 +70,38 @@ public class ManifestTextReplacerTests
     public void ReplaceName_WithValidJson_ReplacesSuccessfully()
     {
         // Arrange
-        var json = @"{
-  ""Name"": ""Original Name"",
-  ""Author"": ""Test Author""
-}";
-        var newName = "新名称";
+        const string json = """
+                            {
+                              "Name": "Original Name",
+                              "Author": "Test Author"
+                            }
+                            """;
+        const string newName = "新名称";
 
         // Act
         var result = ManifestTextReplacer.ReplaceName(json, newName);
 
         // Assert
-        result.Should().Contain(@"""Name"": ""新名称""");
-        result.Should().Contain(@"""Author"": ""Test Author"""); // 其他字段不变
+        result.Should().Contain("""
+                                "Name": "新名称"
+                                """);
+        result.Should().Contain("""
+                                "Author": "Test Author"
+                                """); // 其他字段不变
     }
 
     [Fact]
     public void ReplaceName_WithComments_PreservesComments()
     {
         // Arrange - SMAPI manifest.json 通常包含注释
-        var json = @"{
-  // This is a comment
-  ""Name"": ""Original Name"",
-  ""Author"": ""Test Author"" // Inline comment
-}";
-        var newName = "新名称";
+        const string json = """
+                            {
+                              // This is a comment
+                              "Name": "Original Name",
+                              "Author": "Test Author" // Inline comment
+                            }
+                            """;
+        const string newName = "新名称";
 
         // Act
         var result = ManifestTextReplacer.ReplaceName(json, newName);
@@ -101,15 +109,17 @@ public class ManifestTextReplacerTests
         // Assert
         result.Should().Contain("// This is a comment");
         result.Should().Contain("// Inline comment");
-        result.Should().Contain(@"""Name"": ""新名称""");
+        result.Should().Contain("""
+                                "Name": "新名称"
+                                """);
     }
 
     [Fact]
     public void ReplaceName_WithSpecialCharacters_EscapesCorrectly()
     {
         // Arrange
-        var json = @"{""Name"": ""Original""}";
-        var newName = "名称\"带引号\"";
+        const string json = """{"Name": "Original"}""";
+        const string newName = "名称\"带引号\"";
 
         // Act
         var result = ManifestTextReplacer.ReplaceName(json, newName);
@@ -124,8 +134,8 @@ public class ManifestTextReplacerTests
     public void ReplaceName_WithoutNameField_ReturnsOriginal()
     {
         // Arrange
-        var json = @"{""Author"": ""Test""}";
-        var newName = "新名称";
+        const string json = """{"Author": "Test"}""";
+        const string newName = "新名称";
 
         // Act
         var result = ManifestTextReplacer.ReplaceName(json, newName);
@@ -140,7 +150,7 @@ public class ManifestTextReplacerTests
     public void ReplaceName_WithNullOrEmptyName_ReturnsOriginal(string? newName)
     {
         // Arrange
-        var json = @"{""Name"": ""Original""}";
+        const string json = """{"Name": "Original"}""";
 
         // Act
         var result = ManifestTextReplacer.ReplaceName(json, newName!);
@@ -157,43 +167,53 @@ public class ManifestTextReplacerTests
     public void ReplaceDescription_WithValidJson_ReplacesSuccessfully()
     {
         // Arrange
-        var json = @"{
-  ""Name"": ""Test Mod"",
-  ""Description"": ""Original Description""
-}";
-        var newDesc = "新描述";
+        const string json = """
+                            {
+                              "Name": "Test Mod",
+                              "Description": "Original Description"
+                            }
+                            """;
+        const string newDesc = "新描述";
 
         // Act
         var result = ManifestTextReplacer.ReplaceDescription(json, newDesc);
 
         // Assert
-        result.Should().Contain(@"""Description"": ""新描述""");
-        result.Should().Contain(@"""Name"": ""Test Mod"""); // 其他字段不变
+        result.Should().Contain("""
+                                "Description": "新描述"
+                                """);
+        result.Should().Contain("""
+                                "Name": "Test Mod"
+                                """); // 其他字段不变
     }
 
     [Fact]
     public void ReplaceDescription_WithMultilineDescription_ReplacesCorrectly()
     {
         // Arrange
-        var json = @"{
-  ""Description"": ""This is a long description
-that spans multiple lines""
-}";
-        var newDesc = "简短描述";
+        const string json = """
+                            {
+                              "Description": "This is a long description
+                            that spans multiple lines"
+                            }
+                            """;
+        const string newDesc = "简短描述";
 
         // Act
         var result = ManifestTextReplacer.ReplaceDescription(json, newDesc);
 
         // Assert
-        result.Should().Contain(@"""Description"": ""简短描述""");
+        result.Should().Contain("""
+                                "Description": "简短描述"
+                                """);
     }
 
     [Fact]
     public void ReplaceDescription_WithoutDescriptionField_ReturnsOriginal()
     {
         // Arrange
-        var json = @"{""Name"": ""Test""}";
-        var newDesc = "新描述";
+        const string json = """{"Name": "Test"}""";
+        const string newDesc = "新描述";
 
         // Act
         var result = ManifestTextReplacer.ReplaceDescription(json, newDesc);
@@ -210,37 +230,49 @@ that spans multiple lines""
     public void ReplaceNameAndDescription_WithBothFields_ReplacesBoth()
     {
         // Arrange
-        var json = @"{
-  ""Name"": ""Original Name"",
-  ""Description"": ""Original Description""
-}";
-        var newName = "新名称";
+        const string json = """
+                            {
+                              "Name": "Original Name",
+                              "Description": "Original Description"
+                            }
+                            """;
+        const string newName = "新名称";
         var newDesc = "新描述";
 
         // Act
         var result = ManifestTextReplacer.ReplaceNameAndDescription(json, newName, newDesc);
 
         // Assert
-        result.Should().Contain(@"""Name"": ""新名称""");
-        result.Should().Contain(@"""Description"": ""新描述""");
+        result.Should().Contain("""
+                                "Name": "新名称"
+                                """);
+        result.Should().Contain("""
+                                "Description": "新描述"
+                                """);
     }
 
     [Fact]
     public void ReplaceNameAndDescription_WithOnlyName_ReplacesOnlyName()
     {
         // Arrange
-        var json = @"{
-  ""Name"": ""Original Name"",
-  ""Description"": ""Original Description""
-}";
-        var newName = "新名称";
+        const string json = """
+                   {
+                     "Name": "Original Name",
+                     "Description": "Original Description"
+                   }
+                   """;
+        const string newName = "新名称";
 
         // Act
         var result = ManifestTextReplacer.ReplaceNameAndDescription(json, newName, null);
 
         // Assert
-        result.Should().Contain(@"""Name"": ""新名称""");
-        result.Should().Contain(@"""Description"": ""Original Description""");
+        result.Should().Contain("""
+                                "Name": "新名称"
+                                """);
+        result.Should().Contain("""
+                                "Description": "Original Description"
+                                """);
     }
 
     #endregion
@@ -251,7 +283,7 @@ that spans multiple lines""
     public void HasNameField_WithNameField_ReturnsTrue()
     {
         // Arrange
-        var json = @"{""Name"": ""Test""}";
+        const string json = """{"Name": "Test"}""";
 
         // Act
         var result = ManifestTextReplacer.HasNameField(json);
@@ -264,7 +296,7 @@ that spans multiple lines""
     public void HasNameField_WithoutNameField_ReturnsFalse()
     {
         // Arrange
-        var json = @"{""Author"": ""Test""}";
+        const string json = """{"Author": "Test"}""";
 
         // Act
         var result = ManifestTextReplacer.HasNameField(json);
@@ -277,7 +309,7 @@ that spans multiple lines""
     public void HasDescriptionField_WithDescriptionField_ReturnsTrue()
     {
         // Arrange
-        var json = @"{""Description"": ""Test""}";
+        const string json = """{"Description": "Test"}""";
 
         // Act
         var result = ManifestTextReplacer.HasDescriptionField(json);
@@ -294,8 +326,8 @@ that spans multiple lines""
     public void ReplaceName_WithEmptyJson_ReturnsOriginal()
     {
         // Arrange
-        var json = "";
-        var newName = "新名称";
+        const string json = "";
+        const string newName = "新名称";
 
         // Act
         var result = ManifestTextReplacer.ReplaceName(json, newName);
@@ -308,22 +340,24 @@ that spans multiple lines""
     public void ReplaceName_WithWhitespaceInFieldName_StillMatches()
     {
         // Arrange - JSON 可能有不同的空白格式
-        var json = @"{""Name""  :  ""Original""}";
-        var newName = "新名称";
+        const string json = """{"Name"  :  "Original"}""";
+        const string newName = "新名称";
 
         // Act
         var result = ManifestTextReplacer.ReplaceName(json, newName);
 
         // Assert
-        result.Should().Contain(@"""新名称""");
+        result.Should().Contain("""
+                                "新名称"
+                                """);
     }
 
     [Fact]
     public void ReplaceName_WithUnicodeCharacters_HandlesCorrectly()
     {
         // Arrange
-        var json = @"{""Name"": ""Original""}";
-        var newName = "模组名称 🎮";
+        const string json = """{"Name": "Original"}""";
+        const string newName = "模组名称 🎮";
 
         // Act
         var result = ManifestTextReplacer.ReplaceName(json, newName);

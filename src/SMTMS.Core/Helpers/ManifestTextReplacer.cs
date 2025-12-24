@@ -1,7 +1,7 @@
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 
-namespace SMTMS.Translation.Helpers;
+namespace SMTMS.Core.Helpers;
 
 /// <summary>
 /// 纯函数工具类 - 负责 manifest.json 文本的正则替换逻辑
@@ -16,16 +16,20 @@ public static partial class ManifestTextReplacer
     [GeneratedRegex(@"[\u4e00-\u9fa5]")]
     private static partial Regex ChineseSimplifiedRegex();
 
-    [GeneratedRegex(@"""Name""\s*:\s*""[^""]*""")]
+    [GeneratedRegex("""
+                    "Name"\s*:\s*"[^"]*"
+                    """)]
     private static partial Regex NameFieldRegex();
 
-    [GeneratedRegex(@"(""Name""\s*:\s*"")[^""]*("")")]
+    [GeneratedRegex("""("Name"\s*:\s*")[^"]*(")""")]
     private static partial Regex NameReplaceRegex();
 
-    [GeneratedRegex(@"""Description""\s*:\s*""[^""]*""")]
+    [GeneratedRegex("""
+                    "Description"\s*:\s*"[^"]*"
+                    """)]
     private static partial Regex DescriptionFieldRegex();
 
-    [GeneratedRegex(@"(""Description""\s*:\s*"")[^""]*("")")]
+    [GeneratedRegex("""("Description"\s*:\s*")[^"]*(")""")]
     private static partial Regex DescriptionReplaceRegex();
 
     /// <summary>
@@ -146,4 +150,3 @@ public static partial class ManifestTextReplacer
         return DescriptionFieldRegex().IsMatch(jsonContent);
     }
 }
-
