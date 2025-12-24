@@ -122,6 +122,33 @@ sequenceDiagram
         RestoreService->>FileSystem: 读取 manifest.json
         RestoreService->>FileSystem: 正则替换并写入新内容
     end
+
+### 3.3 单模组历史查看与应用流程
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant ModVM
+    participant ModHistoryVM
+    participant HistoryRepo
+    participant ModHistoryWindow
+
+    User->>ModVM: 点击 "查看历史"
+    ModVM->>ModHistoryVM: 实例化并订阅 OnApplyHistory
+    ModHistoryVM->>HistoryRepo: GetHistoryForModAsync(ModID)
+    HistoryRepo-->>ModHistoryVM: 返回该 Mod 所有历史版本
+    
+    ModHistoryVM->>ModHistoryVM: 计算相邻版本差异 (Diff)
+    ModHistoryVM-->>ModHistoryWindow: 渲染历史列表
+    ModVM-->>User: 显示弹窗
+    
+    User->>ModHistoryWindow: 选中某版本并点击 "应用"
+    ModHistoryWindow->>ModHistoryVM: Apply()
+    ModHistoryVM->>ModVM: 触发 OnApplyHistory 事件 (传递选中的 Manifest)
+    
+    ModVM->>ModVM: 更新界面上的 Name/Description
+    note right of ModVM: 仅更新 UI 状态，<br/>需用户手动点击保存/同步<br/>以持久化更改
+```
 ```
 
 ---

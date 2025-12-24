@@ -16,16 +16,20 @@ public static partial class ManifestTextReplacer
     [GeneratedRegex(@"[\u4e00-\u9fa5]")]
     private static partial Regex ChineseSimplifiedRegex();
 
-    [GeneratedRegex(@"""Name""\s*:\s*""[^""]*""")]
+    [GeneratedRegex("""
+                    "Name"\s*:\s*"[^"]*"
+                    """)]
     private static partial Regex NameFieldRegex();
 
-    [GeneratedRegex(@"(""Name""\s*:\s*"")[^""]*("")")]
+    [GeneratedRegex("""("Name"\s*:\s*")[^"]*(")""")]
     private static partial Regex NameReplaceRegex();
 
-    [GeneratedRegex(@"""Description""\s*:\s*""[^""]*""")]
+    [GeneratedRegex("""
+                    "Description"\s*:\s*"[^"]*"
+                    """)]
     private static partial Regex DescriptionFieldRegex();
 
-    [GeneratedRegex(@"(""Description""\s*:\s*"")[^""]*("")")]
+    [GeneratedRegex("""("Description"\s*:\s*")[^"]*(")""")]
     private static partial Regex DescriptionReplaceRegex();
 
     /// <summary>

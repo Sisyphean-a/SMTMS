@@ -27,15 +27,15 @@ public class ModServiceTests
         fileSystem.CreateDirectory("/mods");
         fileSystem.CreateDirectory("/mods/TestMod");
         
-        var manifestJson = """
-        {
-            "Name": "Test Mod",
-            "Author": "Test Author",
-            "Version": "1.0.0",
-            "Description": "A test mod",
-            "UniqueID": "TestAuthor.TestMod"
-        }
-        """;
+        const string manifestJson = """
+                                    {
+                                        "Name": "Test Mod",
+                                        "Author": "Test Author",
+                                        "Version": "1.0.0",
+                                        "Description": "A test mod",
+                                        "UniqueID": "TestAuthor.TestMod"
+                                    }
+                                    """;
         
         await fileSystem.WriteAllTextAsync("/mods/TestMod/manifest.json", manifestJson);
         var service = new ModService(fileSystem);
@@ -78,14 +78,14 @@ public class ModServiceTests
     {
         // Arrange
         var fileSystem = new InMemoryFileSystem();
-        var manifestJson = """
-        {
-            "Name": "Test Mod",
-            "Author": "Test Author",
-            "Version": "1.0.0",
-            "UniqueID": "TestAuthor.TestMod"
-        }
-        """;
+        const string manifestJson = """
+                                    {
+                                        "Name": "Test Mod",
+                                        "Author": "Test Author",
+                                        "Version": "1.0.0",
+                                        "UniqueID": "TestAuthor.TestMod"
+                                    }
+                                    """;
         
         await fileSystem.WriteAllTextAsync("/manifest.json", manifestJson);
         var service = new ModService(fileSystem);
@@ -156,12 +156,12 @@ public class ModServiceTests
     {
         // Arrange
         var fileSystem = new InMemoryFileSystem();
-        var manifestJson = """
-        {
-            "Name": "Original Name",
-            "Description": "Original Description"
-        }
-        """;
+        const string manifestJson = """
+                                    {
+                                        "Name": "Original Name",
+                                        "Description": "Original Description"
+                                    }
+                                    """;
         await fileSystem.WriteAllTextAsync("/manifest.json", manifestJson);
         var service = new ModService(fileSystem);
 
@@ -179,11 +179,11 @@ public class ModServiceTests
     {
         // Arrange
         var fileSystem = new InMemoryFileSystem();
-        var manifestJson = """
-        {
-            "Name": "Original Name"
-        }
-        """;
+        const string manifestJson = """
+                                    {
+                                        "Name": "Original Name"
+                                    }
+                                    """;
         await fileSystem.WriteAllTextAsync("/manifest.json", manifestJson);
         var service = new ModService(fileSystem);
 

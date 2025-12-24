@@ -89,6 +89,9 @@ public partial class App : System.Windows.Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         await _host!.StartAsync();
+        
+        // Configure CommunityToolkit IOC
+        CommunityToolkit.Mvvm.DependencyInjection.Ioc.Default.ConfigureServices(_host.Services);
 
         // Apply database migrations
         using (var scope = _host.Services.CreateScope())

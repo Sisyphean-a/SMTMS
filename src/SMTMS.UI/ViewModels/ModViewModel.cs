@@ -165,8 +165,60 @@ public partial class ModViewModel : ObservableObject
     [RelayCommand]
     public void ShowHistory()
     {
-        // 简单发送消息，让 HistoryViewModel 处理或显示提示
-        // 暂时只显示提示，因为 HistoryViewModel 目前没有 "Filter By Mod" 的公开方法 (虽然有 GetHistoryForModAsync 接口)
-        WeakReferenceMessenger.Default.Send(new StatusMessage($"请在“历史记录”页签中查看全局历史 (暂不支持单模组历史弹窗)", StatusLevel.Info));
+        try
+        {
+            // 解析依赖
+            var scopeFactory = CommunityToolkit.Mvvm.DependencyInjection.Ioc.Default.GetRequiredService<Microsoft.Extensions.DependencyInjection.IServiceScopeFactory>();
+            
+            // 创建 History VM
+            var historyVm = new ModHistoryViewModel(UniqueID, scopeFactory);
+            
+            // 订阅 Apply 事件
+            historyVm.OnApplyHistory += (selectedManifest) =>
+            {
+                if (selectedManifest == null) return;
+                
+                // 只保留用户需要的字段：名称和描述（也许还有作者？）
+                // 用户需求：“应用选中行的名称/描述”
+                // History item VM 逻辑决定显示什么，但传回的是完整的 Manifest 对象。
+                // 此外用户说：“如果我选了第一行... 名称从 C 变为 B”。
+                // 所以我们直接取快照 Manifest 中的值。
+                
+                if (!string.IsNullOrEmpty(selectedManifest.Name))
+                {
+                    Name = selectedManifest.Name;
+                }
+                
+                if (!string.IsNullOrEmpty(selectedManifest.Description))
+                {
+                    Description = selectedManifest.Description;
+                }
+                
+                // 如果需要作者/版本，也可以在这里添加。
+                // 目前用户强调了名称/描述。
+                // 为了保险起见，我们把作者也加上，因为它是标识的一部分。
+                if (!string.IsNullOrEmpty(selectedManifest.Author))
+                {
+                    Author = selectedManifest.Author;
+                }
+                
+                WeakReferenceMessenger.Default.Send(new StatusMessage($"已应用历史版本: {selectedManifest.Name}", StatusLevel.Success));
+            };
+
+            // 打开窗口
+            // 理想情况下应该使用 WindowService，但为了简化直接实例化
+            var window = new SMTMS.UI.Views.ModHistoryWindow(historyVm);
+            window.Owner = System.Windows.Application.Current.MainWindow;
+            window.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+             var errorMsg = $"打开历史失败: {ex.Message}";
+             if (ex.InnerException != null)
+             {
+                 errorMsg += $"\nInner: {ex.InnerException.Message}";
+             }
+             WeakReferenceMessenger.Default.Send(new StatusMessage(errorMsg, StatusLevel.Error));
+        }
     }
 }

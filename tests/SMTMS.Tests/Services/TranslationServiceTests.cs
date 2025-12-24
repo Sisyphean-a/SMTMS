@@ -11,7 +11,6 @@ public class TranslationServiceTests
 {
     private readonly InMemoryFileSystem _fileSystem;
     private readonly InMemoryModRepository _modRepository;
-    private readonly IServiceScopeFactory _scopeFactory;
     private readonly TranslationService _service;
 
     public TranslationServiceTests()
@@ -28,7 +27,7 @@ public class TranslationServiceTests
         
         var serviceProvider = services.BuildServiceProvider();
 
-        _scopeFactory = serviceProvider.GetRequiredService<IServiceScopeFactory>();
+        var scopeFactory = serviceProvider.GetRequiredService<IServiceScopeFactory>();
 
         // 创建所有必需的服务
         var loggerFactory = new LoggerFactory();
@@ -45,7 +44,7 @@ public class TranslationServiceTests
         // Removed GitTranslationService
 
         _service = new TranslationService(
-            _scopeFactory,
+            scopeFactory,
             legacyImportService,
             scanService,
             restoreService);
@@ -69,15 +68,15 @@ public class TranslationServiceTests
         _fileSystem.CreateDirectory("/mods");
         _fileSystem.CreateDirectory("/mods/TestMod");
 
-        var manifestJson = """
-        {
-            "Name": "测试模组",
-            "Author": "Test Author",
-            "Version": "1.0.0",
-            "Description": "这是一个测试模组",
-            "UniqueID": "TestAuthor.TestMod"
-        }
-        """;
+        const string manifestJson = """
+                                    {
+                                        "Name": "测试模组",
+                                        "Author": "Test Author",
+                                        "Version": "1.0.0",
+                                        "Description": "这是一个测试模组",
+                                        "UniqueID": "TestAuthor.TestMod"
+                                    }
+                                    """;
 
         await _fileSystem.WriteAllTextAsync("/mods/TestMod/manifest.json", manifestJson);
 
@@ -126,15 +125,15 @@ public class TranslationServiceTests
         _fileSystem.CreateDirectory("/mods");
         _fileSystem.CreateDirectory("/mods/TestMod");
 
-        var originalManifest = """
-        {
-            "Name": "Test Mod",
-            "Author": "Test Author",
-            "Version": "1.0.0",
-            "Description": "A test mod",
-            "UniqueID": "TestAuthor.TestMod"
-        }
-        """;
+        const string originalManifest = """
+                                        {
+                                            "Name": "Test Mod",
+                                            "Author": "Test Author",
+                                            "Version": "1.0.0",
+                                            "Description": "A test mod",
+                                            "UniqueID": "TestAuthor.TestMod"
+                                        }
+                                        """;
 
         await _fileSystem.WriteAllTextAsync("/mods/TestMod/manifest.json", originalManifest);
 
@@ -165,14 +164,14 @@ public class TranslationServiceTests
         _fileSystem.CreateDirectory("/mods/Group");
         _fileSystem.CreateDirectory("/mods/Group/NestedMod");
 
-        var manifestJson = """
-        {
-            "Name": "Deep Nested Mod",
-            "Author": "Test Author",
-            "Version": "1.0.0",
-            "UniqueID": "TestAuthor.NestedMod"
-        }
-        """;
+        const string manifestJson = """
+                                    {
+                                        "Name": "Deep Nested Mod",
+                                        "Author": "Test Author",
+                                        "Version": "1.0.0",
+                                        "UniqueID": "TestAuthor.NestedMod"
+                                    }
+                                    """;
 
         // Write manifest deep in the structure
         await _fileSystem.WriteAllTextAsync("/mods/Group/NestedMod/manifest.json", manifestJson);
