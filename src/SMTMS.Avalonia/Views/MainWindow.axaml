@@ -1,0 +1,356 @@
+<Window
+    Title="{Binding ApplicationTitle}"
+    WindowStartupLocation="CenterScreen"
+    d:DesignHeight="800"
+    d:DesignWidth="1200"
+    mc:Ignorable="d"
+    x:Class="SMTMS.Avalonia.Views.MainWindow"
+    x:DataType="vm:MainViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:SMTMS.Avalonia.ViewModels"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid RowDefinitions="Auto, *">
+        <!--  Toolbar  -->
+        <StackPanel
+            Grid.Row="0"
+            Margin="10"
+            Spacing="0">
+            <StackPanel
+                Margin="0,0,0,10"
+                Orientation="Horizontal"
+                Spacing="10">
+                <Button Command="{Binding ModListViewModel.LoadModsCommand}" Content="扫描模组" />
+                <TextBox
+                    Text="{Binding ModsDirectory}"
+                    VerticalContentAlignment="Center"
+                    Watermark="模组目录路径"
+                    Width="400" />
+                <Button Command="{Binding BrowseFolderCommand}" Content="浏览..." />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button
+                    Classes="Primary"
+                    Command="{Binding SyncToDatabaseCommand}"
+                    Content="同步到数据库"
+                    Theme="{DynamicResource SolidButton}" />
+                <Button
+                    Classes="Success"
+                    Command="{Binding RestoreFromDatabaseCommand}"
+                    Content="从数据库恢复"
+                    Theme="{DynamicResource SolidButton}" />
+                <Button
+                    Classes="Tertiary"
+                    Command="{Binding HardResetCommand}"
+                    Content="初始化(测试用)"
+                    Theme="{DynamicResource SolidButton}" />
+                <TextBlock
+                    Foreground="Gray"
+                    Margin="10,0,0,0"
+                    Text="{Binding StatusMessage}"
+                    VerticalAlignment="Center" />
+            </StackPanel>
+        </StackPanel>
+
+        <!--  Tabs  -->
+        <TabControl Grid.Row="1" Margin="10">
+            <TabItem Header="模组列表">
+                <Grid ColumnDefinitions="2*, 4, 1*">
+                    <!--  Mod List  -->
+                    <DataGrid
+                        AutoGenerateColumns="False"
+                        BorderBrush="#E0E0E0"
+                        BorderThickness="1"
+                        Grid.Column="0"
+                        HeadersVisibility="Column"
+                        IsReadOnly="True"
+                        ItemsSource="{Binding ModListViewModel.Mods}"
+                        SelectedItem="{Binding ModListViewModel.SelectedMod}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn
+                                Binding="{Binding Name}"
+                                Header="名称"
+                                Width="200" />
+                            <DataGridTextColumn
+                                Binding="{Binding Version}"
+                                Header="版本"
+                                Width="80" />
+                            <DataGridTextColumn
+                                Binding="{Binding UniqueID}"
+                                Header="ID"
+                                Width="200" />
+                            <DataGridTextColumn
+                                Binding="{Binding Description}"
+                                Header="描述"
+                                Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <GridSplitter
+                        Background="Transparent"
+                        Grid.Column="1"
+                        ResizeDirection="Columns" />
+
+                    <!--  Detail Pane  -->
+                    <Border
+                        BorderBrush="#E0E0E0"
+                        BorderThickness="1"
+                        CornerRadius="3"
+                        Grid.Column="2"
+                        IsVisible="{Binding ModListViewModel.SelectedMod, Converter={x:Static ObjectConverters.IsNotNull}}"
+                        Padding="15">
+                        <ScrollViewer>
+                            <StackPanel Spacing="15">
+                                <TextBlock
+                                    FontSize="18"
+                                    FontWeight="SemiBold"
+                                    Text="编辑模组详情" />
+
+                                <StackPanel>
+                                    <TextBlock
+                                        Classes="Caption"
+                                        Foreground="Gray"
+                                        Text="名称" />
+                                    <TextBox Margin="0,5,0,0" Text="{Binding ModListViewModel.SelectedMod.Name}" />
+                                </StackPanel>
+
+                                <StackPanel>
+                                    <TextBlock
+                                        Classes="Caption"
+                                        Foreground="Gray"
+                                        Text="唯一ID" />
+                                    <TextBox
+                                        Background="#F5F5F5"
+                                        IsReadOnly="True"
+                                        Margin="0,5,0,0"
+                                        Text="{Binding ModListViewModel.SelectedMod.UniqueID}" />
+                                </StackPanel>
+
+                                <StackPanel>
+                                    <TextBlock
+                                        Classes="Caption"
+                                        Foreground="Gray"
+                                        Text="描述" />
+                                    <TextBox
+                                        AcceptsReturn="True"
+                                        Height="120"
+                                        Margin="0,5,0,0"
+                                        Text="{Binding ModListViewModel.SelectedMod.Description}"
+                                        TextWrapping="Wrap" />
+                                </StackPanel>
+
+                                <StackPanel
+                                    HorizontalAlignment="Right"
+                                    Orientation="Horizontal"
+                                    Spacing="10">
+                                    <Button
+                                        Classes="Secondary"
+                                        Command="{Binding ModListViewModel.SelectedMod.ShowHistoryCommand}"
+                                        Content="查看历史"
+                                        Theme="{DynamicResource SolidButton}" />
+                                    <Button
+                                        Classes="Primary"
+                                        Command="{Binding ModListViewModel.SaveModCommand}"
+                                        Content="保存更改"
+                                        Theme="{DynamicResource SolidButton}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="历史记录">
+                <Grid RowDefinitions="Auto, Auto, *">
+                    <!--  Action Buttons  -->
+                    <StackPanel
+                        Grid.Row="0"
+                        Margin="0,10,0,10"
+                        Orientation="Horizontal"
+                        Spacing="10">
+                        <Button Command="{Binding HistoryViewModel.LoadHistoryCommand}" Content="刷新列表" />
+                        <Button
+                            Classes="Danger"
+                            Command="{Binding HistoryViewModel.RollbackSnapshotCommand}"
+                            Content="回滚到选中"
+                            Theme="{DynamicResource SolidButton}" />
+                    </StackPanel>
+
+                    <!--  Snapshots List  -->
+                    <DataGrid
+                        AutoGenerateColumns="False"
+                        BorderBrush="#E0E0E0"
+                        BorderThickness="1"
+                        Grid.Row="1"
+                        Height="180"
+                        IsReadOnly="True"
+                        ItemsSource="{Binding HistoryViewModel.SnapshotHistory}"
+                        Margin="0,0,0,10"
+                        SelectedItem="{Binding HistoryViewModel.SelectedSnapshot}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn
+                                Binding="{Binding Id}"
+                                Header="ID"
+                                Width="50" />
+                            <DataGridTextColumn
+                                Binding="{Binding Message}"
+                                Header="描述"
+                                Width="*" />
+                            <DataGridTextColumn
+                                Binding="{Binding TotalMods}"
+                                Header="模组数"
+                                Width="80" />
+                            <DataGridTextColumn
+                                Binding="{Binding Timestamp}"
+                                Header="日期"
+                                Width="160" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <!--  Diff Area  -->
+                    <Grid ColumnDefinitions="3*, 4, 2*" Grid.Row="2">
+                        <!--  Changes List  -->
+                        <DataGrid
+                            AutoGenerateColumns="False"
+                            BorderBrush="#E0E0E0"
+                            BorderThickness="1"
+                            Grid.Column="0"
+                            IsReadOnly="True"
+                            ItemsSource="{Binding HistoryViewModel.ModDiffChanges}"
+                            SelectedItem="{Binding HistoryViewModel.SelectedDiffItem}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn
+                                    Binding="{Binding ModName}"
+                                    Header="Mod Name"
+                                    Width="200" />
+                                <DataGridTextColumn
+                                    Binding="{Binding FolderName}"
+                                    Header="Folder"
+                                    Width="150" />
+                                <DataGridTemplateColumn Header="Changes" Width="*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Margin="5">
+                                                <TextBlock IsVisible="{Binding NameChange.HasChange}">
+                                                    <Run
+                                                        FontWeight="Bold"
+                                                        Foreground="#673AB7"
+                                                        Text="Name: " />
+                                                    <Run Foreground="Gray" Text="{Binding NameChange.ChangeSummary}" />
+                                                </TextBlock>
+                                                <TextBlock IsVisible="{Binding DescriptionChange.HasChange}">
+                                                    <Run
+                                                        FontWeight="Bold"
+                                                        Foreground="#673AB7"
+                                                        Text="Desc: " />
+                                                    <Run Foreground="Gray" Text="{Binding DescriptionChange.ChangeSummary}" />
+                                                </TextBlock>
+                                                <TextBlock IsVisible="{Binding AuthorChange.HasChange}">
+                                                    <Run
+                                                        FontWeight="Bold"
+                                                        Foreground="#673AB7"
+                                                        Text="Author: " />
+                                                    <Run Foreground="Gray" Text="{Binding AuthorChange.ChangeSummary}" />
+                                                </TextBlock>
+                                                <TextBlock IsVisible="{Binding VersionChange.HasChange}">
+                                                    <Run
+                                                        FontWeight="Bold"
+                                                        Foreground="#673AB7"
+                                                        Text="Ver: " />
+                                                    <Run Foreground="Gray" Text="{Binding VersionChange.ChangeSummary}" />
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <GridSplitter
+                            Background="Transparent"
+                            Grid.Column="1"
+                            ResizeDirection="Columns" />
+
+                        <!--  Diff Detail (Right Side)  -->
+                        <Border
+                            BorderBrush="#E0E0E0"
+                            BorderThickness="1"
+                            CornerRadius="3"
+                            Grid.Column="2"
+                            Padding="10">
+                            <ScrollViewer>
+                                <StackPanel IsVisible="{Binding HistoryViewModel.SelectedDiffItem, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                    <TextBlock
+                                        FontSize="16"
+                                        FontWeight="Bold"
+                                        Margin="0,0,0,10"
+                                        Text="Diff Details" />
+
+                                    <StackPanel Spacing="5">
+                                        <TextBlock
+                                            FontWeight="SemiBold"
+                                            IsVisible="{Binding HistoryViewModel.SelectedDiffItem.NameChange.HasChange}"
+                                            Text="Name Change:" />
+                                        <Grid ColumnDefinitions="*,*" IsVisible="{Binding HistoryViewModel.SelectedDiffItem.NameChange.HasChange}">
+                                            <TextBox
+                                                Background="#FFF3E0"
+                                                Grid.Column="0"
+                                                IsReadOnly="True"
+                                                Margin="0,0,2,0"
+                                                Text="{Binding HistoryViewModel.SelectedDiffItem.NameChange.OldValue}" />
+                                            <TextBox
+                                                Background="#E8F5E9"
+                                                Grid.Column="1"
+                                                IsReadOnly="True"
+                                                Margin="2,0,0,0"
+                                                Text="{Binding HistoryViewModel.SelectedDiffItem.NameChange.NewValue}" />
+                                        </Grid>
+
+                                        <TextBlock
+                                            FontWeight="SemiBold"
+                                            IsVisible="{Binding HistoryViewModel.SelectedDiffItem.DescriptionChange.HasChange}"
+                                            Margin="0,10,0,0"
+                                            Text="Description Change:" />
+                                        <Grid ColumnDefinitions="*,*" IsVisible="{Binding HistoryViewModel.SelectedDiffItem.DescriptionChange.HasChange}">
+                                            <TextBox
+                                                AcceptsReturn="True"
+                                                Background="#FFF3E0"
+                                                Grid.Column="0"
+                                                IsReadOnly="True"
+                                                Margin="0,0,2,0"
+                                                Text="{Binding HistoryViewModel.SelectedDiffItem.DescriptionChange.OldValue}"
+                                                TextWrapping="Wrap" />
+                                            <TextBox
+                                                AcceptsReturn="True"
+                                                Background="#E8F5E9"
+                                                Grid.Column="1"
+                                                IsReadOnly="True"
+                                                Margin="2,0,0,0"
+                                                Text="{Binding HistoryViewModel.SelectedDiffItem.DescriptionChange.NewValue}"
+                                                TextWrapping="Wrap" />
+                                        </Grid>
+                                    </StackPanel>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Border>
+
+                        <!--  Loading Overlay  -->
+                        <Border
+                            Background="#80FFFFFF"
+                            Grid.Column="0"
+                            IsVisible="{Binding HistoryViewModel.IsLoadingDiff}">
+                            <TextBlock
+                                FontSize="24"
+                                HorizontalAlignment="Center"
+                                Text="Loading Diff..."
+                                VerticalAlignment="Center" />
+                        </Border>
+                    </Grid>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Window>

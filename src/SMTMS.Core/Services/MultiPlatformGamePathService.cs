@@ -26,15 +26,15 @@ public class MultiPlatformGamePathService : IGamePathService
 
     private string? GetGameInstallPath()
     {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        if (OperatingSystem.IsWindows())
         {
             return GetWindowsGamePath();
         }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        else if (OperatingSystem.IsLinux())
         {
             return GetLinuxGamePath();
         }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        else if (OperatingSystem.IsMacOS())
         {
             return GetMacOSGamePath();
         }
@@ -42,6 +42,7 @@ public class MultiPlatformGamePathService : IGamePathService
         return null;
     }
 
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     private string? GetWindowsGamePath()
     {
         // 1. 尝试从注册表读取（仅在 Windows 上可用）
@@ -135,6 +136,7 @@ public class MultiPlatformGamePathService : IGamePathService
         return null;
     }
 
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     private string? TryGetFromWindowsRegistry()
     {
         // 这个方法只在 Windows 上调用

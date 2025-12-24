@@ -10,7 +10,7 @@ SMTMS 采用经典的分层架构设计，各模块之间通过接口解耦，�
 
 ```mermaid
 flowchart LR
-    UI["SMTMS.UI (Presentation)"] --> Core["SMTMS.Core (Domain)"]
+    UI["SMTMS.Avalonia (Presentation)"] --> Core["SMTMS.Core (Domain)"]
     UI --> Data["SMTMS.Data (Infrastructure)"]
     UI --> Trans["SMTMS.Translation (Services)"]
     UI --> Nexus["SMTMS.NexusClient (External API)"]
@@ -28,7 +28,7 @@ flowchart LR
 *   **SMTMS.Core**: 系统的核心领域层。定义了所有的数据模型（Model）、服务接口（Interface）以及通用的工具类（如 `ManifestTextReplacer` 文本处理）。不依赖任何具体的 UI 或数据库实现。
 *   **SMTMS.Data**: 数据基础设施层。负责数据的持久化存储，实现了 Core 层的数据访问接口。使用 Entity Framework Core 操作 SQLite 数据库。
 *   **SMTMS.Translation**: 业务逻辑层。专注于翻译数据的处理、文件扫描、历史快照的生成与恢复逻辑。
-*   **SMTMS.UI**: 用户界面层。基于 WPF 框架，采用 MVVM 模式组织代码，负责与用户交互及流程控制。通过调用 Core 接口（如 `IModService`）进行数据操作，严禁直接操作文件。
+*   **SMTMS.Avalonia (UI)**: 用户界面层。基于 **Avalonia** 框架，采用 MVVM 模式组织代码，负责与用户交互及流程控制。通过调用 Core 接口（如 `IModService`）进行数据操作，严禁直接操作文件。
 
 ---
 
@@ -156,7 +156,7 @@ sequenceDiagram
 ## 4. 技术栈 (Technology Stack)
 
 *   **Runtime**: .NET 8.0
-*   **UI Framework**: WPF (Windows Presentation Foundation)
+*   **UI Framework**: Avalonia UI (Cross-platform)
 *   **ORM**: Entity Framework Core (SQLite Provider)
 *   **Utils**:
     *   `CommunityToolkit.Mvvm`: MVVM 模式支持

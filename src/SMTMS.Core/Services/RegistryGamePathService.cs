@@ -3,6 +3,7 @@ using SMTMS.Core.Interfaces;
 
 namespace SMTMS.Core.Services;
 
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 public class RegistryGamePathService : IGamePathService
 {
     private const string StardewValleyAppId = "413150";

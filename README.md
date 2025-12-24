@@ -24,9 +24,9 @@ SMTMS 内置了一套基于 **SQLite** 的轻量级版本控制系统。
 
 ## 技术架构 (Architecture)
 
-SMTMS 采用基于 **.NET 8** 和 **WPF** 的 **MVVM** 架构，各模块职责清晰：
+SMTMS 采用基于 **.NET 8** 和 **Avalonia** 的 **MVVM** 架构，支持多平台（Windows, macOS, Linux），各模块职责清晰：
 
-- **UI 层**：基于 CommunityToolkit.Mvvm 构建，提供现代化交互体验。
+- **UI 层**：基于 **Avalonia UI** 和 **Semi Design** 构建，提供跨平台现代化交互体验。
 - **业务核心 (Core)**：定义领域模型（如 `ModManifest`, `HistorySnapshot`）与服务接口。
 - **数据层 (Data)**：基于 **EF Core** 和 **SQLite**，实现高性能的数据存储与快照管理。
 - **翻译服务 (Translation)**：负责模组文件的解析、正则替换以及历史版本的构建。
@@ -51,7 +51,7 @@ SMTMS 采用基于 **.NET 8** 和 **WPF** 的 **MVVM** 架构，各模块职责�
 - [x] 字段级差异可视化 (Diff)
 - [ ] **AI 辅助翻译**：集成 LLM API 实现自动汉化。
 - [ ] **Nexus Mods 集成**：自动获取元数据与更新检测。
-- [ ] **多语言支持**：扩展支持更多目标语言。
+- [x] **跨平台重构**：从 WPF 迁移到 Avalonia，支持 Windows/macOS/Linux。
 
 ---
 

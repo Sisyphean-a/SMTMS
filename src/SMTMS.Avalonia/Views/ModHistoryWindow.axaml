@@ -1,0 +1,87 @@
+<Window
+    Height="600"
+    Title="模组历史记录"
+    Width="900"
+    WindowStartupLocation="CenterOwner"
+    d:DesignHeight="600"
+    d:DesignWidth="800"
+    mc:Ignorable="d"
+    x:Class="SMTMS.Avalonia.Views.ModHistoryWindow"
+    x:DataType="vm:ModHistoryViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:SMTMS.Avalonia.ViewModels"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid Margin="10" RowDefinitions="*, Auto">
+        <!--  History List  -->
+        <DataGrid
+            AutoGenerateColumns="False"
+            BorderBrush="#E0E0E0"
+            BorderThickness="1"
+            Grid.Row="0"
+            IsReadOnly="True"
+            ItemsSource="{Binding HistoryItems}"
+            SelectedItem="{Binding SelectedHistoryItem}">
+            <DataGrid.Columns>
+                <DataGridTextColumn
+                    Binding="{Binding SnapshotTime}"
+                    Header="快照时间"
+                    Width="180" />
+                <DataGridTextColumn
+                    Binding="{Binding DisplayName}"
+                    Header="名称 (Name)"
+                    Width="*" />
+                <DataGridTextColumn
+                    Binding="{Binding DisplayDescription}"
+                    Header="描述 (Description)"
+                    Width="2*" />
+                <DataGridTextColumn
+                    Binding="{Binding DisplayAuthor}"
+                    Header="作者"
+                    Width="100" />
+                <DataGridTextColumn
+                    Binding="{Binding DisplayVersion}"
+                    Header="版本"
+                    Width="80" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!--  Bottom Actions  -->
+        <StackPanel
+            Grid.Row="1"
+            HorizontalAlignment="Right"
+            Margin="0,10,0,0"
+            Orientation="Horizontal"
+            Spacing="10">
+            <TextBlock
+                FontStyle="Italic"
+                Foreground="Gray"
+                Text="提示: 选中一行点击应用，将该行的名称/描述覆盖到当前编辑中。"
+                VerticalAlignment="Center" />
+            <Button Command="{Binding CloseCommand}" Content="关闭" />
+            <Button
+                Classes="Primary"
+                Command="{Binding ApplyCommand}"
+                Content="应用选中版本"
+                IsEnabled="{Binding SelectedHistoryItem, Converter={x:Static ObjectConverters.IsNotNull}}"
+                Theme="{DynamicResource SolidButton}" />
+        </StackPanel>
+
+        <!--  Loading Overlay  -->
+        <Border
+            Background="#80FFFFFF"
+            Grid.Row="0"
+            Grid.RowSpan="2"
+            IsVisible="{Binding IsLoading}">
+            <TextBlock
+                FontSize="20"
+                FontWeight="Bold"
+                Foreground="#007ACC"
+                HorizontalAlignment="Center"
+                Text="正在加载历史..."
+                VerticalAlignment="Center" />
+        </Border>
+    </Grid>
+</Window>
