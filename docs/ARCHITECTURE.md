@@ -122,6 +122,11 @@ sequenceDiagram
         RestoreService->>FileSystem: 读取 manifest.json
         RestoreService->>FileSystem: 正则替换并写入新内容
     end
+    
+    note over HistoryVM, HistoryRepo: 关键变更：Reset 模式
+    HistoryVM->>HistoryRepo: DeleteSnapshotsAfterAsync(SnapshotId)
+    HistoryRepo->>Database: DELETE ... WHERE SnapshotId > TargetId
+    note right of HistoryVM: 删除回滚点之后的所有历史记录，<br/>就像时间倒流一样。
 
 ### 3.3 单模组历史查看与应用流程
 

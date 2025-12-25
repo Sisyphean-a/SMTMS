@@ -49,4 +49,9 @@ public interface IHistoryRepository
     /// 仅返回 SnapshotId 严格匹配的记录
     /// </summary>
     Task<List<ModTranslationHistory>> GetSnapshotChangesAsync(int snapshotId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 删除指定快照ID之后的所有快照和历史记录（用于 Reset 模式的回滚）
+    /// </summary>
+    Task DeleteSnapshotsAfterAsync(int snapshotId, CancellationToken cancellationToken = default);
 }

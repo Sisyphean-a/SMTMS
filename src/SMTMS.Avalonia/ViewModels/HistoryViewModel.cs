@@ -11,7 +11,10 @@ using Avalonia.Threading;
 using System.Threading.Tasks;
 using System;
 using System.Linq;
+using System.Linq;
 using System.Collections.Generic;
+using System.IO;
+using SMTMS.Core.Infrastructure;
 
 namespace SMTMS.Avalonia.ViewModels;
 
@@ -217,39 +220,85 @@ public partial class HistoryViewModel : ObservableObject
         try 
         {
              WeakReferenceMessenger.Default.Send(new StatusMessage("正在全局回滚...", StatusLevel.Warning));
-             
-             // TODO: 调用 Service 的 RollbackSnapshot 方法 (需要在 TranslationService 中新增，或此处实现)
-             // 简单起见，先不支持全局回滚，只支持“从数据库恢复” (RestoreFromDatabaseAsync works "latest").
-             
+
              using var scope = _scopeFactory.CreateScope();
+             
+             // 1. 获取配置
+             var settingsService = scope.ServiceProvider.GetRequiredService<ISettingsService>();
+             var settings = await settingsService.GetSettingsAsync();
+             var modDirectory = settings.LastModsDirectory;
+
+             if (string.IsNullOrWhiteSpace(modDirectory))
+             {
+                 WeakReferenceMessenger.Default.Send(new StatusMessage("回滚失败: 未配置模组目录，请先在设置中指定。", StatusLevel.Error));
+                 return;
+             }
+             
+             // 2. 数据库状态回滚
+             // 获取目标快照时刻的所有 Mod 状态（回溯逻辑）
              var historyRepo = scope.ServiceProvider.GetRequiredService<IHistoryRepository>();
              var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
              
              var histories = await historyRepo.GetModHistoriesForSnapshotAsync(SelectedSnapshot.Id);
-             var mods = new List<ModMetadata>();
+             var modsToUpdate = new List<ModMetadata>();
              
              foreach(var h in histories)
              {
                  var mod = await modRepo.GetModAsync(h.ModUniqueId);
                  if (mod != null)
                  {
-                     mod.CurrentJson = h.JsonContent;
-                     mod.LastFileHash = h.PreviousHash; // Revert hash too?
-                     // mod.LastTranslationUpdate = // Keep real time?
-                     mods.Add(mod);
+                     // CRITICAL FIX: 还需要恢复 TranslatedName 和 TranslatedDescription，否则 TranslationRestoreService 不会自动更新文件
+                     if (!string.IsNullOrEmpty(h.JsonContent))
+                     {
+                         try 
+                         {
+                             var oldManifest = Newtonsoft.Json.JsonConvert.DeserializeObject<Core.Models.ModManifest>(h.JsonContent);
+                             if (oldManifest != null)
+                             {
+                                 mod.TranslatedName = oldManifest.Name;
+                                 mod.TranslatedDescription = oldManifest.Description;
+                             }
+                         }
+                         catch
+                         {
+                             // Ignore parse error
+                         }
+                     }
+
+                     modsToUpdate.Add(mod);
                  }
              }
              
-             await modRepo.UpsertModsAsync(mods); // Commit DB state revert
+             // 提交数据库更改
+             await modRepo.UpsertModsAsync(modsToUpdate);  
              
-             // Now apply to physical files
-             await _translationService.RestoreTranslationsFromDbAsync(string.Empty); // Empty dir uses Settings logic inside Service? Usually requires path.
+             // 3. 应用到物理文件
+             // 现在数据库已经是“旧”状态，调用 RestoreTranslationsFromDbAsync 会把这些旧状态写入文件
+             var result = await _translationService.RestoreTranslationsFromDbAsync(modDirectory);
              
-             WeakReferenceMessenger.Default.Send(new StatusMessage("全局回滚成功! 请检查游戏模组。", StatusLevel.Success));
+             if (result.IsSuccess)
+             {
+                 // CRITICAL: 为了避免“割裂感”，我们执行破坏性回滚 (Reset)，删除此时间点之后的所有记录。
+                 // 这样，再次同步时，就不会产生“反向变更”的记录，而是续写历史。
+                 await historyRepo.DeleteSnapshotsAfterAsync(SelectedSnapshot.Id);
+                 
+                 WeakReferenceMessenger.Default.Send(new StatusMessage("全局回滚成功! 历史记录已重置。", StatusLevel.Success));
+                 
+                 // 通知列表刷新以显示旧的内容
+                 WeakReferenceMessenger.Default.Send(new RefreshModsRequestMessage());
+                 
+                 // 重新加载历史列表
+                 LoadHistory();
+             }
+             else
+             {
+                 WeakReferenceMessenger.Default.Send(new StatusMessage($"回滚部分完成: {result.Message}", StatusLevel.Warning));
+             }
         }
         catch(Exception ex)
         {
              WeakReferenceMessenger.Default.Send(new StatusMessage($"回滚失败: {ex.Message}", StatusLevel.Error));
+             _logger.LogError(ex, "快照回滚失败");
         }
     }
 }

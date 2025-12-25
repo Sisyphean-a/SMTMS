@@ -142,6 +142,8 @@ public partial class MainViewModel : ObservableObject
         {
             // 释放数据库锁
             Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
 
             var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
 
@@ -149,7 +151,21 @@ public partial class MainViewModel : ObservableObject
             var dbPath = Path.Combine(appDataPath, "smtms.db");
             if (File.Exists(dbPath))
             {
-                File.Delete(dbPath);
+                // 重试机制，防止文件短暂占用
+                int maxRetries = 3;
+                for (int i = 0; i < maxRetries; i++)
+                {
+                    try
+                    {
+                        File.Delete(dbPath);
+                        break; // 删除成功，退出循环
+                    }
+                    catch (IOException)
+                    {
+                        if (i == maxRetries - 1) throw; // 最后一次尝试如果还失败，则抛出异常
+                        System.Threading.Thread.Sleep(500); // 等待 500ms 重试
+                    }
+                }
             }
 
             // 3. 重新创建数据库表

@@ -13,14 +13,16 @@
     <Grid RowDefinitions="Auto, *, 4, 280">
         <StackPanel
             Grid.Row="0"
-            Margin="0,0,0,10"
+            Margin="0,10,0,10"
             Orientation="Horizontal"
             Spacing="10">
             <Button Command="{Binding HistoryViewModel.LoadHistoryCommand}" Content="刷新列表" />
+
             <Button
+                Classes="Danger"
                 Command="{Binding HistoryViewModel.RollbackSnapshotCommand}"
-                Content="回滚到选中"
-                Theme="{DynamicResource SolidButton}" />
+                Content="回滚（重置）"
+                ToolTip.Tip="将当前状态完全回退到选中快照，并删除之后的所有历史记录。" />
         </StackPanel>
 
         <DataGrid

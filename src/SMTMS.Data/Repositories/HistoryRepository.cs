@@ -91,4 +91,32 @@ public class HistoryRepository(AppDbContext context, ILogger<HistoryRepository> 
             .Include(h => h.ModMetadata) 
             .ToListAsync(cancellationToken);
     }
+
+    public async Task DeleteSnapshotsAfterAsync(int snapshotId, CancellationToken cancellationToken = default)
+    {
+        // 1. 查找所有时间更晚的快照（ID > snapshotId）
+        // 假设 ID 是自增的，如果不是，应该用 Timestamp
+        var newerSnapshots = await context.HistorySnapshots
+            .Where(s => s.Id > snapshotId)
+            .ToListAsync(cancellationToken);
+
+        if (newerSnapshots.Count == 0) return;
+
+        var newerSnapshotIds = newerSnapshots.Select(s => s.Id).ToList();
+
+        // 2. 删除关联的 ModHistory
+        var historiesToDelete = await context.ModTranslationHistories
+            .Where(h => newerSnapshotIds.Contains(h.SnapshotId))
+            .ToListAsync(cancellationToken);
+            
+        context.ModTranslationHistories.RemoveRange(historiesToDelete);
+        
+        // 3. 删除快照本身
+        context.HistorySnapshots.RemoveRange(newerSnapshots);
+        
+        await context.SaveChangesAsync(cancellationToken);
+        
+        logger.LogInformation("Deleted {SnapshotCount} snapshots and {HistoryCount} records after ID {Id}", 
+            newerSnapshots.Count, historiesToDelete.Count, snapshotId);
+    }
 }
