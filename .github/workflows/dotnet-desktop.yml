@@ -2,37 +2,86 @@ name: Build and Publish SMTMS
 
 on:
   push:
-    branches: [ "master", "main" ]
+    branches: ["master", "main"]
+    tags:
+      - "v*" # 当推送 v 开头的 tag 时触发，例如 v1.0.0
   pull_request:
-    branches: [ "master", "main" ]
+    branches: ["master", "main"]
+
+permissions:
+  contents: write
 
 jobs:
-  build:
-    name: Build on Windows
-    runs-on: windows-latest
+  build-and-release:
+    name: Build for ${{ matrix.os-name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          # Windows - Self Contained (自带 .NET 运行时，体积较大，开箱即用)
+          - os: windows-latest
+            os-name: Windows-Standalone
+            rid: win-x64
+            self-contained: true
+            archive-name: SMTMS-Windows-x64-Standalone.zip
+
+          # Windows - Framework Dependent (依赖系统 .NET 8 运行时，体积小)
+          - os: windows-latest
+            os-name: Windows-FrameworkDependent
+            rid: win-x64
+            self-contained: false
+            archive-name: SMTMS-Windows-x64-FrameworkDependent.zip
+
+          # Linux (默认独立运行)
+          - os: ubuntu-latest
+            os-name: Linux
+            rid: linux-x64
+            self-contained: true
+            archive-name: SMTMS-Linux-x64.zip
+
+          # macOS (默认独立运行)
+          - os: macos-latest
+            os-name: macOS
+            rid: osx-x64
+            self-contained: true
+            archive-name: SMTMS-macOS-x64.zip
 
     steps:
-    - name: Checkout Source Code (检出代码)
-      uses: actions/checkout@v4
+      - name: Checkout Source Code (检出代码)
+        uses: actions/checkout@v4
 
-    - name: Setup .NET 8 (安装 .NET 8)
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 8.0.x
+      - name: Setup .NET 8 (安装 .NET 8)
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
 
-    - name: Restore Dependencies (还原依赖)
-      run: dotnet restore SMTMS.sln
+      - name: Restore Dependencies (还原依赖)
+        run: dotnet restore SMTMS.sln
 
-    - name: Build Solution (构建解决方案)
-      run: dotnet build SMTMS.sln --configuration Release --no-restore
+      - name: Publish Application (发布应用)
+        # --self-contained 由 matrix 控制：true 包含运行时，false 不包含
+        run: dotnet publish src/SMTMS.Avalonia/SMTMS.Avalonia.csproj --configuration Release --runtime ${{ matrix.rid }} --self-contained ${{ matrix.self-contained }} --output ./publish
 
-    - name: Publish Application (发布应用)
-      # 使用 dotnet publish 命令直接生成可执行文件
-      # 注意：这里我们发布的是 SMTMS.UI 项目
-      run: dotnet publish src/SMTMS.UI/SMTMS.UI.csproj --configuration Release --output ./publish --no-build
+      - name: Archive Release (打包发布文件)
+        shell: bash
+        run: |
+          cd publish
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            7z a -tzip "../${{ matrix.archive-name }}" .
+          else
+            zip -r "../${{ matrix.archive-name }}" .
+          fi
 
-    - name: Upload Artifact (上传构建产物)
-      uses: actions/upload-artifact@v4
-      with:
-        name: SMTMS-Release-Build
-        path: ./publish
+      - name: Upload Artifact (上传构建产物)
+        uses: actions/upload-artifact@v4
+        with:
+          name: SMTMS-${{ matrix.os-name }}-Build
+          path: ${{ matrix.archive-name }}
+
+      - name: Create Release (创建发布版本)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.archive-name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
