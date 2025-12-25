@@ -28,7 +28,78 @@ flowchart LR
 *   **SMTMS.Core**: 系统的核心领域层。定义了所有的数据模型（Model）、服务接口（Interface）以及通用的工具类（如 `ManifestTextReplacer` 文本处理）。不依赖任何具体的 UI 或数据库实现。
 *   **SMTMS.Data**: 数据基础设施层。负责数据的持久化存储，实现了 Core 层的数据访问接口。使用 Entity Framework Core 操作 SQLite 数据库。
 *   **SMTMS.Translation**: 业务逻辑层。专注于翻译数据的处理、文件扫描、历史快照的生成与恢复逻辑。
-*   **SMTMS.Avalonia (UI)**: 用户界面层。基于 **Avalonia** 框架，采用 MVVM 模式组织代码，负责与用户交互及流程控制。通过调用 Core 接口（如 `IModService`）进行数据操作，严禁直接操作文件。
+*   **SMTMS.Avalonia (UI)**: 用户界面层。基于 **Avalonia** 框架，采用 MVVM 模式组织代码。
+
+### 1.1 静态架构类图 (Static Class Diagram)
+
+展示了 UI 层通过 ViewModel 与 Service 层的交互，以及 View 与 ViewModel 的绑定关系。
+
+```mermaid
+classDiagram
+    %% Views
+    class MainWindow {
+        +DataContext : MainViewModel
+    }
+    class ModListView {
+        +DataContext : ModListViewModel
+    }
+    class HistoryView {
+        +DataContext : HistoryViewModel
+    }
+
+    %% ViewModels
+    class MainViewModel {
+        +ModListViewModel : ModListViewModel
+        +HistoryViewModel : HistoryViewModel
+        +SyncToDatabaseAsync()
+        +RestoreFromDatabaseAsync()
+    }
+    class ModListViewModel {
+        +Mods : ObservableCollection~ModViewModel~
+        +LoadModsAsync()
+        +SaveModAsync()
+    }
+    class HistoryViewModel {
+        +SnapshotHistory : ObservableCollection~HistorySnapshot~
+        +ModDiffChanges : ObservableCollection~ModDiffModel~
+        +RollbackSnapshotAsync()
+    }
+    class ModViewModel {
+        +Manifest : ModManifest
+        +ModMetadata : ModMetadata
+    }
+
+    %% Interfaces/Services
+    class ITranslationService {
+        <<interface>>
+        +SaveTranslationsToDbAsync()
+        +RestoreTranslationsFromDbAsync()
+    }
+    class IModService {
+        <<interface>>
+        +ScanModsAsync()
+        +UpdateModManifestAsync()
+    }
+    class IHistoryRepository {
+        <<interface>>
+        +GetSnapshotsAsync()
+        +DeleteSnapshotsAfterAsync()
+    }
+
+    %% Relationships
+    MainWindow ..> MainViewModel : Binds to
+    ModListView ..> ModListViewModel : Binds to
+    HistoryView ..> HistoryViewModel : Binds to
+
+    MainViewModel *-- ModListViewModel : Composes
+    MainViewModel *-- HistoryViewModel : Composes
+    ModListViewModel o-- ModViewModel : Aggregates
+
+    MainViewModel ..> ITranslationService : Uses
+    ModListViewModel ..> IModService : Uses
+    HistoryViewModel ..> ITranslationService : Uses
+    HistoryViewModel ..> IHistoryRepository : Uses (via Scope)
+```
 
 ---
 
@@ -65,35 +136,27 @@ SMTMS 不依赖外部 VCS 工具，而是内置了一套基于关系型数据库
 ```mermaid
 sequenceDiagram
     participant User
-    participant ViewModel
-    participant ScanService
-    participant HistoryRepo
-    participant ModRepo
-    participant Database
+    participant MainVM as MainViewModel
+    participant CommitSvc as CommitMessageService
+    participant TransSvc as TranslationService
+    participant HistoryVM as HistoryViewModel
+    participant ModListVM as ModListViewModel
 
-    User->>ViewModel: 点击 "同步到数据库"
-    ViewModel->>ScanService: SaveTranslationsToDbAsync()
-    
-    loop 遍历每一个模组
-        ScanService->>ScanService: 计算当前文件 Hash
-        ScanService->>ModRepo: 获取最后已知 Hash
-        alt Hash 不一致 (发现变更)
-            ScanService->>ScanService: 标记为待保存
-        end
-    end
+    User->>MainVM: 点击 "同步到数据库"
+    MainVM->>CommitSvc: ShowDialogAsync()
+    CommitSvc-->>User: 显示输入框
+    User-->>CommitSvc: 输入日志并确认
+    CommitSvc-->>MainVM: 返回 CommitMessage
 
-    alt 存在变更
-        ScanService->>HistoryRepo: CreateSnapshotAsync()
-        HistoryRepo->>Database: INSERT INTO HistorySnapshots
-        
-        ScanService->>HistoryRepo: SaveModHistoriesAsync()
-        HistoryRepo->>Database: INSERT INTO ModTranslationHistories (Batch)
-        
-        ScanService->>ModRepo: UpsertModsAsync()
-        ModRepo->>Database: UPDATE ModMetadata (Hash, CurrentJson)
+    MainVM->>TransSvc: SaveTranslationsToDbAsync(path, msg)
+    note right of TransSvc: 1. 扫描文件<br/>2. 检测变更<br/>3. 创建快照<br/>4. 更新 ModMetadata
+    TransSvc-->>MainVM: 返回 Result
+
+    alt 成功
+        MainVM->>HistoryVM: LoadHistory()
+        MainVM->>ModListVM: 发送 RefreshModsRequestMessage
+        ModListVM->>ModListVM: LoadModsAsync()
     end
-    
-    ScanService-->>ViewModel: 返回结果
 ```
 
 ### 3.2 历史回滚流程
@@ -101,59 +164,57 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant User
-    participant HistoryVM
-    participant HistoryRepo
-    participant RestoreService
-    participant FileSystem
+    participant HistoryVM as HistoryViewModel
+    participant HistoryRepo as HistoryRepository
+    participant ModRepo as ModRepository
+    participant TransSvc as TranslationService
+    participant MainVM as MainViewModel
 
-    User->>HistoryVM: 在列表中选择快照，点击 "回滚"
-    HistoryVM->>HistoryRepo: GetModHistoriesForSnapshotAsync(SnapshotId)
-    
-    note right of HistoryRepo: 查询逻辑：<br/>查找每个模组在 <= SnapshotId 时刻的<br/>最新一条历史记录
-    
-    HistoryRepo-->>HistoryVM: 返回历史模组状态列表
-    
-    loop 对每一个历史模组
-        HistoryVM->>HistoryVM: 将 CurrentJson 重置为历史 JsonContent
-    end
-    
-    HistoryVM->>RestoreService: RestoreTranslationsFromDbAsync()
-    loop 对每一个模组
-        RestoreService->>FileSystem: 读取 manifest.json
-        RestoreService->>FileSystem: 正则替换并写入新内容
-    end
-    
-    note over HistoryVM, HistoryRepo: 关键变更：Reset 模式
-    HistoryVM->>HistoryRepo: DeleteSnapshotsAfterAsync(SnapshotId)
-    HistoryRepo->>Database: DELETE ... WHERE SnapshotId > TargetId
-    note right of HistoryVM: 删除回滚点之后的所有历史记录，<br/>就像时间倒流一样。
+    User->>HistoryVM: 选中快照并点击 "回滚"
+    HistoryVM->>HistoryRepo: GetModHistoriesForSnapshotAsync(id)
+    HistoryRepo-->>HistoryVM: 返回历史记录列表
 
-### 3.3 单模组历史查看与应用流程
+    loop 恢复数据库状态
+        HistoryVM->>ModRepo: UpsertModsAsync(old_state)
+    end
+
+    HistoryVM->>TransSvc: RestoreTranslationsFromDbAsync()
+    note right of TransSvc: 将数据库中的<br/>旧翻译写入 json 文件
+    TransSvc-->>HistoryVM: 文件写入完成
+
+    HistoryVM->>HistoryRepo: DeleteSnapshotsAfterAsync(id)
+    note right of HistoryVM: 执行"破坏性"回滚 (Reset模式)<br/>删除此时间点之后的所有未来记录
+
+    HistoryVM->>MainVM: 发送 RefreshModsRequestMessage
+    MainVM->>MainVM: 刷新界面 (重新加载列表)
+```
+
+### 3.3 单模组历史查看与应用流程 (Single Mod History)
 
 ```mermaid
 sequenceDiagram
     participant User
-    participant ModVM
-    participant ModHistoryVM
-    participant HistoryRepo
-    participant ModHistoryWindow
+    participant ModVM as ModViewModel
+    participant ModHistoryVM as ModHistoryViewModel
+    participant HistoryRepo as HistoryRepository
 
     User->>ModVM: 点击 "查看历史"
-    ModVM->>ModHistoryVM: 实例化并订阅 OnApplyHistory
+    ModVM->>ModHistoryVM: 初始化 (OpenHistoryRequestMessage)
     ModHistoryVM->>HistoryRepo: GetHistoryForModAsync(ModID)
     HistoryRepo-->>ModHistoryVM: 返回该 Mod 所有历史版本
     
     ModHistoryVM->>ModHistoryVM: 计算相邻版本差异 (Diff)
-    ModHistoryVM-->>ModHistoryWindow: 渲染历史列表
-    ModVM-->>User: 显示弹窗
+    ModHistoryVM-->>User: 显示历史列表窗口
     
-    User->>ModHistoryWindow: 选中某版本并点击 "应用"
-    ModHistoryWindow->>ModHistoryVM: Apply()
-    ModHistoryVM->>ModVM: 触发 OnApplyHistory 事件 (传递选中的 Manifest)
+    User->>ModHistoryVM: 选中某版本并点击 "应用"
+    ModHistoryVM->>ModHistoryVM: Apply()
+    ModHistoryVM->>ModVM: 发送 HistoryAppliedMessage (Payload: ModManifest)
     
-    ModVM->>ModVM: 更新界面上的 Name/Description
-    note right of ModVM: 仅更新 UI 状态，<br/>需用户手动点击保存/同步<br/>以持久化更改
-```
+    ModVM->>ModVM: OnHistoryApplied()
+    note right of ModVM: 更新当前 ViewModel 的:<br/>Name, Description, Author
+    
+    ModVM-->>User: 界面更新 (显示为已修改)
+    note right of ModVM: 此时尚未保存文件。<br/>需用户在列表点击 "保存"<br/>或 "同步" 才能持久化。
 ```
 
 ---
