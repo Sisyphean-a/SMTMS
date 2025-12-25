@@ -1,0 +1,88 @@
+<Window
+    Title="{Binding ApplicationTitle}"
+    WindowStartupLocation="CenterScreen"
+    d:DesignHeight="800"
+    d:DesignWidth="1200"
+    mc:Ignorable="d"
+    x:Class="SMTMS.Avalonia.Views.MainWindow"
+    x:DataType="vm:MainViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:views="clr-namespace:SMTMS.Avalonia.Views"
+    xmlns:vm="using:SMTMS.Avalonia.ViewModels"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid RowDefinitions="Auto, *">
+        <!--  Toolbar  -->
+        <Border
+            Background="White"
+            BorderBrush="#E1E3E6"
+            BorderThickness="1"
+            CornerRadius="4"
+            Grid.Row="0"
+            Margin="10,10,10,0"
+            Padding="10">
+            <Grid ColumnDefinitions="Auto, *, Auto">
+                <StackPanel
+                    Grid.Column="0"
+                    Orientation="Horizontal"
+                    Spacing="8">
+                    <TextBox
+                        Classes="Small"
+                        InnerRightContent="路径"
+                        Text="{Binding ModsDirectory}"
+                        Watermark="模组目录路径"
+                        Width="300" />
+                    <Button
+                        Command="{Binding BrowseFolderCommand}"
+                        Content="📂"
+                        Theme="{DynamicResource TertiaryButton}" />
+                    <Button
+                        Command="{Binding ModListViewModel.LoadModsCommand}"
+                        Content="扫描模组"
+                        Theme="{DynamicResource SolidButton}" />
+                </StackPanel>
+
+                <TextBlock
+                    FontSize="12"
+                    Foreground="Gray"
+                    Grid.Column="1"
+                    HorizontalAlignment="Center"
+                    Margin="10,0"
+                    Text="{Binding StatusMessage}"
+                    VerticalAlignment="Center" />
+
+                <StackPanel
+                    Grid.Column="2"
+                    Orientation="Horizontal"
+                    Spacing="8">
+                    <Button Command="{Binding SyncToDatabaseCommand}" Content="同步到数据库" />
+                    <Button Command="{Binding RestoreFromDatabaseCommand}" Content="从数据库恢复" />
+
+                    <Rectangle
+                        Fill="#E1E3E6"
+                        Margin="4,4"
+                        Width="1" />
+
+                    <Button
+                        Classes="Danger"
+                        Command="{Binding HardResetCommand}"
+                        Content="初始化"
+                        Theme="{DynamicResource TertiaryButton}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!--  Tabs  -->
+        <TabControl Grid.Row="1" Margin="10">
+            <TabItem Header="模组列表">
+                <views:ModListView />
+            </TabItem>
+
+            <TabItem Header="历史记录">
+                <views:HistoryView />
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Window>

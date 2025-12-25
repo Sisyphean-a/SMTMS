@@ -1,0 +1,181 @@
+<UserControl
+    d:DesignHeight="600"
+    d:DesignWidth="1000"
+    mc:Ignorable="d"
+    x:Class="SMTMS.Avalonia.Views.ModListView"
+    x:DataType="vm:MainViewModel"
+    x:Name="Root"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:SMTMS.Avalonia.ViewModels"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid ColumnDefinitions="2*, 4, 1*">
+        <!--  Mod List  -->
+        <DataGrid
+            AutoGenerateColumns="False"
+            BorderBrush="#E1E3E6"
+            BorderThickness="1"
+            Grid.Column="0"
+            GridLinesVisibility="All"
+            HeadersVisibility="All"
+            IsReadOnly="True"
+            ItemsSource="{Binding ModListViewModel.Mods}"
+            RowBackground="White"
+            SelectedItem="{Binding ModListViewModel.SelectedMod}"
+            x:CompileBindings="False"
+            x:Name="ModsGrid">
+            <DataGrid.Styles>
+                <!-- 针对行的数据类型显式指定，解决 HasLocalChanges 找不到的问题 -->
+                <Style Selector="DataGridRow" x:DataType="vm:ModViewModel">
+                    <Setter Property="Tag" Value="{Binding HasLocalChanges}" />
+                </Style>
+                <Style Selector="DataGridRow[Tag=True]">
+                    <Setter Property="FontWeight" Value="Bold" />
+                    <Setter Property="FontStyle" Value="Italic" />
+                </Style>
+            </DataGrid.Styles>
+            <DataGrid.Columns>
+                <DataGridTextColumn
+                    Binding="{Binding Name}"
+                    Header="名称"
+                    IsVisible="{Binding DataContext.ModListViewModel.ShowNameColumn, ElementName=ModsGrid}"
+                    Width="200" />
+                <DataGridTemplateColumn
+                    Header="版本"
+                    IsVisible="{Binding DataContext.ModListViewModel.ShowVersionColumn, ElementName=ModsGrid}"
+                    SortMemberPath="Version"
+                    Width="80">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="vm:ModViewModel">
+                            <Button
+                                Background="Transparent"
+                                BorderThickness="0"
+                                Command="{Binding OpenNexusPageCommand}"
+                                Content="{Binding Version}"
+                                CornerRadius="0"
+                                Cursor="Hand"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Left"
+                                Margin="0"
+                                Padding="12,0,0,0"
+                                VerticalAlignment="Stretch"
+                                VerticalContentAlignment="Center" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn
+                    Binding="{Binding UniqueID}"
+                    Header="ID"
+                    IsVisible="{Binding DataContext.ModListViewModel.ShowIdColumn, ElementName=ModsGrid}"
+                    Width="200" />
+
+                <DataGridTextColumn
+                    Binding="{Binding Description}"
+                    Header="描述"
+                    IsVisible="{Binding DataContext.ModListViewModel.ShowDescriptionColumn, ElementName=ModsGrid}"
+                    Width="*" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <GridSplitter
+            Background="Transparent"
+            Grid.Column="1"
+            ResizeDirection="Columns" />
+
+        <!--  Detail Pane  -->
+        <Border
+            Background="White"
+            BorderBrush="#E1E3E6"
+            BorderThickness="1"
+            CornerRadius="4"
+            Grid.Column="2"
+            IsVisible="{Binding ModListViewModel.SelectedMod, Converter={x:Static ObjectConverters.IsNotNull}}"
+            Margin="10,0,0,0"
+            Padding="15">
+
+            <Grid RowDefinitions="Auto, *">
+                <TextBlock
+                    FontSize="16"
+                    FontWeight="Bold"
+                    Grid.Row="0"
+                    Margin="0,0,0,15"
+                    Text="编辑模组详情" />
+
+                <ScrollViewer Grid.Row="1">
+                    <StackPanel Spacing="15">
+                        <StackPanel Spacing="4">
+                            <TextBlock
+                                Classes="Tertiary"
+                                FontSize="12"
+                                Text="名称" />
+                            <TextBox Text="{Binding ModListViewModel.SelectedMod.Name}" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="4">
+                            <TextBlock
+                                Classes="Tertiary"
+                                FontSize="12"
+                                Text="唯一 ID" />
+                            <TextBox
+                                Background="#FAFAFA"
+                                Foreground="#666666"
+                                IsReadOnly="True"
+                                Text="{Binding ModListViewModel.SelectedMod.UniqueID}" />
+                        </StackPanel>
+
+                        <StackPanel IsVisible="{Binding ModListViewModel.SelectedMod.NexusId, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Spacing="4">
+                            <TextBlock
+                                Classes="Tertiary"
+                                FontSize="12"
+                                Text="N网尾号" />
+                            <Grid ColumnDefinitions="*, Auto">
+                                <TextBox
+                                    Background="#FAFAFA"
+                                    Foreground="#666666"
+                                    Grid.Column="0"
+                                    IsReadOnly="True"
+                                    Text="{Binding ModListViewModel.SelectedMod.NexusId}" />
+                                <Button
+                                    Command="{Binding ModListViewModel.SelectedMod.OpenNexusPageCommand}"
+                                    Content="打开"
+                                    Grid.Column="1"
+                                    Margin="5,0,0,0"
+                                    Theme="{DynamicResource TertiaryButton}" />
+                            </Grid>
+                        </StackPanel>
+
+                        <StackPanel Spacing="4">
+                            <TextBlock
+                                Classes="Tertiary"
+                                FontSize="12"
+                                Text="描述" />
+                            <TextBox
+                                AcceptsReturn="True"
+                                Height="100"
+                                Text="{Binding ModListViewModel.SelectedMod.Description}"
+                                TextWrapping="Wrap"
+                                VerticalContentAlignment="Top" />
+                        </StackPanel>
+
+                        <StackPanel
+                            HorizontalAlignment="Right"
+                            Margin="0,20,0,0"
+                            Orientation="Horizontal"
+                            Spacing="12">
+                            <Button
+                                Command="{Binding ModListViewModel.SelectedMod.ShowHistoryCommand}"
+                                Content="查看历史"
+                                Theme="{DynamicResource TertiaryButton}" />
+                            <Button
+                                Command="{Binding ModListViewModel.SaveModCommand}"
+                                Content="保存更改"
+                                Theme="{DynamicResource SolidButton}" />
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

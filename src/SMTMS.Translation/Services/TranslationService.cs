@@ -36,13 +36,14 @@ public class TranslationService(
     /// </summary>
     public async Task<OperationResult> SaveTranslationsToDbAsync(
         string modDirectory,
+        string? commitMessage = null,
         CancellationToken cancellationToken = default)
     {
         using var scope = _scopeFactory.CreateScope();
         var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
         var historyRepo = scope.ServiceProvider.GetRequiredService<IHistoryRepository>();
         
-        return await _scanService.SaveTranslationsToDbAsync(modDirectory, modRepo, historyRepo, cancellationToken);
+        return await _scanService.SaveTranslationsToDbAsync(modDirectory, modRepo, historyRepo, commitMessage, cancellationToken);
     }
 
     /// <summary>
