@@ -3,6 +3,9 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using SMTMS.Core.Models;
 using SMTMS.Avalonia.Messages;
+using System;
+using System.Diagnostics;
+using System.Text.RegularExpressions;
 
 namespace SMTMS.Avalonia.ViewModels;
 
@@ -27,6 +30,8 @@ public partial class ModViewModel : ObservableObject
         _originalAuthor = _manifest.Author;
         _originalVersion = _manifest.Version;
         _originalDescription = _manifest.Description;
+        
+        ParseNexusId();
         
         UpdateStatus();
 
@@ -192,5 +197,48 @@ public partial class ModViewModel : ObservableObject
     public void ShowHistory()
     {
         WeakReferenceMessenger.Default.Send(new OpenHistoryRequestMessage(UniqueID));
+    }
+
+    [ObservableProperty]
+    private string? _nexusId;
+
+    private void ParseNexusId()
+    {
+        if (_manifest.UpdateKeys == null || _manifest.UpdateKeys.Length == 0)
+        {
+            NexusId = null;
+            return;
+        }
+
+        foreach (var key in _manifest.UpdateKeys)
+        {
+            var match = Regex.Match(key, @"Nexus:(\d+)", RegexOptions.IgnoreCase);
+            if (match.Success)
+            {
+                NexusId = match.Groups[1].Value;
+                break; 
+            }
+        }
+    }
+
+    [RelayCommand]
+    public void OpenNexusPage()
+    {
+        if (string.IsNullOrEmpty(NexusId)) return;
+
+        var url = $"https://www.nexusmods.com/stardewvalley/mods/{NexusId}";
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = url,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            // TODO: Log error or show notification
+            Console.WriteLine($"Failed to open URL: {ex.Message}");
+        }
     }
 }

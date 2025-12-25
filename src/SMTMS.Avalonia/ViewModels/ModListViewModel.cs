@@ -31,6 +31,13 @@ public partial class ModListViewModel : ObservableObject
 
     public ObservableCollection<ModViewModel> Mods { get; } = [];
 
+    // Column Visibility
+    [ObservableProperty] private bool _showNameColumn = true;
+    [ObservableProperty] private bool _showVersionColumn = true;
+    [ObservableProperty] private bool _showIdColumn = true;
+    [ObservableProperty] private bool _showNexusIdColumn = true;
+    [ObservableProperty] private bool _showDescriptionColumn = true;
+
     // 保存前请求更新绑定的事件
     public event EventHandler? SaveRequested;
 
