@@ -7,6 +7,7 @@
 
 import json
 import os
+import re
 from pathlib import Path
 
 # Stardew Valley mod的默认manifest.json模板
@@ -37,20 +38,40 @@ def create_manifest(mod_info):
     manifest["Description"] = mod_info.get("Description", "No description provided")
     manifest["UniqueID"] = mod_info.get("UniqueID", "unknown.mod")
     
+    # 反向复刻：从 Nurl 提取平台信息并填充到 UpdateKeys
+    nurl = mod_info.get("Nurl")
+    update_keys = []
+    if nurl:
+        # 提取 Nexus ID
+        if "nexusmods.com" in nurl:
+            nexus_match = re.search(r'mods/(\d+)', nurl)
+            if nexus_match:
+                update_keys.append(f"Nexus:{nexus_match.group(1)}")
+        
+        # 提取 GitHub 仓库信息 (根据用户示例增加)
+        if "github.com" in nurl:
+            github_match = re.search(r'github\.com/([^/]+/[^/]+)', nurl)
+            if github_match:
+                update_keys.append(f"GitHub:{github_match.group(1)}")
+    
+    manifest["UpdateKeys"] = update_keys
+    
     # 处理内容包（如果Name中包含[CP]标记）
     if "[CP]" in mod_info.get("Name", ""):
         # 内容包需要指定父mod
         unique_id = mod_info.get("UniqueID", "")
         # 尝试从UniqueID推断父mod（通常是前缀）
         if unique_id and "." in unique_id:
-            parent_id = unique_id.split(".")[0] + "." + unique_id.split(".")[1]
-            # 对于已知的内容包，手动指定
-            if "BetterJunimos" in unique_id:
-                manifest["ContentPackFor"] = {"UniqueID": "hawkfalcon.BetterJunimos"}
-            elif "VPP" in unique_id:
-                manifest["ContentPackFor"] = {"UniqueID": "KediDili.VanillaPlusProfessions"}
-            elif "Pierre" in unique_id or "DaisyNiko" in unique_id or "Shopkeeper" in unique_id or "Way" in unique_id or "Canon" in unique_id:
-                manifest["ContentPackFor"] = {"UniqueID": "Pathoschild.ContentPatcher"}
+            parts = unique_id.split(".")
+            if len(parts) >= 2:
+                parent_id = parts[0] + "." + parts[1]
+                # 对于已知的内容包，手动指定
+                if "BetterJunimos" in unique_id:
+                    manifest["ContentPackFor"] = {"UniqueID": "hawkfalcon.BetterJunimos"}
+                elif "VPP" in unique_id:
+                    manifest["ContentPackFor"] = {"UniqueID": "KediDili.VanillaPlusProfessions"}
+                elif "Pierre" in unique_id or "DaisyNiko" in unique_id or "Shopkeeper" in unique_id or "Way" in unique_id or "Canon" in unique_id:
+                    manifest["ContentPackFor"] = {"UniqueID": "Pathoschild.ContentPatcher"}
     
     # 移除None值
     return {k: v for k, v in manifest.items() if v is not None}
@@ -120,13 +141,13 @@ def generate_mods_structure(json_path, output_dir="mods"):
     print(f"{'='*50}\n")
 
 if __name__ == "__main__":
-    # 获取xlgChineseBack.json的路径
+    # 获取xlgChineseBack.json的路径（现在与脚本同级）
     script_dir = Path(__file__).parent
-    json_file = script_dir / "docs" / "reference" / "xlgChineseBack.json"
+    json_file = script_dir / "xlgChineseBack.json"
     
     if not json_file.exists():
         print(f"✗ 错误：找不到 {json_file}")
-        print(f"  请确保xlgChineseBack.json文件存在于 docs/reference/ 目录下")
+        print(f"  请确保xlgChineseBack.json文件存在于脚本同级目录下")
         exit(1)
     
     print("开始生成Stardew Valley mod测试目录结构...\n")

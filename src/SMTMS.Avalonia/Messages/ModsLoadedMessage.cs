@@ -4,11 +4,8 @@ using CommunityToolkit.Mvvm.Messaging.Messages;
 
 namespace SMTMS.Avalonia.Messages;
 
-public class ModsLoadedMessage : ValueChangedMessage<List<ModViewModel>>
+public class ModsLoadedMessage(List<ModViewModel> mods, string directory)
+    : ValueChangedMessage<List<ModViewModel>>(mods)
 {
-    public string Directory { get; }
-    public ModsLoadedMessage(List<ModViewModel> mods, string directory) : base(mods) 
-    {
-        Directory = directory;
-    }
+    public string Directory { get; } = directory;
 }

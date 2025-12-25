@@ -9,12 +9,10 @@ public class AvaloniaCommitMessageService : ICommitMessageService
 {
     public async Task<string?> ShowDialogAsync()
     {
-        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop && desktop.MainWindow != null)
-        {
-            var dialog = new CommitMessageWindow();
-            await dialog.ShowDialog(desktop.MainWindow);
-            return dialog.IsConfirmed ? dialog.CommitMessage : null;
-        }
-        return null;
+        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop ||
+            desktop.MainWindow == null) return null;
+        var dialog = new CommitMessageWindow();
+        await dialog.ShowDialog(desktop.MainWindow);
+        return dialog.IsConfirmed ? dialog.CommitMessage : null;
     }
 }

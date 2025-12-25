@@ -1,7 +1,6 @@
 namespace SMTMS.Avalonia.Messages;
 
-public class OpenHistoryRequestMessage 
+public class OpenHistoryRequestMessage(string modUniqueId)
 {
-    public string ModUniqueId { get; }
-    public OpenHistoryRequestMessage(string modUniqueId) => ModUniqueId = modUniqueId;
+    public string ModUniqueId { get; } = modUniqueId;
 }

@@ -4,11 +4,7 @@ namespace SMTMS.Avalonia.Messages;
 
 public enum StatusLevel { Info, Success, Warning, Error }
 
-public class StatusMessage : ValueChangedMessage<string>
+public class StatusMessage(string value, StatusLevel level = StatusLevel.Info) : ValueChangedMessage<string>(value)
 {
-    public StatusLevel Level { get; }
-    public StatusMessage(string value, StatusLevel level = StatusLevel.Info) : base(value)
-    {
-        Level = level;
-    }
+    public StatusLevel Level { get; } = level;
 }

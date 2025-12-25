@@ -52,5 +52,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<ModTranslationHistory>()
             .HasIndex(h => h.ModUniqueId);
+
+        // 复合索引：优化按 Mod 查询历史的性能
+        modelBuilder.Entity<ModTranslationHistory>()
+            .HasIndex(h => new { h.ModUniqueId, h.SnapshotId });
     }
 }

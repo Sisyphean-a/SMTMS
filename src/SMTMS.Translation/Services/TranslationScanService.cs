@@ -191,9 +191,7 @@ public class TranslationScanService(
 
             var relativePath = _fileSystem.GetRelativePath(modDirectory, file).Replace('\\', '/');
             
-            // 检查是否可以跳过（仅在完全匹配时）
-            // 但我们需要小心：如果我们想确保历史记录正确，
-            // 则需要依赖 ModMetadata.LastFileHash 的准确性。
+            // 检查是否可以跳过（仅基于 Hash 比对）
             if (ShouldSkipFile(relativePath, hash, keyPathMap))
             {
                 result.SkipCount++;
