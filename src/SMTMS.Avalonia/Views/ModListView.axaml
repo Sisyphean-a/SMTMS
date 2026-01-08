@@ -9,7 +9,12 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="using:SMTMS.Avalonia.ViewModels"
+    xmlns:cv="using:SMTMS.Avalonia.Converters"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <UserControl.Resources>
+        <cv:BoolNegationConverter x:Key="BoolNegationConverter"/>
+    </UserControl.Resources>
 
     <Grid ColumnDefinitions="2*, 4, 1*">
         <!--  Mod List  -->
@@ -49,19 +54,29 @@
                     Width="80">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate x:DataType="vm:ModViewModel">
-                            <Button
-                                Background="Transparent"
-                                BorderThickness="0"
-                                Command="{Binding OpenNexusPageCommand}"
-                                Content="{Binding Version}"
-                                CornerRadius="0"
-                                Cursor="Hand"
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Left"
-                                Margin="0"
-                                Padding="12,0,0,0"
-                                VerticalAlignment="Stretch"
-                                VerticalContentAlignment="Center" />
+                            <Panel>
+                                <Button
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Command="{Binding OpenNexusPageCommand}"
+                                    Content="{Binding Version}"
+                                    CornerRadius="0"
+                                    Cursor="Hand"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Left"
+                                    IsVisible="{Binding HasNexusUrl}"
+                                    Margin="0"
+                                    Padding="12,0,0,0"
+                                    VerticalAlignment="Stretch"
+                                    VerticalContentAlignment="Center" />
+                                <TextBlock
+                                    HorizontalAlignment="Stretch"
+                                    IsVisible="{Binding HasNexusUrl, Converter={StaticResource BoolNegationConverter}}"
+                                    Margin="0"
+                                    Padding="12,0,0,0"
+                                    Text="{Binding Version}"
+                                    VerticalAlignment="Center" />
+                            </Panel>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>

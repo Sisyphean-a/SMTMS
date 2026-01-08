@@ -200,7 +200,10 @@ public partial class ModViewModel : ObservableObject
     }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasNexusUrl))]
     private string? _nexusId;
+
+    public bool HasNexusUrl => !string.IsNullOrEmpty(NexusId);
 
     private void ParseNexusId()
     {
