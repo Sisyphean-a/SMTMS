@@ -31,9 +31,10 @@ public class ModService(IFileSystem fileSystem) : IModService
         var subDirectories = _fileSystem.GetDirectories(modsDirectory);
 
         // 并行读取所有 manifest.json 文件
+        // ⚡ Performance: Removed redundant FileExists check here.
+        // ReadManifestAsync already checks for existence, so we avoid a double I/O call.
         var tasks = subDirectories
             .Select(dir => _fileSystem.Combine(dir, "manifest.json"))
-            .Where(path => _fileSystem.FileExists(path))
             .Select(ReadManifestAsync)
             .ToList();
 
