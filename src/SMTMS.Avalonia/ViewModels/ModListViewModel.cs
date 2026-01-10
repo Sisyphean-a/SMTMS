@@ -1,7 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using System.Collections.ObjectModel;
+using Avalonia.Collections;
 using System.IO;
 using SMTMS.Core.Interfaces;
 using SMTMS.Avalonia.Messages;
@@ -29,7 +29,7 @@ public partial class ModListViewModel : ObservableObject
     [ObservableProperty]
     private string _modsDirectory = string.Empty;
 
-    public ObservableCollection<ModViewModel> Mods { get; } = [];
+    public AvaloniaList<ModViewModel> Mods { get; } = [];
 
     // Column Visibility
     [ObservableProperty] private bool _showNameColumn = true;
@@ -99,6 +99,7 @@ public partial class ModListViewModel : ObservableObject
 
             // 3. 合并数据并更新
             var modsToUpdate = new List<Core.Models.ModMetadata>();
+            var viewModels = new List<ModViewModel>(manifestList.Count);
 
             foreach (var manifest in manifestList)
             {
@@ -129,10 +130,13 @@ public partial class ModListViewModel : ObservableObject
                     }
                 }
 
-                // 添加到 UI 集合
+                // 创建 ViewModel，但先不添加到 UI 集合
                 var viewModel = new ModViewModel(manifest, mod);
-                Mods.Add(viewModel);
+                viewModels.Add(viewModel);
             }
+
+            // 批量添加到 UI 集合，避免多次触发集合变更事件
+            Mods.AddRange(viewModels);
 
             // 批量保存所有变更
             if (modsToUpdate.Count != 0)
