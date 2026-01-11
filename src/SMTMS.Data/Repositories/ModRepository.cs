@@ -99,7 +99,9 @@ public class ModRepository(AppDbContext context, ILogger<ModRepository> logger) 
             .ToListAsync(cancellationToken);
         var existingMods = existingModsList.ToDictionary(m => m.UniqueID);
 
+        var newMods = new List<ModMetadata>();
         var debugCount = 0;
+
         foreach (var mod in modList)
         {
             // 🔥 检查取消请求
@@ -124,10 +126,16 @@ public class ModRepository(AppDbContext context, ILogger<ModRepository> logger) 
             }
             else
             {
-                // 添加新记录
-                await context.ModMetadata.AddAsync(mod, cancellationToken);
+                // 收集新记录以便稍后批量插入
+                newMods.Add(mod);
             }
             debugCount++;
+        }
+
+        // 批量插入新记录（性能优化：使用 AddRangeAsync 代替循环 AddAsync）
+        if (newMods.Count > 0)
+        {
+            await context.ModMetadata.AddRangeAsync(newMods, cancellationToken);
         }
 
         // 一次性保存所有变更
