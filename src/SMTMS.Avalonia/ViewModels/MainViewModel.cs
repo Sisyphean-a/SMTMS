@@ -140,10 +140,14 @@ public partial class MainViewModel : ObservableObject
     {
         try
         {
-            // 释放数据库锁
+            // 释放数据库锁并等待系统回收
             Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
+            for (int i = 0; i < 2; i++)
+            {
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                await Task.Delay(100); 
+            }
 
             var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
 
@@ -152,18 +156,18 @@ public partial class MainViewModel : ObservableObject
             if (File.Exists(dbPath))
             {
                 // 重试机制，防止文件短暂占用
-                int maxRetries = 3;
+                int maxRetries = 5;
                 for (int i = 0; i < maxRetries; i++)
                 {
                     try
                     {
                         File.Delete(dbPath);
-                        break; // 删除成功，退出循环
+                        break; 
                     }
                     catch (IOException)
                     {
-                        if (i == maxRetries - 1) throw; // 最后一次尝试如果还失败，则抛出异常
-                        System.Threading.Thread.Sleep(500); // 等待 500ms 重试
+                        if (i == maxRetries - 1) throw; 
+                        await Task.Delay(500); // 异步等待
                     }
                 }
             }

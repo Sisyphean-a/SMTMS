@@ -14,6 +14,8 @@
 
     <UserControl.Resources>
         <cv:BoolNegationConverter x:Key="BoolNegationConverter"/>
+        <cv:BoolToFontWeightConverter x:Key="BoolToFontWeightConverter"/>
+        <cv:BoolToFontStyleConverter x:Key="BoolToFontStyleConverter"/>
     </UserControl.Resources>
 
     <Grid ColumnDefinitions="2*, 4, 1*">
@@ -40,6 +42,8 @@
                 </Style>
                 <Style Selector="DataGridRow" x:DataType="vm:ModViewModel">
                     <Setter Property="Tag" Value="{Binding HasLocalChanges}" />
+                    <Setter Property="FontWeight" Value="{Binding HasLocalChanges, Converter={StaticResource BoolToFontWeightConverter}}" />
+                    <Setter Property="FontStyle" Value="{Binding IsDirty, Converter={StaticResource BoolToFontStyleConverter}}" />
                 </Style>
                 <Style Selector="DataGridRow[Tag=True]">
                     <Setter Property="Foreground" Value="{StaticResource GeekBlueBrush}" />

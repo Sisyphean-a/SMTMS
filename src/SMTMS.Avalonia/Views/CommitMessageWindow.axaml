@@ -12,12 +12,14 @@
         SystemDecorations="None"
         TransparencyLevelHint="Transparent"
         Background="Transparent"
+        UseLayoutRounding="True"
         ExtendClientAreaToDecorationsHint="True">
     
     <Border Padding="2" 
             Margin="20"
             Background="#E1E3E6" 
             CornerRadius="0"
+            BoxShadow="0 8 32 0 #30000000"
             PointerPressed="OnBorderPointerPressed">
         <Border Background="#FFFFFF" Padding="20">
             <StackPanel Spacing="20">

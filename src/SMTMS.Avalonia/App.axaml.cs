@@ -45,7 +45,7 @@ public partial class App : Application
                 // Database
                 services.AddDbContext<AppDbContext>(options =>
                 {
-                    options.UseSqlite($"Data Source={dbPath}");
+                    options.UseSqlite($"Data Source={dbPath};Pooling=False");
                     options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.CommandExecuted));
                 });
 
