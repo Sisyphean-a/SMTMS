@@ -29,19 +29,23 @@
                     Orientation="Horizontal"
                     Spacing="8">
                     <TextBox
+                        AutomationProperties.Name="模组目录路径"
                         Classes="Small"
                         InnerRightContent="路径"
                         Text="{Binding ModsDirectory}"
                         Watermark="模组目录路径"
                         Width="300" />
                     <Button
+                        AutomationProperties.Name="选择模组目录"
                         Command="{Binding BrowseFolderCommand}"
                         Content="📂"
-                        Theme="{DynamicResource TertiaryButton}" />
+                        Theme="{DynamicResource TertiaryButton}"
+                        ToolTip.Tip="选择模组目录" />
                     <Button
                         Command="{Binding ModListViewModel.LoadModsCommand}"
                         Content="扫描模组"
-                        Theme="{DynamicResource SolidButton}" />
+                        Theme="{DynamicResource SolidButton}"
+                        ToolTip.Tip="扫描当前目录下的模组" />
                 </StackPanel>
 
                 <TextBlock
