@@ -210,51 +210,35 @@ public partial class HistoryViewModel : ObservableObject
     {
         if (SelectedSnapshot == null) return;
         
-        // 全局回滚逻辑
-        // 1. 获取该 Snapshot 时刻所有 Mod 的最新状态
-        // 2. 批量更新 ModMetadata
-        // 3. 写入文件系统
-        
         try 
         {
              WeakReferenceMessenger.Default.Send(new StatusMessage("正在全局回滚...", StatusLevel.Warning));
-             
-             // TODO: 调用 Service 的 RollbackSnapshot 方法 (需要在 TranslationService 中新增，或此处实现)
-             // 简单起见，先不支持全局回滚，只支持“从数据库恢复” (RestoreFromDatabaseAsync works "latest").
-             // To implement "Time Machine":
-             // update ModMetadata set CurrentJson = History.Json where ...
-             // then call RestoreTranslationsFromDbAsync
-             
+
              using var scope = _scopeFactory.CreateScope();
-             var historyRepo = scope.ServiceProvider.GetRequiredService<IHistoryRepository>();
-             var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
+             var settingsService = scope.ServiceProvider.GetRequiredService<ISettingsService>();
+             var settings = await settingsService.GetSettingsAsync();
              
-             var histories = await historyRepo.GetModHistoriesForSnapshotAsync(SelectedSnapshot.Id);
-             var mods = new List<ModMetadata>();
-             
-             foreach(var h in histories)
+             var modDirectory = settings.LastModsDirectory;
+             if (string.IsNullOrEmpty(modDirectory))
              {
-                 var mod = await modRepo.GetModAsync(h.ModUniqueId);
-                 if (mod != null)
-                 {
-                     mod.CurrentJson = h.JsonContent;
-                     mod.LastFileHash = h.PreviousHash; // Revert hash too?
-                     // mod.LastTranslationUpdate = // Keep real time?
-                     mods.Add(mod);
-                 }
+                 WeakReferenceMessenger.Default.Send(new StatusMessage("回滚失败: 未找到 Mods 目录设置。", StatusLevel.Error));
+                 return;
              }
-             
-             await modRepo.UpsertModsAsync(mods); // Commit DB state revert
-             
-             // Now apply to physical files
-             await _translationService.RestoreTranslationsFromDbAsync(string.Empty); // Empty dir uses Settings logic inside Service? Usually requires path.
-             // MainViewModel passes ModsDirectory. Here we might need to get it from settings.
-             
-             WeakReferenceMessenger.Default.Send(new StatusMessage("全局回滚成功! 请检查游戏模组。", StatusLevel.Success));
+
+             var result = await _translationService.RollbackSnapshotAsync(SelectedSnapshot.Id, modDirectory);
+
+             if (result.IsSuccess)
+             {
+                 WeakReferenceMessenger.Default.Send(new StatusMessage(result.Message, StatusLevel.Success));
+             }
+             else
+             {
+                 WeakReferenceMessenger.Default.Send(new StatusMessage($"回滚失败: {result.Message}", StatusLevel.Error));
+             }
         }
         catch(Exception ex)
         {
-             WeakReferenceMessenger.Default.Send(new StatusMessage($"回滚失败: {ex.Message}", StatusLevel.Error));
+             WeakReferenceMessenger.Default.Send(new StatusMessage($"回滚异常: {ex.Message}", StatusLevel.Error));
         }
     }
 }

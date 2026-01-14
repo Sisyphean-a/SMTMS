@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Moq;
 using SMTMS.Core.Interfaces;
 using SMTMS.Core.Models;
 using SMTMS.Tests.Mocks;
@@ -11,19 +12,19 @@ public class TranslationServiceTests
 {
     private readonly InMemoryFileSystem _fileSystem;
     private readonly InMemoryModRepository _modRepository;
+    private readonly Mock<IHistoryRepository> _mockHistoryRepo;
     private readonly TranslationService _service;
 
     public TranslationServiceTests()
     {
         _fileSystem = new InMemoryFileSystem();
         _modRepository = new InMemoryModRepository();
+        _mockHistoryRepo = new Mock<IHistoryRepository>();
 
         // 创建 Mock ServiceProvider
         var services = new ServiceCollection();
         services.AddScoped<IModRepository>(_ => _modRepository);
-        // Added Mock HistoryRepository
-        var mockHistoryRepo = new Moq.Mock<IHistoryRepository>();
-        services.AddScoped<IHistoryRepository>(_ => mockHistoryRepo.Object);
+        services.AddScoped<IHistoryRepository>(_ => _mockHistoryRepo.Object);
         
         var serviceProvider = services.BuildServiceProvider();
 
@@ -156,6 +157,7 @@ public class TranslationServiceTests
         Assert.Contains("测试模组", restoredContent);
         Assert.Contains("这是一个测试模组", restoredContent);
     }
+
     [Fact]
     public async Task SaveTranslationsToDbAsync_NestedMod_Ignored()
     {
@@ -178,21 +180,70 @@ public class TranslationServiceTests
 
         // Act
         // 当前逻辑：ScanManifestFilesAsync 仅扫描 /mods 的一级子目录。
-        // /mods/Group 不包含 manifest.json（在此上下文中它是一个文件夹，而不是模组根目录）
-        // /mods/Group/NestedMod 包含 manifest.json 但深度为 2 层。
-        // 等等，TranslationScanService 逻辑：
-        // var subDirectories = _fileSystem.GetDirectories(modDirectory); --> 返回 /mods/Group
-        // 检查 /mods/Group/manifest.json --> False。
-        // 因此它应该找到 0 个模组。
         var result = await _service.SaveTranslationsToDbAsync("/mods");
 
         // Assert
         // Expect 0 success because it should not find the nested mod
-        Assert.True(result.IsSuccess); // It succeeds in "doing nothing" or finding 0 mods
+        Assert.True(result.IsSuccess);
         Assert.Equal(0, result.SuccessCount); 
         
-        // Ensure not saved to DB
         var mod = await _modRepository.GetModAsync("TestAuthor.NestedMod");
         Assert.Null(mod);
+    }
+
+    [Fact]
+    public async Task RollbackSnapshotAsync_RestoresStateAndFiles()
+    {
+        // Arrange
+        string modDir = "/mods";
+        _fileSystem.CreateDirectory(modDir);
+        _fileSystem.CreateDirectory($"{modDir}/TestMod");
+
+        // Initial file state (Latest)
+        string latestJson = """{"Name":"New Name", "Description":"New Desc", "UniqueID":"TestMod"}""";
+        await _fileSystem.WriteAllTextAsync($"{modDir}/TestMod/manifest.json", latestJson);
+
+        // Current DB State (Latest)
+        var mod = new ModMetadata
+        {
+            UniqueID = "TestMod",
+            TranslatedName = "New Name",
+            TranslatedDescription = "New Desc",
+            CurrentJson = latestJson
+        };
+        _modRepository.AddMod(mod);
+
+        // Historical Snapshot State (Old)
+        string oldJson = """{"Name":"Old Name", "Description":"Old Desc", "UniqueID":"TestMod"}""";
+        var histories = new List<ModTranslationHistory>
+        {
+            new ModTranslationHistory
+            {
+                ModUniqueId = "TestMod",
+                JsonContent = oldJson,
+                PreviousHash = "old_hash",
+                SnapshotId = 1
+            }
+        };
+
+        _mockHistoryRepo.Setup(x => x.GetModHistoriesForSnapshotAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(histories);
+
+        // Act
+        var result = await _service.RollbackSnapshotAsync(1, modDir);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+
+        // Verify DB updated
+        var updatedMod = await _modRepository.GetModAsync("TestMod");
+        Assert.Equal("Old Name", updatedMod!.TranslatedName);
+        Assert.Equal("Old Desc", updatedMod.TranslatedDescription);
+        Assert.Equal(oldJson, updatedMod.CurrentJson);
+
+        // Verify File updated
+        var fileContent = await _fileSystem.ReadAllTextAsync($"{modDir}/TestMod/manifest.json");
+        Assert.Contains("Old Name", fileContent);
+        Assert.Contains("Old Desc", fileContent);
     }
 }
