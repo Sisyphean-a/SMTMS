@@ -50,7 +50,7 @@ public class TranslationScanService(
 
         // 5. 处理文件 (生成 ModsUpsert 和 HistoryInsert)
         // 暂时使用 0 作为 snapshotId，稍后如果有需要我们会分配真正的 ID
-        var processResult = await ProcessManifestFilesAsync(
+        var processResult = ProcessManifestFilesAsync(
             modDirectory,
             fileHashes,
             keyPathMap,
@@ -168,7 +168,7 @@ public class TranslationScanService(
         return (keyPathMap, keyIdMap, sw.ElapsedMilliseconds);
     }
 
-    private async Task<ProcessResult> ProcessManifestFilesAsync(
+    private ProcessResult ProcessManifestFilesAsync(
         string modDirectory,
         (string file, string hash, string? content, bool success)[] fileHashes,
         Dictionary<string, ModMetadata> keyPathMap,
@@ -201,7 +201,7 @@ public class TranslationScanService(
 
             result.ParseCount++;
 
-            await ProcessSingleManifestAsync(file, hash, content, relativePath, keyIdMap, snapshotId, result, cancellationToken);
+            ProcessSingleManifestAsync(file, hash, content, relativePath, keyIdMap, snapshotId, result, cancellationToken);
         }
 
         sw.Stop();
@@ -221,7 +221,7 @@ public class TranslationScanService(
         return false;
     }
 
-    private async Task ProcessSingleManifestAsync(
+    private void ProcessSingleManifestAsync(
         string file,
         string hash,
         string jsonContent,

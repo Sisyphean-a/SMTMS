@@ -17,7 +17,10 @@ public class ModRepository(AppDbContext context, ILogger<ModRepository> logger) 
     {
         // 🔥 EF Core 优化：只读查询使用 AsNoTracking() 减少内存占用
         // 🔥 支持取消令牌
-        return await context.ModMetadata.AsNoTracking().ToListAsync(cancellationToken);
+        return await context.ModMetadata
+            .AsNoTracking()
+            .OrderBy(m => m.TranslatedName)
+            .ToListAsync(cancellationToken);
     }
 
     /// <summary>

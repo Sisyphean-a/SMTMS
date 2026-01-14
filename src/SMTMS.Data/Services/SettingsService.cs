@@ -9,7 +9,7 @@ public class SettingsService(AppDbContext context) : ISettingsService
 {
     public async Task<AppSettings> GetSettingsAsync()
     {
-        var settings = await context.AppSettings.FirstOrDefaultAsync();
+        var settings = await context.AppSettings.OrderBy(s => s.Id).FirstOrDefaultAsync();
         if (settings != null) return settings;
         settings = new AppSettings();
         context.AppSettings.Add(settings);
@@ -20,7 +20,7 @@ public class SettingsService(AppDbContext context) : ISettingsService
 
     public async Task SaveSettingsAsync(AppSettings settings)
     {
-        var existing = await context.AppSettings.FirstOrDefaultAsync();
+        var existing = await context.AppSettings.OrderBy(s => s.Id).FirstOrDefaultAsync();
         if (existing != null)
         {
             existing.LastModsDirectory = settings.LastModsDirectory;
