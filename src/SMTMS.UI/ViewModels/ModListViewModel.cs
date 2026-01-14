@@ -71,7 +71,7 @@ public partial class ModListViewModel : ObservableObject
         {
             // 1. 扫描文件
             var manifests = await _modService.ScanModsAsync(ModsDirectory);
-            var manifestList = manifests.ToList();
+            var manifestList = manifests.OrderBy(m => m.Name).ToList();
 
             if (manifestList.Count == 0)
             {

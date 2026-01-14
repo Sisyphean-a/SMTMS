@@ -1,11 +1,49 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="SMTMS.Avalonia.App"
-             RequestedThemeVariant="Default">
+             RequestedThemeVariant="Light">
              <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other options. -->
+
+    <Application.Resources>
+        <Color x:Key="GeekBlue">#0066CC</Color>
+        <SolidColorBrush x:Key="GeekBlueBrush" Color="{StaticResource GeekBlue}" />
+        <FontFamily x:Key="MonoFont">JetBrains Mono, Cascadia Code, Consolas, monospace</FontFamily>
+    </Application.Resources>
 
     <Application.Styles>
         <StyleInclude Source="avares://Semi.Avalonia/Themes/Index.axaml" />
         <StyleInclude Source="avares://Semi.Avalonia.DataGrid/Index.axaml" />
+        
+        <!-- Global Geek Styles -->
+        <Style Selector="Window">
+            <Setter Property="Background" Value="#FFFFFF" />
+        </Style>
+        
+        <Style Selector="TextBlock">
+            <Setter Property="Foreground" Value="#2D2D2D" />
+        </Style>
+
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="#FAFAFA" />
+            <Setter Property="BorderBrush" Value="#E1E3E6" />
+            <Setter Property="CornerRadius" Value="2" />
+        </Style>
+        
+        <Style Selector="Button.Solid">
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="{StaticResource GeekBlueBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="{StaticResource GeekBlueBrush}" />
+        </Style>
+        
+        <Style Selector="DataGrid">
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#E1E3E6" />
+        </Style>
+        
+        <Style Selector="TabItem">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
     </Application.Styles>
 </Application>

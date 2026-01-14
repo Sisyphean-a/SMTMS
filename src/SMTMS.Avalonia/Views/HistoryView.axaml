@@ -10,13 +10,16 @@
     xmlns:vm="using:SMTMS.Avalonia.ViewModels"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <Grid RowDefinitions="Auto, *, 4, 280">
+    <Grid RowDefinitions="Auto, *, 4, 300">
         <StackPanel
             Grid.Row="0"
-            Margin="0,10,0,10"
+            Margin="0,0,0,15"
             Orientation="Horizontal"
-            Spacing="10">
-            <Button Command="{Binding HistoryViewModel.LoadHistoryCommand}" Content="刷新列表" />
+            Spacing="12">
+            <Button
+                Classes="Tertiary"
+                Command="{Binding HistoryViewModel.LoadHistoryCommand}"
+                Content="刷新列表" />
 
             <Button
                 Classes="Danger"
@@ -28,93 +31,99 @@
         <DataGrid
             AutoGenerateColumns="False"
             BorderBrush="#E1E3E6"
-            BorderThickness="1"
+            BorderThickness="0,1,0,1"
             Grid.Row="1"
-            GridLinesVisibility="All"
-            HeadersVisibility="All"
+            GridLinesVisibility="Horizontal"
+            HeadersVisibility="Column"
             IsReadOnly="True"
             ItemsSource="{Binding HistoryViewModel.SnapshotHistory}"
-            RowBackground="White"
+            RowBackground="Transparent"
             SelectedItem="{Binding HistoryViewModel.SelectedSnapshot}">
+            <DataGrid.Styles>
+                <Style Selector="DataGridColumnHeader">
+                    <Setter Property="Background" Value="#FAFAFA" />
+                    <Setter Property="Foreground" Value="#999999" />
+                    <Setter Property="FontSize" Value="11" />
+                </Style>
+            </DataGrid.Styles>
             <DataGrid.Columns>
                 <DataGridTextColumn
                     Binding="{Binding Id}"
+                    FontFamily="{StaticResource MonoFont}"
                     Header="ID"
-                    Width="50" />
+                    Width="60" />
                 <DataGridTextColumn
                     Binding="{Binding Message}"
-                    Header="描述"
+                    Header="提交信息"
                     Width="*" />
                 <DataGridTextColumn
                     Binding="{Binding TotalMods}"
+                    FontFamily="{StaticResource MonoFont}"
                     Header="模组数"
                     Width="80" />
                 <DataGridTextColumn
                     Binding="{Binding Timestamp}"
-                    Header="日期"
-                    Width="160" />
+                    FontFamily="{StaticResource MonoFont}"
+                    Header="时间戳"
+                    Width="180" />
             </DataGrid.Columns>
         </DataGrid>
 
         <GridSplitter
-            Background="#F0F2F5"
+            Background="#E1E3E6"
             Grid.Row="2"
-            Height="4"
+            Height="1"
             HorizontalAlignment="Stretch"
             ResizeDirection="Rows" />
 
-        <Grid ColumnDefinitions="3*, 4, 2*" Grid.Row="3">
+        <Grid ColumnDefinitions="3*, 4, 3*" Grid.Row="3">
             <DataGrid
                 AutoGenerateColumns="False"
                 BorderBrush="#E1E3E6"
-                BorderThickness="1"
+                BorderThickness="0,0,1,0"
                 Grid.Column="0"
-                GridLinesVisibility="All"
-                HeadersVisibility="All"
+                GridLinesVisibility="Horizontal"
+                HeadersVisibility="Column"
                 IsReadOnly="True"
                 ItemsSource="{Binding HistoryViewModel.ModDiffChanges}"
-                RowBackground="White"
+                RowBackground="Transparent"
                 SelectedItem="{Binding HistoryViewModel.SelectedDiffItem}">
+                <DataGrid.Styles>
+                    <Style Selector="DataGridColumnHeader">
+                        <Setter Property="Background" Value="#FAFAFA" />
+                        <Setter Property="Foreground" Value="#999999" />
+                        <Setter Property="FontSize" Value="11" />
+                    </Style>
+                </DataGrid.Styles>
                 <DataGrid.Columns>
                     <DataGridTextColumn
                         Binding="{Binding ModName}"
-                        Header="Mod Name"
+                        Header="模组名称"
                         Width="200" />
                     <DataGridTextColumn
                         Binding="{Binding FolderName}"
-                        Header="Folder"
+                        FontFamily="{StaticResource MonoFont}"
+                        Header="文件夹"
                         Width="150" />
-                    <DataGridTemplateColumn Header="Changes" Width="*">
+                    <DataGridTemplateColumn Header="变更详情" Width="*">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <StackPanel Margin="5">
-                                    <TextBlock IsVisible="{Binding NameChange.HasChange}">
-                                        <Run
-                                            FontWeight="Bold"
-                                            Foreground="#673AB7"
-                                            Text="Name: " />
-                                        <Run Foreground="Gray" Text="{Binding NameChange.ChangeSummary}" />
+                                <StackPanel Margin="8,4">
+                                    <TextBlock FontSize="12" IsVisible="{Binding NameChange.HasChange}">
+                                        <Run Foreground="#999999" Text="名称: " />
+                                        <Run Foreground="{StaticResource GeekBlueBrush}" Text="{Binding NameChange.ChangeSummary}" />
                                     </TextBlock>
-                                    <TextBlock IsVisible="{Binding DescriptionChange.HasChange}">
-                                        <Run
-                                            FontWeight="Bold"
-                                            Foreground="#673AB7"
-                                            Text="Desc: " />
-                                        <Run Foreground="Gray" Text="{Binding DescriptionChange.ChangeSummary}" />
+                                    <TextBlock FontSize="12" IsVisible="{Binding DescriptionChange.HasChange}">
+                                        <Run Foreground="#999999" Text="描述: " />
+                                        <Run Foreground="{StaticResource GeekBlueBrush}" Text="{Binding DescriptionChange.ChangeSummary}" />
                                     </TextBlock>
-                                    <TextBlock IsVisible="{Binding AuthorChange.HasChange}">
-                                        <Run
-                                            FontWeight="Bold"
-                                            Foreground="#673AB7"
-                                            Text="Author: " />
-                                        <Run Foreground="Gray" Text="{Binding AuthorChange.ChangeSummary}" />
+                                    <TextBlock FontSize="12" IsVisible="{Binding AuthorChange.HasChange}">
+                                        <Run Foreground="#999999" Text="作者: " />
+                                        <Run Foreground="{StaticResource GeekBlueBrush}" Text="{Binding AuthorChange.ChangeSummary}" />
                                     </TextBlock>
-                                    <TextBlock IsVisible="{Binding VersionChange.HasChange}">
-                                        <Run
-                                            FontWeight="Bold"
-                                            Foreground="#673AB7"
-                                            Text="Ver: " />
-                                        <Run Foreground="Gray" Text="{Binding VersionChange.ChangeSummary}" />
+                                    <TextBlock FontSize="12" IsVisible="{Binding VersionChange.HasChange}">
+                                        <Run Foreground="#999999" Text="版本: " />
+                                        <Run Foreground="{StaticResource GeekBlueBrush}" Text="{Binding VersionChange.ChangeSummary}" />
                                     </TextBlock>
                                 </StackPanel>
                             </DataTemplate>
@@ -124,73 +133,81 @@
             </DataGrid>
 
             <GridSplitter
-                Background="Transparent"
+                Background="#E1E3E6"
                 Grid.Column="1"
-                ResizeDirection="Columns" />
+                ResizeDirection="Columns"
+                Width="1" />
 
             <Border
-                Background="White"
+                Background="#FFFFFF"
                 BorderBrush="#E1E3E6"
-                BorderThickness="1"
-                CornerRadius="4"
+                BorderThickness="0"
                 Grid.Column="2"
-                Padding="10">
+                Padding="15">
                 <ScrollViewer>
                     <StackPanel IsVisible="{Binding HistoryViewModel.SelectedDiffItem, Converter={x:Static ObjectConverters.IsNotNull}}">
                         <TextBlock
-                            FontSize="16"
+                            FontFamily="{StaticResource MonoFont}"
+                            FontSize="14"
                             FontWeight="Bold"
-                            Margin="0,0,0,10"
-                            Text="Diff Details" />
+                            Foreground="{StaticResource GeekBlueBrush}"
+                            Margin="0,0,0,15"
+                            Text="差异分析器" />
 
-                        <StackPanel Spacing="5">
+                        <StackPanel Spacing="10">
                             <TextBlock
-                                FontWeight="SemiBold"
+                                FontSize="10"
+                                FontWeight="Bold"
+                                Foreground="#999999"
                                 IsVisible="{Binding HistoryViewModel.SelectedDiffItem.NameChange.HasChange}"
-                                Text="Name Change:" />
+                                Text="名称变更" />
                             <Grid ColumnDefinitions="*,*" IsVisible="{Binding HistoryViewModel.SelectedDiffItem.NameChange.HasChange}">
                                 <TextBox
-                                    Background="#FFF4E6"
+                                    Background="#FFF0F0"
                                     BorderThickness="0"
+                                    Foreground="#D32F2F"
                                     Grid.Column="0"
                                     IsReadOnly="True"
-                                    Margin="0"
-                                    Padding="5"
+                                    Margin="0,0,4,0"
                                     Text="{Binding HistoryViewModel.SelectedDiffItem.NameChange.OldValue}" />
                                 <TextBox
-                                    Background="#E6F4EA"
+                                    Background="#F0F7FF"
                                     BorderThickness="0"
+                                    Foreground="#1976D2"
                                     Grid.Column="1"
                                     IsReadOnly="True"
-                                    Margin="0"
-                                    Padding="5"
+                                    Margin="4,0,0,0"
                                     Text="{Binding HistoryViewModel.SelectedDiffItem.NameChange.NewValue}" />
                             </Grid>
 
                             <TextBlock
-                                FontWeight="SemiBold"
+                                FontSize="10"
+                                FontWeight="Bold"
+                                Foreground="#999999"
                                 IsVisible="{Binding HistoryViewModel.SelectedDiffItem.DescriptionChange.HasChange}"
                                 Margin="0,10,0,0"
-                                Text="Description Change:" />
+                                Text="描述变更" />
                             <Grid ColumnDefinitions="*,*" IsVisible="{Binding HistoryViewModel.SelectedDiffItem.DescriptionChange.HasChange}">
                                 <TextBox
                                     AcceptsReturn="True"
-                                    Background="#FFF4E6"
+                                    Background="#FFF0F0"
                                     BorderThickness="0"
+                                    Foreground="#D32F2F"
                                     Grid.Column="0"
+                                    Height="100"
                                     IsReadOnly="True"
-                                    Margin="0"
-                                    Padding="5"
+                                    Margin="0,0,4,0"
                                     Text="{Binding HistoryViewModel.SelectedDiffItem.DescriptionChange.OldValue}"
                                     TextWrapping="Wrap" />
                                 <TextBox
                                     AcceptsReturn="True"
-                                    Background="#E6F4EA"
+                                    Background="#F0F7FF"
                                     BorderThickness="0"
+                                    Foreground="#1976D2"
                                     Grid.Column="1"
+                                    Height="100"
                                     IsReadOnly="True"
-                                    Margin="0"
-                                    Padding="5"
+                                    Margin="4,0,0,0"
                                     Text="{Binding HistoryViewModel.SelectedDiffItem.DescriptionChange.NewValue}"
                                     TextWrapping="Wrap" />
                             </Grid>
@@ -200,13 +217,16 @@
             </Border>
 
             <Border
-                Background="#80FFFFFF"
+                Background="#EEFFFFFF"
                 Grid.Column="0"
+                Grid.ColumnSpan="3"
                 IsVisible="{Binding HistoryViewModel.IsLoadingDiff}">
                 <TextBlock
-                    FontSize="24"
+                    FontFamily="{StaticResource MonoFont}"
+                    FontSize="20"
+                    Foreground="{StaticResource GeekBlueBrush}"
                     HorizontalAlignment="Center"
-                    Text="Loading Diff..."
+                    Text="[正在执行差异分析...]"
                     VerticalAlignment="Center" />
             </Border>
         </Grid>

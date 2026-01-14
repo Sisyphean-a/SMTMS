@@ -1,6 +1,8 @@
 <Window
     Title="{Binding ApplicationTitle}"
     WindowStartupLocation="CenterScreen"
+    Width="1200"
+    Height="800"
     d:DesignHeight="800"
     d:DesignWidth="1200"
     mc:Ignorable="d"
@@ -16,37 +18,37 @@
     <Grid RowDefinitions="Auto, *">
         <!--  Toolbar  -->
         <Border
-            Background="White"
+            Background="Transparent"
             BorderBrush="#E1E3E6"
-            BorderThickness="1"
-            CornerRadius="4"
+            BorderThickness="0,0,0,1"
             Grid.Row="0"
-            Margin="10,10,10,0"
-            Padding="10">
+            Padding="15,10">
             <Grid ColumnDefinitions="Auto, *, Auto">
                 <StackPanel
                     Grid.Column="0"
                     Orientation="Horizontal"
-                    Spacing="8">
+                    Spacing="12">
                     <TextBox
                         Classes="Small"
+                        FontFamily="{StaticResource MonoFont}"
                         InnerRightContent="路径"
                         Text="{Binding ModsDirectory}"
                         Watermark="模组目录路径"
-                        Width="300" />
+                        Width="350" />
                     <Button
+                        Classes="Tertiary"
                         Command="{Binding BrowseFolderCommand}"
-                        Content="📂"
-                        Theme="{DynamicResource TertiaryButton}" />
+                        Content="打开" />
                     <Button
+                        Classes="Solid"
                         Command="{Binding ModListViewModel.LoadModsCommand}"
-                        Content="扫描模组"
-                        Theme="{DynamicResource SolidButton}" />
+                        Content="扫描模组" />
                 </StackPanel>
 
                 <TextBlock
-                    FontSize="12"
-                    Foreground="Gray"
+                    FontFamily="{StaticResource MonoFont}"
+                    FontSize="11"
+                    Foreground="#999999"
                     Grid.Column="1"
                     HorizontalAlignment="Center"
                     Margin="10,0"
@@ -56,13 +58,19 @@
                 <StackPanel
                     Grid.Column="2"
                     Orientation="Horizontal"
-                    Spacing="8">
-                    <Button Command="{Binding SyncToDatabaseCommand}" Content="同步到数据库" />
-                    <Button Command="{Binding RestoreFromDatabaseCommand}" Content="从数据库恢复" />
+                    Spacing="12">
+                    <Button
+                        Classes="Tertiary"
+                        Command="{Binding SyncToDatabaseCommand}"
+                        Content="同步数据" />
+                    <Button
+                        Classes="Tertiary"
+                        Command="{Binding RestoreFromDatabaseCommand}"
+                        Content="恢复数据" />
 
                     <Rectangle
                         Fill="#E1E3E6"
-                        Margin="4,4"
+                        Margin="4,6"
                         Width="1" />
 
                     <Button

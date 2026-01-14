@@ -21,24 +21,28 @@
         <DataGrid
             AutoGenerateColumns="False"
             BorderBrush="#E1E3E6"
-            BorderThickness="1"
+            BorderThickness="0,0,1,0"
             Grid.Column="0"
-            GridLinesVisibility="All"
-            HeadersVisibility="All"
+            GridLinesVisibility="Horizontal"
+            HeadersVisibility="Column"
             IsReadOnly="True"
             ItemsSource="{Binding ModListViewModel.Mods}"
-            RowBackground="White"
+            RowBackground="Transparent"
             SelectedItem="{Binding ModListViewModel.SelectedMod}"
             x:CompileBindings="False"
             x:Name="ModsGrid">
             <DataGrid.Styles>
-                <!-- 针对行的数据类型显式指定，解决 HasLocalChanges 找不到的问题 -->
+                <Style Selector="DataGridColumnHeader">
+                    <Setter Property="Background" Value="#FAFAFA" />
+                    <Setter Property="Foreground" Value="#999999" />
+                    <Setter Property="FontSize" Value="11" />
+                    <Setter Property="FontWeight" Value="Bold" />
+                </Style>
                 <Style Selector="DataGridRow" x:DataType="vm:ModViewModel">
                     <Setter Property="Tag" Value="{Binding HasLocalChanges}" />
                 </Style>
                 <Style Selector="DataGridRow[Tag=True]">
-                    <Setter Property="FontWeight" Value="Bold" />
-                    <Setter Property="FontStyle" Value="Italic" />
+                    <Setter Property="Foreground" Value="{StaticResource GeekBlueBrush}" />
                 </Style>
             </DataGrid.Styles>
             <DataGrid.Columns>
@@ -51,7 +55,7 @@
                     Header="版本"
                     IsVisible="{Binding DataContext.ModListViewModel.ShowVersionColumn, ElementName=ModsGrid}"
                     SortMemberPath="Version"
-                    Width="80">
+                    Width="100">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate x:DataType="vm:ModViewModel">
                             <Panel>
@@ -62,6 +66,8 @@
                                     Content="{Binding Version}"
                                     CornerRadius="0"
                                     Cursor="Hand"
+                                    FontFamily="{StaticResource MonoFont}"
+                                    FontSize="12"
                                     HorizontalAlignment="Stretch"
                                     HorizontalContentAlignment="Left"
                                     IsVisible="{Binding HasNexusUrl}"
@@ -70,6 +76,8 @@
                                     VerticalAlignment="Stretch"
                                     VerticalContentAlignment="Center" />
                                 <TextBlock
+                                    FontFamily="{StaticResource MonoFont}"
+                                    FontSize="12"
                                     HorizontalAlignment="Stretch"
                                     IsVisible="{Binding HasNexusUrl, Converter={StaticResource BoolNegationConverter}}"
                                     Margin="0"
@@ -82,9 +90,11 @@
                 </DataGridTemplateColumn>
                 <DataGridTextColumn
                     Binding="{Binding UniqueID}"
-                    Header="ID"
+                    FontFamily="{StaticResource MonoFont}"
+                    FontSize="11"
+                    Header="唯一 ID"
                     IsVisible="{Binding DataContext.ModListViewModel.ShowIdColumn, ElementName=ModsGrid}"
-                    Width="200" />
+                    Width="250" />
 
                 <DataGridTextColumn
                     Binding="{Binding Description}"
@@ -95,80 +105,85 @@
         </DataGrid>
 
         <GridSplitter
-            Background="Transparent"
+            Background="#E1E3E6"
             Grid.Column="1"
-            ResizeDirection="Columns" />
+            ResizeDirection="Columns"
+            Width="1" />
 
         <!--  Detail Pane  -->
         <Border
-            Background="White"
+            Background="#FFFFFF"
             BorderBrush="#E1E3E6"
-            BorderThickness="1"
-            CornerRadius="4"
+            BorderThickness="0"
             Grid.Column="2"
             IsVisible="{Binding ModListViewModel.SelectedMod, Converter={x:Static ObjectConverters.IsNotNull}}"
-            Margin="10,0,0,0"
-            Padding="15">
+            Padding="20">
 
             <Grid RowDefinitions="Auto, *">
                 <TextBlock
-                    FontSize="16"
+                    FontFamily="{StaticResource MonoFont}"
+                    FontSize="18"
                     FontWeight="Bold"
+                    Foreground="{StaticResource GeekBlueBrush}"
                     Grid.Row="0"
                     Margin="0,0,0,15"
-                    Text="编辑模组详情" />
+                    Text="模组详情编辑" />
 
-                <ScrollViewer Grid.Row="1">
-                    <StackPanel Spacing="15">
-                        <StackPanel Spacing="4">
+                <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Spacing="20">
+                        <StackPanel Spacing="6">
                             <TextBlock
-                                Classes="Tertiary"
-                                FontSize="12"
+                                FontSize="10"
+                                FontWeight="Bold"
+                                Foreground="#999999"
                                 Text="名称" />
                             <TextBox Text="{Binding ModListViewModel.SelectedMod.Name}" />
                         </StackPanel>
 
-                        <StackPanel Spacing="4">
+                        <StackPanel Spacing="6">
                             <TextBlock
-                                Classes="Tertiary"
-                                FontSize="12"
+                                FontSize="10"
+                                FontWeight="Bold"
+                                Foreground="#999999"
                                 Text="唯一 ID" />
                             <TextBox
-                                Background="#FAFAFA"
-                                Foreground="#666666"
+                                FontFamily="{StaticResource MonoFont}"
                                 IsReadOnly="True"
+                                Opacity="0.7"
                                 Text="{Binding ModListViewModel.SelectedMod.UniqueID}" />
                         </StackPanel>
 
-                        <StackPanel IsVisible="{Binding ModListViewModel.SelectedMod.NexusId, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Spacing="4">
+                        <StackPanel IsVisible="{Binding ModListViewModel.SelectedMod.NexusId, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Spacing="6">
                             <TextBlock
-                                Classes="Tertiary"
-                                FontSize="12"
-                                Text="N网尾号" />
+                                FontSize="10"
+                                FontWeight="Bold"
+                                Foreground="#999999"
+                                Text="N网 ID" />
                             <Grid ColumnDefinitions="*, Auto">
                                 <TextBox
-                                    Background="#FAFAFA"
-                                    Foreground="#666666"
+                                    FontFamily="{StaticResource MonoFont}"
                                     Grid.Column="0"
                                     IsReadOnly="True"
+                                    Opacity="0.7"
                                     Text="{Binding ModListViewModel.SelectedMod.NexusId}" />
                                 <Button
+                                    Classes="Tertiary"
                                     Command="{Binding ModListViewModel.SelectedMod.OpenNexusPageCommand}"
-                                    Content="打开"
+                                    Content="链接"
                                     Grid.Column="1"
-                                    Margin="5,0,0,0"
-                                    Theme="{DynamicResource TertiaryButton}" />
+                                    Margin="8,0,0,0" />
                             </Grid>
                         </StackPanel>
 
-                        <StackPanel Spacing="4">
+                        <StackPanel Spacing="6">
                             <TextBlock
-                                Classes="Tertiary"
-                                FontSize="12"
+                                FontSize="10"
+                                FontWeight="Bold"
+                                Foreground="#999999"
                                 Text="描述" />
                             <TextBox
                                 AcceptsReturn="True"
-                                Height="100"
+                                Height="120"
                                 Text="{Binding ModListViewModel.SelectedMod.Description}"
                                 TextWrapping="Wrap"
                                 VerticalContentAlignment="Top" />
@@ -176,17 +191,17 @@
 
                         <StackPanel
                             HorizontalAlignment="Right"
-                            Margin="0,20,0,0"
+                            Margin="0,15,0,0"
                             Orientation="Horizontal"
-                            Spacing="12">
+                            Spacing="15">
                             <Button
+                                Classes="Tertiary"
                                 Command="{Binding ModListViewModel.SelectedMod.ShowHistoryCommand}"
-                                Content="查看历史"
-                                Theme="{DynamicResource TertiaryButton}" />
+                                Content="查看历史" />
                             <Button
+                                Classes="Solid"
                                 Command="{Binding ModListViewModel.SaveModCommand}"
-                                Content="保存更改"
-                                Theme="{DynamicResource SolidButton}" />
+                                Content="保存更改" />
                         </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
