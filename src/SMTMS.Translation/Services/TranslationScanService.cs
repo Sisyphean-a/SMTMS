@@ -5,6 +5,7 @@ using SMTMS.Core.Common;
 using SMTMS.Core.Infrastructure;
 using SMTMS.Core.Interfaces;
 using SMTMS.Core.Models;
+using System.Text;
 
 namespace SMTMS.Translation.Services;
 
@@ -41,7 +42,7 @@ public class TranslationScanService(
         // 2. 扫描文件
         var (modFiles, scanElapsed) = await ScanManifestFilesAsync(modDirectory);
 
-        // 3. 计算文件 Hash
+        // 3. 计算文件 Hash 并读取内容
         var (fileHashes, hashElapsed) = await ComputeFileHashesWithTimingAsync(modFiles, cancellationToken);
 
         // 4. 加载数据库数据
@@ -137,7 +138,7 @@ public class TranslationScanService(
         return await Task.FromResult((modFiles, sw.ElapsedMilliseconds));
     }
 
-    private async Task<((string file, string hash, bool success)[] hashes, long elapsed)> 
+    private async Task<((string file, string hash, string? content, bool success)[] hashes, long elapsed)>
         ComputeFileHashesWithTimingAsync(string[] files, CancellationToken cancellationToken)
     {
         var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -169,7 +170,7 @@ public class TranslationScanService(
 
     private async Task<ProcessResult> ProcessManifestFilesAsync(
         string modDirectory,
-        (string file, string hash, bool success)[] fileHashes,
+        (string file, string hash, string? content, bool success)[] fileHashes,
         Dictionary<string, ModMetadata> keyPathMap,
         Dictionary<string, ModMetadata> keyIdMap,
         int snapshotId,
@@ -178,9 +179,9 @@ public class TranslationScanService(
         var sw = System.Diagnostics.Stopwatch.StartNew();
         var result = new ProcessResult();
 
-        foreach (var (file, hash, success) in fileHashes)
+        foreach (var (file, hash, content, success) in fileHashes)
         {
-            if (!success)
+            if (!success || content == null)
             {
                 result.ErrorCount++;
                 result.Errors.Add($"无法读取文件: {_fileSystem.GetFileName(file)}");
@@ -199,7 +200,8 @@ public class TranslationScanService(
             }
 
             result.ParseCount++;
-            await ProcessSingleManifestAsync(file, hash, relativePath, keyIdMap, snapshotId, result, cancellationToken);
+
+            await ProcessSingleManifestAsync(file, hash, content, relativePath, keyIdMap, snapshotId, result, cancellationToken);
         }
 
         sw.Stop();
@@ -222,6 +224,7 @@ public class TranslationScanService(
     private async Task ProcessSingleManifestAsync(
         string file,
         string hash,
+        string jsonContent,
         string relativePath,
         Dictionary<string, ModMetadata> keyIdMap,
         int snapshotId,
@@ -230,7 +233,8 @@ public class TranslationScanService(
     {
         try
         {
-            var json = await _fileSystem.ReadAllTextAsync(file, cancellationToken);
+            var json = jsonContent;
+
             var manifest = JsonConvert.DeserializeObject<ModManifest>(json);
 
             if (manifest == null || string.IsNullOrWhiteSpace(manifest.UniqueID))
@@ -367,7 +371,7 @@ public class TranslationScanService(
         public List<ModTranslationHistory> HistoriesToInsert { get; } = new();
     }
 
-    private async Task<(string file, string hash, bool success)[]> ComputeFileHashesAsync(
+    private async Task<(string file, string hash, string? content, bool success)[]> ComputeFileHashesAsync(
         string[] files,
         CancellationToken cancellationToken)
     {
@@ -375,13 +379,18 @@ public class TranslationScanService(
         {
             try
             {
-                var content = await _fileSystem.ReadAllBytesAsync(file, cancellationToken);
-                var hash = Convert.ToBase64String(MD5.HashData(content));
-                return (file, hash, success: true);
+                var contentBytes = await _fileSystem.ReadAllBytesAsync(file, cancellationToken);
+                var hash = Convert.ToBase64String(MD5.HashData(contentBytes));
+
+                // Optimization: Decode content here to avoid reading file again later
+                // Assuming manifest.json is UTF8
+                var contentString = Encoding.UTF8.GetString(contentBytes);
+
+                return (file, hash, (string?)contentString, true);
             }
             catch
             {
-                return (file, string.Empty, success: false);
+                return (file, string.Empty, (string?)null, false);
             }
         }).ToArray();
         return await Task.WhenAll(fileHashTasks);
