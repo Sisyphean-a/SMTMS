@@ -11,7 +11,6 @@ using Avalonia.Threading;
 using System.Threading.Tasks;
 using System;
 using System.Linq;
-using System.Linq;
 using System.Collections.Generic;
 using System.IO;
 using SMTMS.Core.Infrastructure;
@@ -234,52 +233,14 @@ public partial class HistoryViewModel : ObservableObject
                  return;
              }
              
-             // 2. 数据库状态回滚
-             // 获取目标快照时刻的所有 Mod 状态（回溯逻辑）
-             var historyRepo = scope.ServiceProvider.GetRequiredService<IHistoryRepository>();
-             var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
-             
-             var histories = await historyRepo.GetModHistoriesForSnapshotAsync(SelectedSnapshot.Id);
-             var modsToUpdate = new List<ModMetadata>();
-             
-             foreach(var h in histories)
-             {
-                 var mod = await modRepo.GetModAsync(h.ModUniqueId);
-                 if (mod != null)
-                 {
-                     // CRITICAL FIX: 还需要恢复 TranslatedName 和 TranslatedDescription，否则 TranslationRestoreService 不会自动更新文件
-                     if (!string.IsNullOrEmpty(h.JsonContent))
-                     {
-                         try 
-                         {
-                             var oldManifest = Newtonsoft.Json.JsonConvert.DeserializeObject<Core.Models.ModManifest>(h.JsonContent);
-                             if (oldManifest != null)
-                             {
-                                 mod.TranslatedName = oldManifest.Name;
-                                 mod.TranslatedDescription = oldManifest.Description;
-                             }
-                         }
-                         catch
-                         {
-                             // Ignore parse error
-                         }
-                     }
-
-                     modsToUpdate.Add(mod);
-                 }
-             }
-             
-             // 提交数据库更改
-             await modRepo.UpsertModsAsync(modsToUpdate);  
-             
-             // 3. 应用到物理文件
-             // 现在数据库已经是“旧”状态，调用 RestoreTranslationsFromDbAsync 会把这些旧状态写入文件
-             var result = await _translationService.RestoreTranslationsFromDbAsync(modDirectory);
+             // 2. 调用 Service 执行回滚 (数据库 + 文件恢复)
+             var result = await _translationService.RollbackSnapshotAsync(SelectedSnapshot.Id, modDirectory);
              
              if (result.IsSuccess)
              {
-                 // CRITICAL: 为了避免“割裂感”，我们执行破坏性回滚 (Reset)，删除此时间点之后的所有记录。
+                 // 3. CRITICAL: 为了避免“割裂感”，我们执行破坏性回滚 (Reset)，删除此时间点之后的所有记录。
                  // 这样，再次同步时，就不会产生“反向变更”的记录，而是续写历史。
+                 var historyRepo = scope.ServiceProvider.GetRequiredService<IHistoryRepository>();
                  await historyRepo.DeleteSnapshotsAfterAsync(SelectedSnapshot.Id);
                  
                  WeakReferenceMessenger.Default.Send(new StatusMessage("全局回滚成功! 历史记录已重置。", StatusLevel.Success));

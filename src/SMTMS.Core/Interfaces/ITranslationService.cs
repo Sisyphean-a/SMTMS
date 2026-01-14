@@ -21,4 +21,9 @@ public interface ITranslationService
     /// 从数据库恢复翻译到 manifest.json 文件
     /// </summary>
     Task<OperationResult> RestoreTranslationsFromDbAsync(string modDirectory, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 回滚到指定的快照
+    /// </summary>
+    Task<OperationResult> RollbackSnapshotAsync(int snapshotId, string modDirectory, CancellationToken cancellationToken = default);
 }
