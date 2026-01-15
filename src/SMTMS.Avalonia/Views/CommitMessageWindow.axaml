@@ -12,8 +12,7 @@
         SystemDecorations="None"
         TransparencyLevelHint="Transparent"
         Background="Transparent"
-        UseLayoutRounding="True"
-        ExtendClientAreaToDecorationsHint="True">
+        UseLayoutRounding="True">
     
     <Border Padding="2" 
             Margin="20"
