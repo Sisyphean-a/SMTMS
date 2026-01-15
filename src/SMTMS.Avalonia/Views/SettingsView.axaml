@@ -1,0 +1,155 @@
+<UserControl
+    d:DesignHeight="600"
+    d:DesignWidth="900"
+    mc:Ignorable="d"
+    x:Class="SMTMS.Avalonia.Views.SettingsView"
+    x:DataType="vm:SettingsViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:SMTMS.Avalonia.ViewModels"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ScrollViewer>
+        <StackPanel Margin="20" Spacing="24">
+            <!-- 基础设置 -->
+            <Border
+                Background="Transparent"
+                BorderThickness="1"
+                CornerRadius="4"
+                Padding="20">
+                <StackPanel Spacing="16">
+                    <TextBlock
+                        FontSize="15"
+                        FontWeight="SemiBold"
+                        Text="基础设置" />
+
+                    <Rectangle Height="1" Margin="0,4" Opacity="0.2" />
+
+                    <!-- Mods 目录 -->
+                    <Grid ColumnDefinitions="Auto, *, Auto" RowDefinitions="Auto, Auto">
+                        <TextBlock
+                            Grid.Column="0"
+                            Grid.Row="0"
+                            Margin="0,0,0,8"
+                            Text="模组目录路径"
+                            VerticalAlignment="Center" />
+                        
+                        <TextBox
+                            Classes="Small"
+                            FontFamily="{StaticResource MonoFont}"
+                            Grid.Column="0"
+                            Grid.ColumnSpan="2"
+                            Grid.Row="1"
+                            InnerRightContent="路径"
+                            Margin="0,0,12,0"
+                            Text="{Binding ModsDirectory}"
+                            Watermark="请选择模组目录"
+                            Width="500"
+                            HorizontalAlignment="Left" />
+                        
+                        <Button
+                            Classes="Tertiary"
+                            Command="{Binding BrowseFolderCommand}"
+                            Content="浏览..."
+                            Grid.Column="2"
+                            Grid.Row="1"
+                            Width="120" />
+                    </Grid>
+
+                    <!-- 黑夜模式 -->
+                    <Grid ColumnDefinitions="*, Auto">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock
+                                FontSize="13"
+                                Text="黑夜模式" />
+                            <TextBlock
+                                FontSize="11"
+                                Opacity="0.7"
+                                Text="切换应用程序的颜色主题"
+                                TextWrapping="Wrap" />
+                        </StackPanel>
+                        
+                        <ToggleSwitch
+                            Grid.Column="1"
+                            IsChecked="{Binding IsDarkMode}"
+                            OffContent="关闭"
+                            OnContent="开启"
+                            VerticalAlignment="Center" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- 高级设置 -->
+            <Border
+                Background="Transparent"
+                BorderThickness="1"
+                CornerRadius="4"
+                Padding="20">
+                <StackPanel Spacing="16">
+                    <TextBlock
+                        FontSize="15"
+                        FontWeight="SemiBold"
+                        Text="高级设置" />
+
+                    <Rectangle Height="1" Margin="0,4" Opacity="0.2" />
+
+                    <!-- 初始化 -->
+                    <StackPanel Spacing="8">
+                        <TextBlock
+                            FontSize="13"
+                            Text="初始化数据库" />
+                        <TextBlock
+                            FontSize="11"
+                            Opacity="0.7"
+                            Text="警告:此操作将删除所有历史记录和翻译数据,不可恢复!"
+                            TextWrapping="Wrap" />
+                        <Button
+                            Classes="Danger"
+                            Command="{Binding HardResetCommand}"
+                            Content="初始化"
+                            HorizontalAlignment="Left"
+                            Theme="{DynamicResource TertiaryButton}"
+                            Width="120" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- 未来功能 -->
+            <Border
+                Background="Transparent"
+                BorderThickness="1"
+                CornerRadius="4"
+                Padding="20">
+                <StackPanel Spacing="16">
+                    <TextBlock
+                        FontSize="15"
+                        FontWeight="SemiBold"
+                        Text="扩展功能" />
+
+                    <Rectangle Height="1" Margin="0,4" Opacity="0.2" />
+
+                    <!-- 翻译配置 -->
+                    <Expander Header="翻译配置">
+                        <StackPanel Margin="0,12,0,0" Spacing="8">
+                            <TextBlock
+                                FontSize="11"
+                                Opacity="0.7"
+                                Text="即将推出..." />
+                        </StackPanel>
+                    </Expander>
+
+                    <!-- N网API配置 -->
+                    <Expander Header="Nexus Mods API 配置">
+                        <StackPanel Margin="0,12,0,0" Spacing="8">
+                            <TextBlock
+                                FontSize="11"
+                                Opacity="0.7"
+                                Text="即将推出..." />
+                        </StackPanel>
+                    </Expander>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

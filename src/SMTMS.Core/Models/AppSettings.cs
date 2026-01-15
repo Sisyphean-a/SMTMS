@@ -29,4 +29,9 @@ public class AppSettings
     /// 启动时自动扫描模组
     /// </summary>
     public bool AutoScanOnStartup { get; set; } = true;
+
+    /// <summary>
+    /// 是否启用黑夜模式
+    /// </summary>
+    public bool IsDarkMode { get; set; } = false;
 }

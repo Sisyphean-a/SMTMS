@@ -83,10 +83,10 @@ public partial class App : Application
                 // ViewModels
                 services.AddSingleton<ModListViewModel>();
                 services.AddSingleton<HistoryViewModel>();
+                services.AddSingleton<SettingsViewModel>();
                 services.AddSingleton<MainViewModel>();
                 
                 // Views
-                // MainWindow will be resolved with MainViewModel injected (if ctor injection used) or assigned manually
                 services.AddSingleton<MainWindow>();
             })
             .Build();
@@ -105,6 +105,15 @@ public partial class App : Application
                 await dbContext.Database.MigrateAsync();
             }
             catch { /* Ignore if exists/migrated */ }
+
+            // Load theme setting from database
+            try
+            {
+                var settingsService = scope.ServiceProvider.GetRequiredService<ISettingsService>();
+                var settings = await settingsService.GetSettingsAsync();
+                SetTheme(settings.IsDarkMode);
+            }
+            catch { /* Ignore if failed to load theme */ }
         }
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
@@ -120,5 +129,34 @@ public partial class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    /// <summary>
+    /// 设置应用程序主题
+    /// </summary>
+    /// <param name="isDarkMode">是否启用黑夜模式</param>
+    public void SetTheme(bool isDarkMode)
+    {
+        // 设置全局主题变体
+        RequestedThemeVariant = isDarkMode 
+            ? global::Avalonia.Styling.ThemeVariant.Dark 
+            : global::Avalonia.Styling.ThemeVariant.Light;
+
+        // 为所有窗口添加/移除 theme-dark 类
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            foreach (var window in desktop.Windows)
+            {
+                if (isDarkMode)
+                {
+                    if (!window.Classes.Contains("theme-dark"))
+                        window.Classes.Add("theme-dark");
+                }
+                else
+                {
+                    window.Classes.Remove("theme-dark");
+                }
+            }
+        }
     }
 }

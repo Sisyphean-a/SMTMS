@@ -27,6 +27,7 @@ public class SettingsService(AppDbContext context) : ISettingsService
             existing.WindowWidth = settings.WindowWidth;
             existing.WindowHeight = settings.WindowHeight;
             existing.AutoScanOnStartup = settings.AutoScanOnStartup;
+            existing.IsDarkMode = settings.IsDarkMode;
         }
         else
         {

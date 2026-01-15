@@ -35,8 +35,6 @@
             x:Name="ModsGrid">
             <DataGrid.Styles>
                 <Style Selector="DataGridColumnHeader">
-                    <Setter Property="Background" Value="#FAFAFA" />
-                    <Setter Property="Foreground" Value="#999999" />
                     <Setter Property="FontSize" Value="11" />
                     <Setter Property="FontWeight" Value="Bold" />
                 </Style>
@@ -116,8 +114,6 @@
 
         <!--  Detail Pane  -->
         <Border
-            Background="#FFFFFF"
-            BorderBrush="#E1E3E6"
             BorderThickness="0"
             Grid.Column="2"
             IsVisible="{Binding ModListViewModel.SelectedMod, Converter={x:Static ObjectConverters.IsNotNull}}"
@@ -139,7 +135,7 @@
                             <TextBlock
                                 FontSize="10"
                                 FontWeight="Bold"
-                                Foreground="#999999"
+                                Opacity="0.6"
                                 Text="名称" />
                             <TextBox Text="{Binding ModListViewModel.SelectedMod.Name}" />
                         </StackPanel>
@@ -148,7 +144,7 @@
                             <TextBlock
                                 FontSize="10"
                                 FontWeight="Bold"
-                                Foreground="#999999"
+                                Opacity="0.6"
                                 Text="唯一 ID" />
                             <TextBox
                                 FontFamily="{StaticResource MonoFont}"
@@ -161,7 +157,7 @@
                             <TextBlock
                                 FontSize="10"
                                 FontWeight="Bold"
-                                Foreground="#999999"
+                                Opacity="0.6"
                                 Text="N网 ID" />
                             <Grid ColumnDefinitions="*, Auto">
                                 <TextBox
@@ -183,7 +179,7 @@
                             <TextBlock
                                 FontSize="10"
                                 FontWeight="Bold"
-                                Foreground="#999999"
+                                Opacity="0.6"
                                 Text="描述" />
                             <TextBox
                                 AcceptsReturn="True"
