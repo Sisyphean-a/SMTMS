@@ -76,6 +76,9 @@ public partial class App : Application
                 services.AddSingleton<ITranslationService, TranslationService>();
                 services.AddScoped<ISettingsService, Data.Services.SettingsService>();
                 
+                // Translation API Service
+                services.AddSingleton<ITranslationApiService, GoogleTranslationService>();
+                
                 // UI Core Services
                 services.AddSingleton<IFolderPickerService, AvaloniaFolderPickerService>();
                 services.AddSingleton<ICommitMessageService, AvaloniaCommitMessageService>();

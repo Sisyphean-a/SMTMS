@@ -30,6 +30,15 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private bool _isDarkMode;
 
+    [ObservableProperty]
+    private string _translationApiType = "Google";
+
+    [ObservableProperty]
+    private string _translationSourceLang = "auto";
+
+    [ObservableProperty]
+    private string _translationTargetLang = "zh-CN";
+
     public SettingsViewModel(
         IServiceScopeFactory scopeFactory,
         ILogger<SettingsViewModel> logger,
@@ -52,6 +61,9 @@ public partial class SettingsViewModel : ObservableObject
 
             ModsDirectory = settings.LastModsDirectory ?? string.Empty;
             IsDarkMode = settings.IsDarkMode;
+            TranslationApiType = settings.TranslationApiType;
+            TranslationSourceLang = settings.TranslationSourceLang;
+            TranslationTargetLang = settings.TranslationTargetLang;
         }
         catch (Exception ex)
         {
@@ -109,6 +121,41 @@ public partial class SettingsViewModel : ObservableObject
         catch (Exception ex)
         {
             _logger.LogError(ex, "保存Mods目录失败");
+        }
+    }
+
+    partial void OnTranslationApiTypeChanged(string value)
+    {
+        _ = SaveTranslationSettingsAsync();
+    }
+
+    partial void OnTranslationSourceLangChanged(string value)
+    {
+        _ = SaveTranslationSettingsAsync();
+    }
+
+    partial void OnTranslationTargetLangChanged(string value)
+    {
+        _ = SaveTranslationSettingsAsync();
+    }
+
+    private async Task SaveTranslationSettingsAsync()
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var settingsService = scope.ServiceProvider.GetRequiredService<ISettingsService>();
+            var settings = await settingsService.GetSettingsAsync();
+            settings.TranslationApiType = TranslationApiType;
+            settings.TranslationSourceLang = TranslationSourceLang;
+            settings.TranslationTargetLang = TranslationTargetLang;
+            await settingsService.SaveSettingsAsync(settings);
+            
+            WeakReferenceMessenger.Default.Send(new StatusMessage("翻译配置已保存", StatusLevel.Success));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "保存翻译配置失败");
         }
     }
 
