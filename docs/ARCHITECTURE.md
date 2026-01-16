@@ -1,5 +1,12 @@
 # SMTMS 系统架构文档
 
+<!-- 更新规则 -->
+<!-- Role: System Architect Rule: -->
+<!-- 1. Maintain the System Blueprint (Current State). -->
+<!-- 2. No Changelog language (Avoid "Added", "Improved", "Updated"). -->
+<!-- 3. Only update if the Mermaid diagrams or Module Responsibilities have structural shifts. -->
+<!-- 4. If the change is purely internal logic, Do Not Update. -->
+
 本此文档旨在描述 SMTMS (Stardew Mod Translation & Management System) 的系统设计与实现细节。
 
 ---
@@ -21,12 +28,14 @@ flowchart LR
     
     Data --> SqLite[(SQLite Database)]
     Trans --> Mods[(Mod Files)]
+    
+    Core --> ExternalApi["External Translation APIs (Google/DeepL)"]
 ```
 
 ### 模块职责
 
-*   **SMTMS.Core**: 系统的核心领域层。定义了所有的数据模型（Model）、服务接口（Interface）以及通用的工具类（如 `ManifestTextReplacer` 文本处理）。不依赖任何具体的 UI 或数据库实现。
-*   **SMTMS.Data**: 数据基础设施层。负责数据的持久化存储，实现了 Core 层的数据访问接口。使用 Entity Framework Core 操作 SQLite 数据库。
+*   **SMTMS.Core**: 系统的核心领域层。定义了所有的数据模型（Model，含 `AppSettings`）、服务接口（`ISettingsService`, `ITranslationApiService`）以及通用的工具类。包含 `GoogleTranslationService` 等外部 API 实现。
+*   **SMTMS.Data**: 数据基础设施层。负责数据的持久化存储（含 `SettingsService` 实现）。使用 Entity Framework Core 操作 SQLite 数据库。
 *   **SMTMS.Translation**: 业务逻辑层。专注于翻译数据的处理、文件扫描、历史快照的生成与恢复逻辑。
 *   **SMTMS.Avalonia (UI)**: 用户界面层。基于 **Avalonia** 框架，采用 MVVM 模式组织代码。
 
@@ -46,11 +55,15 @@ classDiagram
     class HistoryView {
         +DataContext : HistoryViewModel
     }
+    class SettingsView {
+        +DataContext : SettingsViewModel
+    }
 
     %% ViewModels
     class MainViewModel {
         +ModListViewModel : ModListViewModel
         +HistoryViewModel : HistoryViewModel
+        +SettingsViewModel : SettingsViewModel
         +SyncToDatabaseAsync()
         +RestoreFromDatabaseAsync()
     }
@@ -64,9 +77,14 @@ classDiagram
         +ModDiffChanges : ObservableCollection~ModDiffModel~
         +RollbackSnapshotAsync()
     }
+    class SettingsViewModel {
+        +CurrentSettings : AppSettings
+        +SaveSettingsAsync()
+    }
     class ModViewModel {
         +Manifest : ModManifest
         +ModMetadata : ModMetadata
+        +TranslateDescriptionAsync()
     }
 
     %% Interfaces/Services
@@ -85,19 +103,31 @@ classDiagram
         +GetSnapshotsAsync()
         +DeleteSnapshotsAfterAsync()
     }
+    class ISettingsService {
+        <<interface>>
+        +GetSettingsAsync()
+        +SaveSettingsAsync()
+    }
+    class ITranslationApiService {
+        <<interface>>
+        +TranslateAsync()
+    }
 
     %% Relationships
     MainWindow ..> MainViewModel : Binds to
     ModListView ..> ModListViewModel : Binds to
     HistoryView ..> HistoryViewModel : Binds to
+    SettingsView ..> SettingsViewModel : Binds to
 
     MainViewModel *-- ModListViewModel : Composes
     MainViewModel *-- HistoryViewModel : Composes
+    MainViewModel *-- SettingsViewModel : Composes
     ModListViewModel o-- ModViewModel : Aggregates
 
     MainViewModel ..> ITranslationService : Uses
-    ModListViewModel ..> IModService : Uses
-    HistoryViewModel ..> ITranslationService : Uses
+    MainViewModel ..> ISettingsService : Uses
+    SettingsViewModel ..> ISettingsService : Uses
+    ModViewModel ..> ITranslationApiService : Uses
     HistoryViewModel ..> IHistoryRepository : Uses (via Scope)
 ```
 
@@ -126,6 +156,19 @@ SMTMS 不依赖外部 VCS 工具，而是内置了一套基于关系型数据库
 
 *   **提取 (Scan & Save)**: 解析模组的 `manifest.json`，提取 `Name`, `Description` 等关键字段，更新到数据库的 `ModMetadata` 表中。
 *   **注入 (Restore)**: 利用 `SMTMS.Core` 中的正则工具类精确匹配并替换 `manifest.json` 中的对应字段值，确保 JSON 格式（包括注释和缩进）不被破坏。
+
+### 2.3 配置管理系统 (Configuration System)
+负责应用程序的全局设置管理，支持持久化存储。
+
+*   **`AppSettings`**: 配置模型，包含 Mods 路径、窗口尺寸、主题设置 (Dark/Light)、自动扫描开关、翻译 API 配置等。
+*   **`ISettingsService`**: 提供配置的读写接口。`MainViewModel` 在初始化时通过此服务加载用户首选项。
+
+### 2.4 外部翻译集成 (External Translation Integration)
+系统集成了在线翻译服务，辅助用户快速翻译模组信息。
+
+*   **`ITranslationApiService`**: 定义通用的翻译接口。
+*   **实现**: `GoogleTranslationService` (目前支持 Google Translate API Free 节点)。
+*   **功能**: 支持自动检测源语言，将模组名称或描述翻译为目标语言（默认为中文）。
 
 ---
 
@@ -223,6 +266,7 @@ sequenceDiagram
 
 *   **Runtime**: .NET 8.0
 *   **UI Framework**: Avalonia UI (Cross-platform)
+    *   **Theme**: Semi.Avalonia (Modern Design System)
 *   **ORM**: Entity Framework Core (SQLite Provider)
 *   **Utils**:
     *   `CommunityToolkit.Mvvm`: MVVM 模式支持
