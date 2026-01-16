@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SMTMS.Avalonia.ViewModels;
@@ -66,9 +67,16 @@ public partial class ModListViewModel : ObservableObject
         _ = LoadModsAsync();
     }
 
+    private CancellationTokenSource? _loadCts;
+
     [RelayCommand]
     public async Task LoadModsAsync()
     {
+        // 1. 取消先前的加载任务
+        _loadCts?.Cancel();
+        _loadCts = new CancellationTokenSource();
+        var token = _loadCts.Token;
+
         if (string.IsNullOrEmpty(ModsDirectory))
         {
             _logger.LogWarning("Mods 目录为空，无法加载模组");
@@ -76,37 +84,44 @@ public partial class ModListViewModel : ObservableObject
         }
 
         WeakReferenceMessenger.Default.Send(new StatusMessage("正在扫描模组..."));
-        Mods.Clear();
+        // 注意：不再此处 Clear，避免闪烁和竞态条件下的空白
 
         try
         {
-            // 1. 扫描文件
-            var manifests = await _modService.ScanModsAsync(ModsDirectory);
+            // 2. 扫描文件 (异步，可能耗时)
+            var manifests = await Task.Run(async () => await _modService.ScanModsAsync(ModsDirectory), token);
             var manifestList = manifests.ToList();
+
+            if (token.IsCancellationRequested) return;
 
             if (manifestList.Count == 0)
             {
+                Mods.Clear(); // 确实没有模组时才清空
                 WeakReferenceMessenger.Default.Send(new StatusMessage("未找到任何模组", StatusLevel.Warning));
                 return;
             }
 
-            // 2. 批量查询数据库
+            // 3. 批量查询数据库
             using var scope = _scopeFactory.CreateScope();
             var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
 
             var uniqueIds = manifestList.Select(m => m.UniqueID).ToList();
             var dbMods = await modRepo.GetModsByIdsAsync(uniqueIds);
 
-            // 3. 合并数据并更新
+            if (token.IsCancellationRequested) return;
+
+            // 4. 合并数据并更新
             var modsToUpdate = new List<Core.Models.ModMetadata>();
             var viewModels = new List<ModViewModel>(manifestList.Count);
 
             foreach (var manifest in manifestList)
             {
                 dbMods.TryGetValue(manifest.UniqueID, out var mod);
+                bool isNew = false; // 标记是否为新发现的模组
 
                 if (mod == null)
                 {
+                    isNew = true;
                     // 新模组 - 创建元数据记录
                     mod = new Core.Models.ModMetadata
                     {
@@ -130,22 +145,30 @@ public partial class ModListViewModel : ObservableObject
                     }
                 }
 
-                // 创建 ViewModel，但先不添加到 UI 集合
-                var viewModel = new ModViewModel(manifest, mod);
+                // 创建 ViewModel
+                var viewModel = new ModViewModel(manifest, mod, isNew);
                 viewModels.Add(viewModel);
             }
 
-            // 批量添加到 UI 集合，避免多次触发集合变更事件
+            if (token.IsCancellationRequested) return;
+
+            // 5. 最终 UI 更新 (在主线程)
+            // 只有在这里才清空并添加，确保是原子操作般的视觉效果
+            Mods.Clear();
             Mods.AddRange(viewModels);
 
-            // 批量保存所有变更
+            // 批量保存所有变更 (后台操作，不需要阻塞 UI)
             if (modsToUpdate.Count != 0)
             {
-                await modRepo.UpsertModsAsync(modsToUpdate);
+                _ = modRepo.UpsertModsAsync(modsToUpdate);
             }
 
             WeakReferenceMessenger.Default.Send(new StatusMessage($"已加载 {Mods.Count} 个模组", StatusLevel.Success));
             WeakReferenceMessenger.Default.Send(new ModsLoadedMessage(Mods.ToList(), ModsDirectory));
+        }
+        catch (OperationCanceledException)
+        {
+            // 忽略取消异常
         }
         catch (Exception ex)
         {

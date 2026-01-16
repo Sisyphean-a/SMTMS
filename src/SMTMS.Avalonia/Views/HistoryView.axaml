@@ -30,7 +30,7 @@
 
         <DataGrid
             AutoGenerateColumns="False"
-            BorderBrush="#E1E3E6"
+            BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
             BorderThickness="0,1,0,1"
             Grid.Row="1"
             GridLinesVisibility="Horizontal"
@@ -68,7 +68,7 @@
         </DataGrid>
 
         <GridSplitter
-            Background="#E1E3E6"
+            Background="{DynamicResource SystemControlForegroundBaseLowBrush}"
             Grid.Row="2"
             Height="1"
             HorizontalAlignment="Stretch"
@@ -77,7 +77,7 @@
         <Grid ColumnDefinitions="3*, 4, 3*" Grid.Row="3">
             <DataGrid
                 AutoGenerateColumns="False"
-                BorderBrush="#E1E3E6"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
                 BorderThickness="0,0,1,0"
                 Grid.Column="0"
                 GridLinesVisibility="Horizontal"
@@ -129,7 +129,7 @@
             </DataGrid>
 
             <GridSplitter
-                Background="#E1E3E6"
+                Background="{DynamicResource SystemControlForegroundBaseLowBrush}"
                 Grid.Column="1"
                 ResizeDirection="Columns"
                 Width="1" />
@@ -157,17 +157,17 @@
                                 Text="名称变更" />
                             <Grid ColumnDefinitions="*,*" IsVisible="{Binding HistoryViewModel.SelectedDiffItem.NameChange.HasChange}">
                                 <TextBox
-                                    Background="#FFF0F0"
+                                    Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
                                     BorderThickness="0"
-                                    Foreground="#D32F2F"
+                                    Foreground="{DynamicResource SystemControlErrorTextForegroundBrush}"
                                     Grid.Column="0"
                                     IsReadOnly="True"
                                     Margin="0,0,4,0"
                                     Text="{Binding HistoryViewModel.SelectedDiffItem.NameChange.OldValue}" />
                                 <TextBox
-                                    Background="#F0F7FF"
+                                    Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
                                     BorderThickness="0"
-                                    Foreground="#1976D2"
+                                    Foreground="{DynamicResource SystemControlHighlightAccentBrush}"
                                     Grid.Column="1"
                                     IsReadOnly="True"
                                     Margin="4,0,0,0"
@@ -184,9 +184,9 @@
                             <Grid ColumnDefinitions="*,*" IsVisible="{Binding HistoryViewModel.SelectedDiffItem.DescriptionChange.HasChange}">
                                 <TextBox
                                     AcceptsReturn="True"
-                                    Background="#FFF0F0"
+                                    Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
                                     BorderThickness="0"
-                                    Foreground="#D32F2F"
+                                    Foreground="{DynamicResource SystemControlErrorTextForegroundBrush}"
                                     Grid.Column="0"
                                     Height="100"
                                     IsReadOnly="True"
@@ -195,9 +195,9 @@
                                     TextWrapping="Wrap" />
                                 <TextBox
                                     AcceptsReturn="True"
-                                    Background="#F0F7FF"
+                                    Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
                                     BorderThickness="0"
-                                    Foreground="#1976D2"
+                                    Foreground="{DynamicResource SystemControlHighlightAccentBrush}"
                                     Grid.Column="1"
                                     Height="100"
                                     IsReadOnly="True"

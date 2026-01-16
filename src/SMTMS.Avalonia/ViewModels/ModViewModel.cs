@@ -22,11 +22,15 @@ public partial class ModViewModel : ObservableObject
     private string _originalAuthor;
     private string _originalVersion;
     private string _originalDescription;
+    
+    // 是否为新增模组
+    private bool _isNew;
 
-    public ModViewModel(ModManifest manifest, ModMetadata? metadata = null)
+    public ModViewModel(ModManifest manifest, ModMetadata? metadata = null, bool isNew = false)
     {
         _manifest = manifest;
         _metadata = metadata;
+        _isNew = isNew || metadata == null;
         
         // 保存原始值
         _originalName = _manifest.Name;
@@ -81,6 +85,12 @@ public partial class ModViewModel : ObservableObject
     [ObservableProperty]
     private bool _isDirty;
 
+    // 0 = Normal, 1 = Changed, 2 = New/Untracked
+    [ObservableProperty]
+    private int _rowStatus;
+
+    // IsNew moved to property with backing field
+
     // 翻译状态
     [ObservableProperty]
     private bool _isTranslatingName;
@@ -108,37 +118,43 @@ public partial class ModViewModel : ObservableObject
     public void UpdateMetadata(ModMetadata metadata)
     {
         _metadata = metadata;
+        OnPropertyChanged(nameof(IsNew));
         UpdateStatus();
     }
 
     public void UpdateStatus()
     {
-        if (_metadata == null)
+        if (IsNew)
         {
             TranslationStatus = "New / Untracked";
             HasLocalChanges = false;
+            RowStatus = 2; // New
             return;
         }
 
-        DbTranslatedName = _metadata.TranslatedName;
-        DbTranslatedDescription = _metadata.TranslatedDescription;
+        DbTranslatedName = _metadata?.TranslatedName;
+        DbTranslatedDescription = _metadata?.TranslatedDescription;
 
-        var nameMatch = string.IsNullOrEmpty(_metadata.TranslatedName) || _metadata.TranslatedName == Name;
-        var descMatch = string.IsNullOrEmpty(_metadata.TranslatedDescription) || _metadata.TranslatedDescription == Description;
+        var nameMatch = string.IsNullOrEmpty(_metadata?.TranslatedName) || _metadata?.TranslatedName == Name;
+        var descMatch = string.IsNullOrEmpty(_metadata?.TranslatedDescription) || _metadata?.TranslatedDescription == Description;
 
         if (nameMatch && descMatch)
         {
             TranslationStatus = "Synced";
             HasLocalChanges = false;
+            RowStatus = 0; // Normal
         }
         else
         {
             TranslationStatus = "Changed (Local differs from DB)";
             HasLocalChanges = true;
+            RowStatus = 1; // Changed
         }
     }
 
     public ModManifest Manifest => _manifest;
+    
+    public bool IsNew => _isNew;
 
     public string? ManifestPath => _manifest.ManifestPath;
 
@@ -341,5 +357,28 @@ public partial class ModViewModel : ObservableObject
         {
             IsTranslatingDescription = false;
         }
+    }
+
+    /// <summary>
+    /// 放弃本次变更，恢复到原始值
+    /// </summary>
+    [RelayCommand]
+    public void DiscardChanges()
+    {
+        if (!IsDirty) return;
+
+        // 恢复原始值
+        if (Name != _originalName) Name = _originalName;
+        if (Author != _originalAuthor) Author = _originalAuthor;
+        if (Version != _originalVersion) Version = _originalVersion;
+        if (Description != _originalDescription) Description = _originalDescription;
+        
+        // 重置脏状态
+        ResetDirtyState();
+        
+        // 更新 UI 状态
+        UpdateStatus();
+        
+        WeakReferenceMessenger.Default.Send(new StatusMessage("已放弃本次变更", StatusLevel.Info));
     }
 }

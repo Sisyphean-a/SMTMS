@@ -25,6 +25,16 @@
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
 
+        <!-- Default Border Style (Light Mode) -->
+        <Style Selector="Border">
+            <Setter Property="BorderBrush" Value="#E1E3E6" />
+        </Style>
+
+        <!-- Default Border Style (Light Mode) -->
+        <Style Selector="Border">
+            <Setter Property="BorderBrush" Value="#E1E3E6" />
+        </Style>
+
         <!-- Dark Mode Overrides -->
         <!-- Window -->
         <Style Selector="Window.theme-dark">

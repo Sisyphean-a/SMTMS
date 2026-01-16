@@ -22,7 +22,7 @@
         <!--  Mod List  -->
         <DataGrid
             AutoGenerateColumns="False"
-            BorderBrush="#E1E3E6"
+            BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
             BorderThickness="0,0,1,0"
             Grid.Column="0"
             GridLinesVisibility="Horizontal"
@@ -39,12 +39,18 @@
                     <Setter Property="FontWeight" Value="Bold" />
                 </Style>
                 <Style Selector="DataGridRow" x:DataType="vm:ModViewModel">
-                    <Setter Property="Tag" Value="{Binding HasLocalChanges}" />
-                    <Setter Property="FontWeight" Value="{Binding HasLocalChanges, Converter={StaticResource BoolToFontWeightConverter}}" />
+                    <Setter Property="Tag" Value="{Binding RowStatus}" />
                     <Setter Property="FontStyle" Value="{Binding IsDirty, Converter={StaticResource BoolToFontStyleConverter}}" />
                 </Style>
-                <Style Selector="DataGridRow[Tag=True]">
+                <!-- 1 = Changed (Local modification) -->
+                <Style Selector="DataGridRow[Tag=1]">
                     <Setter Property="Foreground" Value="{StaticResource GeekBlueBrush}" />
+                    <Setter Property="FontWeight" Value="Bold" />
+                </Style>
+                <!-- 2 = New (Untracked) -->
+                <Style Selector="DataGridRow[Tag=2]">
+                    <Setter Property="Foreground" Value="#00C853" /> <!-- Green for new items -->
+                    <Setter Property="FontStyle" Value="Italic" />
                 </Style>
             </DataGrid.Styles>
             <DataGrid.Columns>
@@ -107,7 +113,7 @@
         </DataGrid>
 
         <GridSplitter
-            Background="#E1E3E6"
+            Background="{DynamicResource SystemControlForegroundBaseLowBrush}"
             Grid.Column="1"
             ResizeDirection="Columns"
             Width="1" />
@@ -115,7 +121,7 @@
         <!--  Detail Pane  -->
         <Panel Grid.Column="2">
             <Border
-                Background="#FAFAFA"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
                 HorizontalAlignment="Stretch"
                 IsVisible="{Binding ModListViewModel.SelectedMod, Converter={x:Static ObjectConverters.IsNull}}"
                 Padding="20"
@@ -126,20 +132,20 @@
                     VerticalAlignment="Center">
                     <TextBlock
                         FontWeight="Bold"
-                        Foreground="#999999"
+                        Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
                         HorizontalAlignment="Center"
                         Text="未选择模组" />
                     <TextBlock
                         FontSize="12"
-                        Foreground="#AAAAAA"
+                        Foreground="{DynamicResource SystemControlForegroundBaseLowBrush}"
                         HorizontalAlignment="Center"
                         Text="请在左侧列表中选择一个模组以查看详情" />
                 </StackPanel>
             </Border>
 
             <Border
-                Background="#FFFFFF"
-                BorderBrush="#E1E3E6"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
                 BorderThickness="0"
                 IsVisible="{Binding ModListViewModel.SelectedMod, Converter={x:Static ObjectConverters.IsNotNull}}"
                 Padding="20">
@@ -255,6 +261,12 @@
                                 Classes="Tertiary"
                                 Command="{Binding ModListViewModel.SelectedMod.ShowHistoryCommand}"
                                 Content="查看历史" />
+                            <Button
+                                Classes="Warning"
+                                Command="{Binding ModListViewModel.SelectedMod.DiscardChangesCommand}"
+                                Content="放弃变更"
+                                IsVisible="{Binding ModListViewModel.SelectedMod.IsDirty}" 
+                                Theme="{DynamicResource TertiaryButton}"/>
                             <Button
                                 Classes="Solid"
                                 Command="{Binding ModListViewModel.SaveModCommand}"
