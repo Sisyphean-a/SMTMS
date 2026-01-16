@@ -113,13 +113,38 @@
             Width="1" />
 
         <!--  Detail Pane  -->
-        <Border
-            BorderThickness="0"
-            Grid.Column="2"
-            IsVisible="{Binding ModListViewModel.SelectedMod, Converter={x:Static ObjectConverters.IsNotNull}}"
-            Padding="20">
+        <Panel Grid.Column="2">
+            <Border
+                Background="#FAFAFA"
+                HorizontalAlignment="Stretch"
+                IsVisible="{Binding ModListViewModel.SelectedMod, Converter={x:Static ObjectConverters.IsNull}}"
+                Padding="20"
+                VerticalAlignment="Stretch">
+                <StackPanel
+                    HorizontalAlignment="Center"
+                    Spacing="10"
+                    VerticalAlignment="Center">
+                    <TextBlock
+                        FontWeight="Bold"
+                        Foreground="#999999"
+                        HorizontalAlignment="Center"
+                        Text="未选择模组" />
+                    <TextBlock
+                        FontSize="12"
+                        Foreground="#AAAAAA"
+                        HorizontalAlignment="Center"
+                        Text="请在左侧列表中选择一个模组以查看详情" />
+                </StackPanel>
+            </Border>
 
-            <Grid RowDefinitions="Auto, *">
+            <Border
+                Background="#FFFFFF"
+                BorderBrush="#E1E3E6"
+                BorderThickness="0"
+                IsVisible="{Binding ModListViewModel.SelectedMod, Converter={x:Static ObjectConverters.IsNotNull}}"
+                Padding="20">
+
+                <Grid RowDefinitions="Auto, *">
                 <TextBlock
                     FontFamily="{StaticResource MonoFont}"
                     FontSize="18"
@@ -138,7 +163,7 @@
                                 Opacity="0.6"
                                 Text="名称" />
                             <Grid ColumnDefinitions="*, Auto">
-                                <TextBox 
+                                <TextBox
                                     Grid.Column="0"
                                     Text="{Binding ModListViewModel.SelectedMod.Name}" />
                                 <Button
@@ -238,6 +263,7 @@
                     </StackPanel>
                 </ScrollViewer>
             </Grid>
-        </Border>
+            </Border>
+        </Panel>
     </Grid>
 </UserControl>

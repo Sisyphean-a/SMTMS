@@ -19,18 +19,18 @@ public class SettingsService(AppDbContext context) : ISettingsService
                 settings.TranslationSourceLang = "auto";
             if (string.IsNullOrEmpty(settings.TranslationTargetLang))
                 settings.TranslationTargetLang = "zh-CN";
-            
+
             // 如果有空值，保存默认值到数据库
-            if (string.IsNullOrEmpty(settings.TranslationApiType) || 
-                string.IsNullOrEmpty(settings.TranslationSourceLang) || 
+            if (string.IsNullOrEmpty(settings.TranslationApiType) ||
+                string.IsNullOrEmpty(settings.TranslationSourceLang) ||
                 string.IsNullOrEmpty(settings.TranslationTargetLang))
             {
                 await context.SaveChangesAsync();
             }
-            
+
             return settings;
         }
-        
+
         settings = new AppSettings();
         context.AppSettings.Add(settings);
         await context.SaveChangesAsync();

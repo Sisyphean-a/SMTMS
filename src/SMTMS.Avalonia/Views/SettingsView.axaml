@@ -34,7 +34,7 @@
                             Margin="0,0,0,8"
                             Text="模组目录路径"
                             VerticalAlignment="Center" />
-                        
+
                         <TextBox
                             Classes="Small"
                             FontFamily="{StaticResource MonoFont}"
@@ -47,7 +47,7 @@
                             Watermark="请选择模组目录"
                             Width="500"
                             HorizontalAlignment="Left" />
-                        
+
                         <Button
                             Classes="Tertiary"
                             Command="{Binding BrowseFolderCommand}"
@@ -69,7 +69,7 @@
                                 Text="切换应用程序的颜色主题"
                                 TextWrapping="Wrap" />
                         </StackPanel>
-                        
+
                         <ToggleSwitch
                             Grid.Column="1"
                             IsChecked="{Binding IsDarkMode}"

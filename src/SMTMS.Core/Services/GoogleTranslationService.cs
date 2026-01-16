@@ -34,7 +34,7 @@ public class GoogleTranslationService : ITranslationApiService
             Console.WriteLine($"[翻译] 请求 URL: {url.Substring(0, Math.Min(150, url.Length))}...");
 
             var response = await _httpClient.GetAsync(url);
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
@@ -49,7 +49,7 @@ public class GoogleTranslationService : ITranslationApiService
             // 解析 Google 翻译 API 返回的 JSON
             // 格式: [[["翻译结果","原文",null,null,3]],null,"en",null,null,null,null,[]]
             // 或: {"sentences":[{"trans":"翻译结果","orig":"原文",...},...]}
-            
+
             // 尝试新格式（数组格式）
             if (doc.RootElement.ValueKind == JsonValueKind.Array && doc.RootElement.GetArrayLength() > 0)
             {

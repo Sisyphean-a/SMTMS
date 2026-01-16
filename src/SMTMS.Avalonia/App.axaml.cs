@@ -78,7 +78,7 @@ public partial class App : Application
                 
                 // Translation API Service
                 services.AddSingleton<ITranslationApiService, GoogleTranslationService>();
-                
+
                 // UI Core Services
                 services.AddSingleton<IFolderPickerService, AvaloniaFolderPickerService>();
                 services.AddSingleton<ICommitMessageService, AvaloniaCommitMessageService>();
@@ -141,8 +141,8 @@ public partial class App : Application
     public void SetTheme(bool isDarkMode)
     {
         // 设置全局主题变体
-        RequestedThemeVariant = isDarkMode 
-            ? global::Avalonia.Styling.ThemeVariant.Dark 
+        RequestedThemeVariant = isDarkMode
+            ? global::Avalonia.Styling.ThemeVariant.Dark
             : global::Avalonia.Styling.ThemeVariant.Light;
 
         // 为所有窗口添加/移除 theme-dark 类
