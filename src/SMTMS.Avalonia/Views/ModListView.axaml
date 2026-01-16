@@ -182,6 +182,7 @@
                                     IsEnabled="{Binding ModListViewModel.SelectedMod.IsTranslatingName, Converter={StaticResource BoolNegationConverter}}"
                                     Margin="8,0,0,0"
                                     Padding="4"
+                                    AutomationProperties.Name="翻译名称"
                                     ToolTip.Tip="翻译名称"
                                     Width="40" />
                             </Grid>
@@ -246,6 +247,7 @@
                                     IsEnabled="{Binding ModListViewModel.SelectedMod.IsTranslatingDescription, Converter={StaticResource BoolNegationConverter}}"
                                     Margin="8,0,0,0"
                                     Padding="4"
+                                    AutomationProperties.Name="翻译描述"
                                     ToolTip.Tip="翻译描述"
                                     VerticalAlignment="Top"
                                     Width="40" />
