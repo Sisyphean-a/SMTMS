@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using SMTMS.Core.Infrastructure;
 using SMTMS.Core.Interfaces;
-using SMTMS.Core.Models;
 using SMTMS.Translation.Services;
 using SMTMS.Tests.Mocks;
 

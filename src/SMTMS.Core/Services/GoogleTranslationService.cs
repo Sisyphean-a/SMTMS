@@ -1,6 +1,4 @@
 using SMTMS.Core.Interfaces;
-using System.Net;
-using System.Net.Http;
 using System.Text.Json;
 
 namespace SMTMS.Core.Services;

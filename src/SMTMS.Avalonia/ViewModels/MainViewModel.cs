@@ -7,8 +7,6 @@ using SMTMS.Avalonia.Messages;
 using SMTMS.Avalonia.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.EntityFrameworkCore;
-using SMTMS.Data.Context;
 using System.Threading.Tasks;
 using System.Threading;
 using System;

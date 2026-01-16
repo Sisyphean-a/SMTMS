@@ -1,9 +1,7 @@
-using System;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
-using SMTMS.Avalonia.Services;
 
 namespace SMTMS.Avalonia.Services;
 

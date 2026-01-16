@@ -72,85 +72,58 @@ public class TranslationService(
         var historyRepo = scope.ServiceProvider.GetRequiredService<IHistoryRepository>();
         var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
 
-        // 1. 获取该 Snapshot 时刻所有 Mod 的最新状态
-        // GetModHistoriesForSnapshotAsync 应该返回每个 Mod 在该时间点（或之前）的最新状态
+        // 1. 获取快照历史并预处理匹配记录
         var histories = await historyRepo.GetModHistoriesForSnapshotAsync(snapshotId, cancellationToken);
+        if (histories.Count == 0) return OperationResult.Failure("未找到该快照的历史记录或历史记录为空。");
 
-        if (histories.Count == 0)
-        {
-             return OperationResult.Failure("未找到该快照的历史记录或历史记录为空。");
-        }
-
+        var currentMods = await modRepo.GetModsByIdsAsync(histories.Select(h => h.ModUniqueId).Distinct(), cancellationToken);
         var modsToUpdate = new List<ModMetadata>();
-        var errors = new List<string>();
-        int successCount = 0;
+        var now = DateTime.Now;
 
-        foreach(var h in histories)
+        // 2. 将历史状态应用到当前 Mod 对象
+        foreach (var h in histories)
         {
-            try
+            if (currentMods.TryGetValue(h.ModUniqueId, out var mod))
             {
-                var mod = await modRepo.GetModAsync(h.ModUniqueId, cancellationToken);
-                if (mod != null)
-                {
-                    // 恢复元数据
-                    mod.CurrentJson = h.JsonContent;
-                    mod.LastFileHash = h.PreviousHash;
-                    mod.LastTranslationUpdate = DateTime.Now; // 标记为刚刚更新，或者应该保持历史时间？一般回滚视为一次新的变更
-
-                    // 解析 JsonContent 以更新 TranslatedName 和 TranslatedDescription
-                    if (!string.IsNullOrEmpty(h.JsonContent))
-                    {
-                        try
-                        {
-                            var manifest = JsonConvert.DeserializeObject<ModManifest>(h.JsonContent);
-                            if (manifest != null)
-                            {
-                                mod.TranslatedName = manifest.Name;
-                                mod.TranslatedDescription = manifest.Description;
-                            }
-                        }
-                        catch
-                        {
-                            // 忽略解析错误，只恢复内容
-                        }
-                    }
-
-                    modsToUpdate.Add(mod);
-                    successCount++;
-                }
-                else
-                {
-                    // 如果 Mod 不存在于当前 DB（可能被删除了），我们要重新创建吗？
-                    // 这是一个策略问题。简单起见，如果 DB 里没有这个 Mod（意味着可能也没有对应的文件夹），我们可能无法恢复文件。
-                    // 但如果文件夹还在，只是 DB 记录丢了，我们应该 Upsert。
-                    // 鉴于 Metadata 表通常由 Scan 填充，如果这里新建一个 ModMetadata，可能缺少 Path 信息。
-                    // 历史记录里有 Path 吗？ ModMetadata 包含 RelativePath。
-                    // ModTranslationHistory 关联了 ModMetadata，但如果 ModMetadata 没了，我们需要看 GetModHistoriesForSnapshotAsync 是怎么返回的。
-                    // 如果 ModMetadata 是 null，我们丢失了 Path 信息，无法写入文件。
-                    // 假设用户没有删除 Mod 文件夹，只是想回滚翻译。
-                    errors.Add($"Mod {h.ModUniqueId} 在当前数据库中未找到，跳过恢复。");
-                }
-            }
-            catch (Exception ex)
-            {
-                errors.Add($"处理 Mod {h.ModUniqueId} 失败: {ex.Message}");
+                ApplyHistoryToMod(mod, h, now);
+                modsToUpdate.Add(mod);
             }
         }
 
-        // 2. 批量更新 ModMetadata
-        if (modsToUpdate.Count > 0)
+        // 3. 执行数据库批量更新
+        if (modsToUpdate.Count > 0) await modRepo.UpsertModsAsync(modsToUpdate, cancellationToken);
+
+        // 4. 同步文件系统并返回最终结果
+        var result = await _restoreService.RestoreTranslationsFromDbAsync(modDirectory, modRepo, cancellationToken);
+        
+        return result.IsSuccess 
+            ? OperationResult.Success(modsToUpdate.Count, $"成功将 {modsToUpdate.Count} 个模组回滚到快照 {snapshotId}。")
+            : OperationResult.Failure(result.ErrorCount, "数据库更新完毕，但文件同步失败: " + result.Message, result.Details);
+    }
+
+    /// <summary>
+    /// 将单条历史记录的状态应用到 Mod 元数据
+    /// </summary>
+    private static void ApplyHistoryToMod(ModMetadata mod, ModTranslationHistory history, DateTime updateTime)
+    {
+        mod.CurrentJson = history.JsonContent;
+        mod.LastFileHash = history.PreviousHash;
+        mod.LastTranslationUpdate = updateTime;
+
+        if (string.IsNullOrEmpty(history.JsonContent)) return;
+
+        try
         {
-            await modRepo.UpsertModsAsync(modsToUpdate, cancellationToken);
+            var manifest = JsonConvert.DeserializeObject<ModManifest>(history.JsonContent);
+            if (manifest != null)
+            {
+                mod.TranslatedName = manifest.Name;
+                mod.TranslatedDescription = manifest.Description;
+            }
         }
-
-        // 3. 写入文件系统 (复用 RestoreService)
-        var restoreResult = await _restoreService.RestoreTranslationsFromDbAsync(modDirectory, modRepo, cancellationToken);
-
-        if (!restoreResult.IsSuccess)
+        catch
         {
-             return OperationResult.Failure(restoreResult.ErrorCount, "数据库更新成功，但文件恢复失败: " + restoreResult.Message, restoreResult.Details);
+            // 忽略损坏的 JSON，确保回滚核心元数据的稳定性
         }
-
-        return OperationResult.Success(successCount, $"成功回滚 {successCount} 个模组到快照 {snapshotId}。");
     }
 }

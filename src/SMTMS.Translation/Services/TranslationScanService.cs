@@ -61,7 +61,7 @@ public class TranslationScanService(
         // 检查是否需要保存任何内容
         long saveModsElapsed = 0;
         long saveHistoryElapsed = 0;
-        int snapshotId = 0;
+        int snapshotId;
 
         if (processResult.HistoriesToInsert.Count > 0 || processResult.ModsToUpsert.Count > 0)
         {
@@ -201,7 +201,7 @@ public class TranslationScanService(
 
             result.ParseCount++;
 
-            ProcessSingleManifestAsync(file, hash, content, relativePath, keyIdMap, snapshotId, result, cancellationToken);
+            ProcessSingleManifestAsync(file, hash, content, relativePath, keyIdMap, snapshotId, result);
         }
 
         sw.Stop();
@@ -228,8 +228,7 @@ public class TranslationScanService(
         string relativePath,
         Dictionary<string, ModMetadata> keyIdMap,
         int snapshotId,
-        ProcessResult result,
-        CancellationToken cancellationToken)
+        ProcessResult result)
     {
         try
         {

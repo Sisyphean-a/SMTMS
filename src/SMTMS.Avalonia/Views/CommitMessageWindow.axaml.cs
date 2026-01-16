@@ -1,7 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Input;
-using Avalonia.Markup.Xaml;
 
 namespace SMTMS.Avalonia.Views;
 

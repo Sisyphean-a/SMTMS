@@ -1,8 +1,5 @@
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Markup.Xaml;
 using SMTMS.Avalonia.ViewModels;
-using System;
 
 namespace SMTMS.Avalonia.Views;
 
