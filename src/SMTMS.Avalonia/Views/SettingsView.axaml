@@ -140,12 +140,14 @@
                                     VerticalAlignment="Center"
                                     Width="100" />
                                 <ComboBox
+                                    x:CompileBindings="False"
                                     Grid.Column="1"
                                     HorizontalAlignment="Left"
                                     IsEnabled="False"
-                                    SelectedItem="{Binding TranslationApiType}"
+                                    SelectedValue="{Binding TranslationApiType}"
+                                    SelectedValueBinding="{Binding Tag}"
                                     Width="200">
-                                    <ComboBoxItem Content="Google 翻译" IsSelected="True" />
+                                    <ComboBoxItem Content="Google 翻译" Tag="Google" />
                                 </ComboBox>
                             </Grid>
 
@@ -157,11 +159,13 @@
                                     VerticalAlignment="Center"
                                     Width="100" />
                                 <ComboBox
+                                    x:CompileBindings="False"
                                     Grid.Column="1"
                                     HorizontalAlignment="Left"
                                     SelectedValue="{Binding TranslationSourceLang}"
+                                    SelectedValueBinding="{Binding Tag}"
                                     Width="200">
-                                    <ComboBoxItem Content="自动检测" Tag="auto" IsSelected="True" />
+                                    <ComboBoxItem Content="自动检测" Tag="auto" />
                                     <ComboBoxItem Content="英语" Tag="en" />
                                     <ComboBoxItem Content="中文" Tag="zh-CN" />
                                     <ComboBoxItem Content="日语" Tag="ja" />
@@ -177,11 +181,13 @@
                                     VerticalAlignment="Center"
                                     Width="100" />
                                 <ComboBox
+                                    x:CompileBindings="False"
                                     Grid.Column="1"
                                     HorizontalAlignment="Left"
                                     SelectedValue="{Binding TranslationTargetLang}"
+                                    SelectedValueBinding="{Binding Tag}"
                                     Width="200">
-                                    <ComboBoxItem Content="中文（简体）" Tag="zh-CN" IsSelected="True" />
+                                    <ComboBoxItem Content="中文（简体）" Tag="zh-CN" />
                                     <ComboBoxItem Content="英语" Tag="en" />
                                     <ComboBoxItem Content="日语" Tag="ja" />
                                     <ComboBoxItem Content="韩语" Tag="ko" />

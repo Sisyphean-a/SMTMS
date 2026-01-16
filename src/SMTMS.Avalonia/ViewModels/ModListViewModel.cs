@@ -155,7 +155,8 @@ public partial class ModListViewModel : ObservableObject
             // 5. 最终 UI 更新 (在主线程)
             // 只有在这里才清空并添加，确保是原子操作般的视觉效果
             Mods.Clear();
-            Mods.AddRange(viewModels);
+            // Sort by Name explicitly
+            Mods.AddRange(viewModels.OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase));
 
             // 批量保存所有变更 (后台操作，不需要阻塞 UI)
             if (modsToUpdate.Count != 0)
