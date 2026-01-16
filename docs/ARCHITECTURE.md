@@ -29,7 +29,7 @@ flowchart LR
     Data --> SqLite[(SQLite Database)]
     Trans --> Mods[(Mod Files)]
     
-    Core --> ExternalApi["External Translation APIs (Google/DeepL)"]
+    Core --> ExternalApi["External Translation APIs (Google / Cloudflare Worker)"]
 ```
 
 ### 模块职责
@@ -111,6 +111,7 @@ classDiagram
     class ITranslationApiService {
         <<interface>>
         +TranslateAsync()
+        +event OnStatusChanged
     }
 
     %% Relationships
@@ -164,10 +165,14 @@ SMTMS 不依赖外部 VCS 工具，而是内置了一套基于关系型数据库
 *   **`ISettingsService`**: 提供配置的读写接口。`MainViewModel` 在初始化时通过此服务加载用户首选项。
 
 ### 2.4 外部翻译集成 (External Translation Integration)
-系统集成了在线翻译服务，辅助用户快速翻译模组信息。
+系统集成了在线翻译服务，辅助用户快速翻译模组信息，并具备自动故障转移能力。
 
-*   **`ITranslationApiService`**: 定义通用的翻译接口。
-*   **实现**: `GoogleTranslationService` (目前支持 Google Translate API Free 节点)。
+*   **`ITranslationApiService`**: 定义通用的翻译接口，包含异步翻译方法及状态通知事件 (`OnStatusChanged`)。
+*   **实现**: `GoogleTranslationService`。
+    *   **主线路**: Google Translate API Free 节点。
+    *   **备用线路 (Fallback)**: Cloudflare Worker 代理 API。
+    *   **可用性保障**: 每次会话前自动检测主线路连通性。若检测失败或请求过程中发生异常，自动切换至备用线路。
+    *   **响应性体验**: 集成了超时检测逻辑，超过 1 秒未完成的请求将触发状态提示。
 *   **功能**: 支持自动检测源语言，将模组名称或描述翻译为目标语言（默认为中文）。
 
 ---
