@@ -48,6 +48,7 @@ public partial class MainViewModel : ObservableObject
         SettingsViewModel settingsViewModel,
         IGamePathService gamePathService,
         ITranslationService translationService,
+        ITranslationApiService translationApiService,
         IServiceScopeFactory scopeFactory,
         ILogger<MainViewModel> logger,
         ICommitMessageService commitMessageService)
@@ -62,6 +63,12 @@ public partial class MainViewModel : ObservableObject
         _commitMessageService = commitMessageService;
 
         _logger.LogInformation("MainViewModel 初始化");
+
+        // 订阅翻译服务状态消息
+        translationApiService.OnStatusChanged += (sender, msg) => 
+        {
+            WeakReferenceMessenger.Default.Send(new StatusMessage(msg, StatusLevel.Warning));
+        };
 
         // 订阅状态消息
         WeakReferenceMessenger.Default.Register<StatusMessage>(this, OnStatusMessageReceived);
