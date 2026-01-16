@@ -10,7 +10,27 @@ public class SettingsService(AppDbContext context) : ISettingsService
     public async Task<AppSettings> GetSettingsAsync()
     {
         var settings = await context.AppSettings.OrderBy(s => s.Id).FirstOrDefaultAsync();
-        if (settings != null) return settings;
+        if (settings != null)
+        {
+            // 确保翻译配置有默认值
+            if (string.IsNullOrEmpty(settings.TranslationApiType))
+                settings.TranslationApiType = "Google";
+            if (string.IsNullOrEmpty(settings.TranslationSourceLang))
+                settings.TranslationSourceLang = "auto";
+            if (string.IsNullOrEmpty(settings.TranslationTargetLang))
+                settings.TranslationTargetLang = "zh-CN";
+
+            // 如果有空值，保存默认值到数据库
+            if (string.IsNullOrEmpty(settings.TranslationApiType) ||
+                string.IsNullOrEmpty(settings.TranslationSourceLang) ||
+                string.IsNullOrEmpty(settings.TranslationTargetLang))
+            {
+                await context.SaveChangesAsync();
+            }
+
+            return settings;
+        }
+
         settings = new AppSettings();
         context.AppSettings.Add(settings);
         await context.SaveChangesAsync();
@@ -27,6 +47,10 @@ public class SettingsService(AppDbContext context) : ISettingsService
             existing.WindowWidth = settings.WindowWidth;
             existing.WindowHeight = settings.WindowHeight;
             existing.AutoScanOnStartup = settings.AutoScanOnStartup;
+            existing.IsDarkMode = settings.IsDarkMode;
+            existing.TranslationApiType = settings.TranslationApiType;
+            existing.TranslationSourceLang = settings.TranslationSourceLang;
+            existing.TranslationTargetLang = settings.TranslationTargetLang;
         }
         else
         {

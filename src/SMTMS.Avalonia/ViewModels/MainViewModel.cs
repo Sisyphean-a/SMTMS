@@ -24,7 +24,6 @@ public partial class MainViewModel : ObservableObject
     private readonly ITranslationService _translationService;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<MainViewModel> _logger;
-    private readonly IFolderPickerService _folderPickerService;
     private readonly ICommitMessageService _commitMessageService;
     private int _isSyncing;
 
@@ -43,24 +42,25 @@ public partial class MainViewModel : ObservableObject
     // 子 ViewModels
     public ModListViewModel ModListViewModel { get; }
     public HistoryViewModel HistoryViewModel { get; }
+    public SettingsViewModel SettingsViewModel { get; }
 
     public MainViewModel(
         ModListViewModel modListViewModel,
         HistoryViewModel historyViewModel,
+        SettingsViewModel settingsViewModel,
         IGamePathService gamePathService,
         ITranslationService translationService,
         IServiceScopeFactory scopeFactory,
         ILogger<MainViewModel> logger,
-        IFolderPickerService folderPickerService,
         ICommitMessageService commitMessageService)
     {
         ModListViewModel = modListViewModel;
         HistoryViewModel = historyViewModel;
+        SettingsViewModel = settingsViewModel;
         _gamePathService = gamePathService;
         _translationService = translationService;
         _scopeFactory = scopeFactory;
         _logger = logger;
-        _folderPickerService = folderPickerService;
         _commitMessageService = commitMessageService;
 
         _logger.LogInformation("MainViewModel 初始化");
@@ -115,81 +115,6 @@ public partial class MainViewModel : ObservableObject
     {
         // 通知所有订阅者目录已变更
         WeakReferenceMessenger.Default.Send(new ModsDirectoryChangedMessage(value));
-    }
-
-    [RelayCommand]
-    private async Task BrowseFolderAsync()
-    {
-        var selectedPath = await _folderPickerService.PickFolderAsync();
-        
-        if (!string.IsNullOrEmpty(selectedPath))
-        {
-            ModsDirectory = selectedPath;
-
-            // 保存到数据库
-            using var scope = _scopeFactory.CreateScope();
-            var settingsService = scope.ServiceProvider.GetRequiredService<ISettingsService>();
-            await settingsService.UpdateLastModsDirectoryAsync(ModsDirectory);
-
-            WeakReferenceMessenger.Default.Send(new StatusMessage($"已设置Mods目录: {ModsDirectory}", StatusLevel.Success));
-        }
-    }
-
-    [RelayCommand]
-    private async Task HardResetAsync()
-    {
-        try
-        {
-            // 释放数据库锁并等待系统回收
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-            for (int i = 0; i < 2; i++)
-            {
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-                await Task.Delay(100); 
-            }
-
-            var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SMTMS");
-
-            // 2. 删除数据库文件
-            var dbPath = Path.Combine(appDataPath, "smtms.db");
-            if (File.Exists(dbPath))
-            {
-                // 重试机制，防止文件短暂占用
-                int maxRetries = 5;
-                for (int i = 0; i < maxRetries; i++)
-                {
-                    try
-                    {
-                        File.Delete(dbPath);
-                        break; 
-                    }
-                    catch (IOException)
-                    {
-                        if (i == maxRetries - 1) throw; 
-                        await Task.Delay(500); // 异步等待
-                    }
-                }
-            }
-
-            // 3. 重新创建数据库表
-            using (var scope = _scopeFactory.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                await context.Database.MigrateAsync();
-            }
-
-            WeakReferenceMessenger.Default.Send(new StatusMessage("初始化完成。所有历史和数据已清空。", StatusLevel.Success));
-
-            // 4. 请求刷新
-            WeakReferenceMessenger.Default.Send(RefreshModsRequestMessage.Instance);
-            HistoryViewModel.LoadHistory();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "初始化失败");
-            WeakReferenceMessenger.Default.Send(new StatusMessage($"初始化错误: {ex.Message}", StatusLevel.Error));
-        }
     }
 
     [RelayCommand]

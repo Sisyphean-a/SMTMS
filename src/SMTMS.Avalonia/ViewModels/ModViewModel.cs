@@ -2,10 +2,13 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using SMTMS.Core.Models;
+using SMTMS.Core.Interfaces;
 using SMTMS.Avalonia.Messages;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace SMTMS.Avalonia.ViewModels;
 
@@ -77,6 +80,13 @@ public partial class ModViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isDirty;
+
+    // 翻译状态
+    [ObservableProperty]
+    private bool _isTranslatingName;
+
+    [ObservableProperty]
+    private bool _isTranslatingDescription;
 
     private void CheckDirty()
     {
@@ -242,6 +252,94 @@ public partial class ModViewModel : ObservableObject
         {
             // TODO: Log error or show notification
             Console.WriteLine($"Failed to open URL: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 翻译名称
+    /// </summary>
+    [RelayCommand]
+    public async Task TranslateNameAsync()
+    {
+        if (IsTranslatingName || string.IsNullOrWhiteSpace(Name))
+            return;
+
+        IsTranslatingName = true;
+        try
+        {
+            var translationService = CommunityToolkit.Mvvm.DependencyInjection.Ioc.Default.GetService<ITranslationApiService>();
+            var settingsService = CommunityToolkit.Mvvm.DependencyInjection.Ioc.Default.GetService<IServiceScopeFactory>()?.
+                CreateScope().ServiceProvider.GetService<ISettingsService>();
+
+            if (translationService == null || settingsService == null)
+            {
+                WeakReferenceMessenger.Default.Send(new StatusMessage("翻译服务未初始化", StatusLevel.Error));
+                return;
+            }
+
+            var settings = await settingsService.GetSettingsAsync();
+            var translatedText = await translationService.TranslateAsync(
+                Name,
+                settings.TranslationTargetLang,
+                settings.TranslationSourceLang);
+
+            if (!string.IsNullOrWhiteSpace(translatedText) && translatedText != Name)
+            {
+                Name = translatedText;
+                WeakReferenceMessenger.Default.Send(new StatusMessage("名称翻译完成", StatusLevel.Success));
+            }
+        }
+        catch (Exception ex)
+        {
+            WeakReferenceMessenger.Default.Send(new StatusMessage($"翻译失败: {ex.Message}", StatusLevel.Error));
+        }
+        finally
+        {
+            IsTranslatingName = false;
+        }
+    }
+
+    /// <summary>
+    /// 翻译描述
+    /// </summary>
+    [RelayCommand]
+    public async Task TranslateDescriptionAsync()
+    {
+        if (IsTranslatingDescription || string.IsNullOrWhiteSpace(Description))
+            return;
+
+        IsTranslatingDescription = true;
+        try
+        {
+            var translationService = CommunityToolkit.Mvvm.DependencyInjection.Ioc.Default.GetService<ITranslationApiService>();
+            var settingsService = CommunityToolkit.Mvvm.DependencyInjection.Ioc.Default.GetService<IServiceScopeFactory>()?.
+                CreateScope().ServiceProvider.GetService<ISettingsService>();
+
+            if (translationService == null || settingsService == null)
+            {
+                WeakReferenceMessenger.Default.Send(new StatusMessage("翻译服务未初始化", StatusLevel.Error));
+                return;
+            }
+
+            var settings = await settingsService.GetSettingsAsync();
+            var translatedText = await translationService.TranslateAsync(
+                Description,
+                settings.TranslationTargetLang,
+                settings.TranslationSourceLang);
+
+            if (!string.IsNullOrWhiteSpace(translatedText) && translatedText != Description)
+            {
+                Description = translatedText;
+                WeakReferenceMessenger.Default.Send(new StatusMessage("描述翻译完成", StatusLevel.Success));
+            }
+        }
+        catch (Exception ex)
+        {
+            WeakReferenceMessenger.Default.Send(new StatusMessage($"翻译失败: {ex.Message}", StatusLevel.Error));
+        }
+        finally
+        {
+            IsTranslatingDescription = false;
         }
     }
 }

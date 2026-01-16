@@ -28,17 +28,6 @@
                     Grid.Column="0"
                     Orientation="Horizontal"
                     Spacing="12">
-                    <TextBox
-                        Classes="Small"
-                        FontFamily="{StaticResource MonoFont}"
-                        InnerRightContent="路径"
-                        Text="{Binding ModsDirectory}"
-                        Watermark="模组目录路径"
-                        Width="350" />
-                    <Button
-                        Classes="Tertiary"
-                        Command="{Binding BrowseFolderCommand}"
-                        Content="打开" />
                     <Button
                         Classes="Solid"
                         Command="{Binding ModListViewModel.LoadModsCommand}"
@@ -67,17 +56,6 @@
                         Classes="Tertiary"
                         Command="{Binding RestoreFromDatabaseCommand}"
                         Content="恢复数据" />
-
-                    <Rectangle
-                        Fill="#E1E3E6"
-                        Margin="4,6"
-                        Width="1" />
-
-                    <Button
-                        Classes="Danger"
-                        Command="{Binding HardResetCommand}"
-                        Content="初始化"
-                        Theme="{DynamicResource TertiaryButton}" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -90,6 +68,10 @@
 
             <TabItem Header="历史记录">
                 <views:HistoryView />
+            </TabItem>
+
+            <TabItem Header="设置">
+                <views:SettingsView DataContext="{Binding SettingsViewModel}" />
             </TabItem>
         </TabControl>
     </Grid>

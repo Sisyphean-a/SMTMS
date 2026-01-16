@@ -35,8 +35,6 @@
             x:Name="ModsGrid">
             <DataGrid.Styles>
                 <Style Selector="DataGridColumnHeader">
-                    <Setter Property="Background" Value="#FAFAFA" />
-                    <Setter Property="Foreground" Value="#999999" />
                     <Setter Property="FontSize" Value="11" />
                     <Setter Property="FontWeight" Value="Bold" />
                 </Style>
@@ -162,16 +160,32 @@
                             <TextBlock
                                 FontSize="10"
                                 FontWeight="Bold"
-                                Foreground="#999999"
+                                Opacity="0.6"
                                 Text="名称" />
-                            <TextBox Text="{Binding ModListViewModel.SelectedMod.Name}" />
+                            <Grid ColumnDefinitions="*, Auto">
+                                <TextBox
+                                    Grid.Column="0"
+                                    Text="{Binding ModListViewModel.SelectedMod.Name}" />
+                                <Button
+                                    Grid.Column="1"
+                                    Classes="Tertiary"
+                                    Command="{Binding ModListViewModel.SelectedMod.TranslateNameCommand}"
+                                    Content="🌐"
+                                    FontSize="16"
+                                    Height="32"
+                                    IsEnabled="{Binding ModListViewModel.SelectedMod.IsTranslatingName, Converter={StaticResource BoolNegationConverter}}"
+                                    Margin="8,0,0,0"
+                                    Padding="4"
+                                    ToolTip.Tip="翻译名称"
+                                    Width="40" />
+                            </Grid>
                         </StackPanel>
 
                         <StackPanel Spacing="6">
                             <TextBlock
                                 FontSize="10"
                                 FontWeight="Bold"
-                                Foreground="#999999"
+                                Opacity="0.6"
                                 Text="唯一 ID" />
                             <TextBox
                                 FontFamily="{StaticResource MonoFont}"
@@ -184,7 +198,7 @@
                             <TextBlock
                                 FontSize="10"
                                 FontWeight="Bold"
-                                Foreground="#999999"
+                                Opacity="0.6"
                                 Text="N网 ID" />
                             <Grid ColumnDefinitions="*, Auto">
                                 <TextBox
@@ -206,14 +220,30 @@
                             <TextBlock
                                 FontSize="10"
                                 FontWeight="Bold"
-                                Foreground="#999999"
+                                Opacity="0.6"
                                 Text="描述" />
-                            <TextBox
-                                AcceptsReturn="True"
-                                Height="120"
-                                Text="{Binding ModListViewModel.SelectedMod.Description}"
-                                TextWrapping="Wrap"
-                                VerticalContentAlignment="Top" />
+                            <Grid ColumnDefinitions="*, Auto" RowDefinitions="*">
+                                <TextBox
+                                    AcceptsReturn="True"
+                                    Grid.Column="0"
+                                    Height="120"
+                                    Text="{Binding ModListViewModel.SelectedMod.Description}"
+                                    TextWrapping="Wrap"
+                                    VerticalContentAlignment="Top" />
+                                <Button
+                                    Grid.Column="1"
+                                    Classes="Tertiary"
+                                    Command="{Binding ModListViewModel.SelectedMod.TranslateDescriptionCommand}"
+                                    Content="🌐"
+                                    FontSize="16"
+                                    Height="32"
+                                    IsEnabled="{Binding ModListViewModel.SelectedMod.IsTranslatingDescription, Converter={StaticResource BoolNegationConverter}}"
+                                    Margin="8,0,0,0"
+                                    Padding="4"
+                                    ToolTip.Tip="翻译描述"
+                                    VerticalAlignment="Top"
+                                    Width="40" />
+                            </Grid>
                         </StackPanel>
 
                         <StackPanel

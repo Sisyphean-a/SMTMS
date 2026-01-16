@@ -29,4 +29,24 @@ public class AppSettings
     /// 启动时自动扫描模组
     /// </summary>
     public bool AutoScanOnStartup { get; set; } = true;
+
+    /// <summary>
+    /// 是否启用黑夜模式
+    /// </summary>
+    public bool IsDarkMode { get; set; } = false;
+
+    /// <summary>
+    /// 翻译 API 类型（Google, DeepL 等）
+    /// </summary>
+    public string TranslationApiType { get; set; } = "Google";
+
+    /// <summary>
+    /// 翻译源语言（auto 为自动检测）
+    /// </summary>
+    public string TranslationSourceLang { get; set; } = "auto";
+
+    /// <summary>
+    /// 翻译目标语言
+    /// </summary>
+    public string TranslationTargetLang { get; set; } = "zh-CN";
 }
