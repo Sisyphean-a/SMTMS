@@ -183,6 +183,7 @@
                                     Margin="8,0,0,0"
                                     Padding="4"
                                     ToolTip.Tip="翻译名称"
+                                    AutomationProperties.Name="翻译名称"
                                     Width="40" />
                             </Grid>
                         </StackPanel>
@@ -247,6 +248,7 @@
                                     Margin="8,0,0,0"
                                     Padding="4"
                                     ToolTip.Tip="翻译描述"
+                                    AutomationProperties.Name="翻译描述"
                                     VerticalAlignment="Top"
                                     Width="40" />
                             </Grid>
