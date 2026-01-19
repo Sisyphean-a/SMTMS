@@ -149,4 +149,72 @@ public static partial class ManifestTextReplacer
 
         return DescriptionFieldRegex().IsMatch(jsonContent);
     }
+
+    /// <summary>
+    /// 在 UpdateKeys 数组中添加或更新 Nexus ID
+    /// 如果不存在 UpdateKeys，则创建；如果存在，则添加或替换 Nexus 条目
+    /// </summary>
+    /// <param name="jsonContent">原始 JSON 内容</param>
+    /// <param name="nexusId">Nexus 模组 ID（纯数字）</param>
+    /// <returns>更新后的 JSON 内容</returns>
+    public static string AddOrUpdateNexusId(string jsonContent, string? nexusId)
+    {
+        if (string.IsNullOrEmpty(jsonContent))
+            return jsonContent;
+
+        if (string.IsNullOrWhiteSpace(nexusId))
+            return jsonContent;
+
+        // 匹配现有的 UpdateKeys 数组
+        var updateKeysRegex = new Regex(@"""UpdateKeys""\s*:\s*\[([^\]]*)\]", RegexOptions.Singleline);
+        var nexusKeyRegex = new Regex(@"""Nexus:\d+""", RegexOptions.IgnoreCase);
+        
+        var match = updateKeysRegex.Match(jsonContent);
+        
+        if (match.Success)
+        {
+            // UpdateKeys 已存在
+            var existingContent = match.Groups[1].Value;
+            var newNexusKey = $"\"Nexus:{nexusId}\"";
+            
+            if (nexusKeyRegex.IsMatch(existingContent))
+            {
+                // 替换现有的 Nexus 条目
+                var newContent = nexusKeyRegex.Replace(existingContent, newNexusKey);
+                return jsonContent.Substring(0, match.Groups[1].Index) + newContent + 
+                       jsonContent.Substring(match.Groups[1].Index + match.Groups[1].Length);
+            }
+            else
+            {
+                // 添加到现有数组
+                var trimmed = existingContent.Trim();
+                string newArrayContent;
+                if (string.IsNullOrEmpty(trimmed))
+                {
+                    newArrayContent = " " + newNexusKey + " ";
+                }
+                else
+                {
+                    newArrayContent = existingContent.TrimEnd() + ", " + newNexusKey + " ";
+                }
+                return jsonContent.Substring(0, match.Groups[1].Index) + newArrayContent + 
+                       jsonContent.Substring(match.Groups[1].Index + match.Groups[1].Length);
+            }
+        }
+        else
+        {
+            // UpdateKeys 不存在，在 UniqueID 后面添加
+            var uniqueIdRegex = new Regex(@"(""UniqueID""\s*:\s*""[^""]*"")(\s*,?)");
+            var uniqueIdMatch = uniqueIdRegex.Match(jsonContent);
+            
+            if (uniqueIdMatch.Success)
+            {
+                var insertPos = uniqueIdMatch.Index + uniqueIdMatch.Length;
+                var newUpdateKeys = $",\n  \"UpdateKeys\": [ \"Nexus:{nexusId}\" ]";
+                return jsonContent.Insert(insertPos, newUpdateKeys);
+            }
+        }
+        
+        return jsonContent;
+    }
 }

@@ -313,6 +313,7 @@ public class TranslationScanService(
     {
         mod.TranslatedName = manifest.Name;
         mod.TranslatedDescription = manifest.Description;
+        // NexusId 现在直接存储在 manifest.json 的 UpdateKeys 中，不需要额外处理
     }
 
     private void LogModChanges(string uniqueId, List<string> changes)

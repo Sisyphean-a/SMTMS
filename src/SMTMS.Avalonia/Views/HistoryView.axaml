@@ -121,6 +121,10 @@
                                         <Run Text="版本: " />
                                         <Run Foreground="{StaticResource GeekBlueBrush}" Text="{Binding VersionChange.ChangeSummary}" />
                                     </TextBlock>
+                                    <TextBlock FontSize="12" IsVisible="{Binding UpdateKeysChange.HasChange}" Opacity="0.8">
+                                        <Run Text="N网ID: " />
+                                        <Run Foreground="{StaticResource GeekBlueBrush}" Text="{Binding UpdateKeysChange.ChangeSummary}" />
+                                    </TextBlock>
                                 </StackPanel>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
@@ -204,6 +208,32 @@
                                     Margin="4,0,0,0"
                                     Text="{Binding HistoryViewModel.SelectedDiffItem.DescriptionChange.NewValue}"
                                     TextWrapping="Wrap" />
+                            </Grid>
+
+                            <TextBlock
+                                FontSize="10"
+                                FontWeight="Bold"
+                                Opacity="0.6"
+                                IsVisible="{Binding HistoryViewModel.SelectedDiffItem.UpdateKeysChange.HasChange}"
+                                Margin="0,10,0,0"
+                                Text="N网ID变更" />
+                            <Grid ColumnDefinitions="*,*" IsVisible="{Binding HistoryViewModel.SelectedDiffItem.UpdateKeysChange.HasChange}">
+                                <TextBox
+                                    Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
+                                    BorderThickness="0"
+                                    Foreground="{DynamicResource SystemControlErrorTextForegroundBrush}"
+                                    Grid.Column="0"
+                                    IsReadOnly="True"
+                                    Margin="0,0,4,0"
+                                    Text="{Binding HistoryViewModel.SelectedDiffItem.UpdateKeysChange.OldValue}" />
+                                <TextBox
+                                    Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
+                                    BorderThickness="0"
+                                    Foreground="{DynamicResource SystemControlHighlightAccentBrush}"
+                                    Grid.Column="1"
+                                    IsReadOnly="True"
+                                    Margin="4,0,0,0"
+                                    Text="{Binding HistoryViewModel.SelectedDiffItem.UpdateKeysChange.NewValue}" />
                             </Grid>
                         </StackPanel>
                     </StackPanel>

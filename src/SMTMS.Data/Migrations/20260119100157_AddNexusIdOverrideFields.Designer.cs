@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SMTMS.Data.Context;
 
@@ -10,9 +11,11 @@ using SMTMS.Data.Context;
 namespace SMTMS.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260119100157_AddNexusIdOverrideFields")]
+    partial class AddNexusIdOverrideFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.11");
@@ -89,9 +92,6 @@ namespace SMTMS.Data.Migrations
                     b.Property<bool>("IsMachineTranslated")
                         .HasColumnType("INTEGER");
 
-                    b.Property<bool>("IsNexusIdUserAdded")
-                        .HasColumnType("INTEGER");
-
                     b.Property<string>("LastFileHash")
                         .HasColumnType("TEXT");
 
@@ -123,6 +123,12 @@ namespace SMTMS.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("OriginalName")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OriginalNexusId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OverrideNexusId")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("RelativePath")

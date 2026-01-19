@@ -75,7 +75,7 @@ public class ModService(IFileSystem fileSystem) : IModService
         await _fileSystem.WriteAllTextAsync(manifestPath, json);
     }
 
-    public async Task UpdateModManifestAsync(string manifestPath, string? newName, string? newDescription)
+    public async Task UpdateModManifestAsync(string manifestPath, string? newName, string? newDescription, string? newNexusId = null)
     {
         if (!_fileSystem.FileExists(manifestPath))
         {
@@ -87,6 +87,12 @@ public class ModService(IFileSystem fileSystem) : IModService
 
         // 使用 Core 中的 ManifestTextReplacer 替换内容，同时保留结构
         var updatedJson = SMTMS.Core.Helpers.ManifestTextReplacer.ReplaceNameAndDescription(originalJson, newName, newDescription);
+        
+        // 如果提供了 NexusId，也更新 UpdateKeys
+        if (!string.IsNullOrWhiteSpace(newNexusId))
+        {
+            updatedJson = SMTMS.Core.Helpers.ManifestTextReplacer.AddOrUpdateNexusId(updatedJson, newNexusId);
+        }
 
         // 仅在发生更改时写回
         if (updatedJson != originalJson)

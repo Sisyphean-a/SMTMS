@@ -201,7 +201,7 @@
                                 Text="{Binding ModListViewModel.SelectedMod.UniqueID}" />
                         </StackPanel>
 
-                        <StackPanel IsVisible="{Binding ModListViewModel.SelectedMod.NexusId, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Spacing="6">
+                        <StackPanel Spacing="6">
                             <TextBlock
                                 FontSize="10"
                                 FontWeight="Bold"
@@ -211,14 +211,15 @@
                                 <TextBox
                                     FontFamily="{StaticResource MonoFont}"
                                     Grid.Column="0"
-                                    IsReadOnly="True"
-                                    Opacity="0.7"
-                                    Text="{Binding ModListViewModel.SelectedMod.NexusId}" />
+                                    IsReadOnly="{Binding ModListViewModel.SelectedMod.IsNexusIdEditable, Converter={StaticResource BoolNegationConverter}}"
+                                    Text="{Binding ModListViewModel.SelectedMod.NexusId}"
+                                    Watermark="输入 N网 模组 ID（纯数字）" />
                                 <Button
                                     Classes="Tertiary"
                                     Command="{Binding ModListViewModel.SelectedMod.OpenNexusPageCommand}"
                                     Content="链接"
                                     Grid.Column="1"
+                                    IsVisible="{Binding ModListViewModel.SelectedMod.HasNexusUrl}"
                                     Margin="8,0,0,0" />
                             </Grid>
                         </StackPanel>

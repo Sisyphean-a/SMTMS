@@ -202,8 +202,26 @@ public partial class ModListViewModel : ObservableObject
                 return;
             }
 
-            // 使用 Service 层更新文件，不再直接操作文件系统
-            await _modService.UpdateModManifestAsync(manifestPath, SelectedMod.Name, SelectedMod.Description);
+            // 使用 Service 层更新文件（包括 Name, Description, 和可选的 NexusId）
+            // 如果 NexusId 可编辑（模组原本没有），则将用户输入的 NexusId 写入 manifest
+            string? nexusIdToSave = SelectedMod.IsNexusIdEditable && !string.IsNullOrWhiteSpace(SelectedMod.NexusId) 
+                ? SelectedMod.NexusId 
+                : null;
+            
+            await _modService.UpdateModManifestAsync(manifestPath, SelectedMod.Name, SelectedMod.Description, nexusIdToSave);
+            
+            // 如果用户添加了 NexusId，标记到数据库（供后续识别）
+            if (nexusIdToSave != null)
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var modRepo = scope.ServiceProvider.GetRequiredService<IModRepository>();
+                var metadata = await modRepo.GetModAsync(SelectedMod.UniqueID);
+                if (metadata != null)
+                {
+                    metadata.IsNexusIdUserAdded = true;
+                    await modRepo.UpsertModAsync(metadata);
+                }
+            }
 
             // 重置 IsDirty 状态
             SelectedMod.ResetDirtyState();

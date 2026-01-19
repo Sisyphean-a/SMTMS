@@ -22,5 +22,5 @@ public interface IModService
     /// <summary>
     /// 更新清单中的特定字段，确保保留格式注释。
     /// </summary>
-    Task UpdateModManifestAsync(string manifestPath, string? newName, string? newDescription);
+    Task UpdateModManifestAsync(string manifestPath, string? newName, string? newDescription, string? newNexusId = null);
 }
