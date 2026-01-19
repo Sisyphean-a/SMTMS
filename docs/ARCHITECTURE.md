@@ -171,7 +171,7 @@ SMTMS 不依赖外部 VCS 工具，而是内置了一套基于关系型数据库
 *   **实现**: `GoogleTranslationService`。
     *   **主线路**: Google Translate API Free 节点。
     *   **备用线路 (Fallback)**: Cloudflare Worker 代理 API。
-    *   **可用性保障**: 每次会话前自动检测主线路连通性。若检测失败或请求过程中发生异常，自动切换至备用线路。
+    *   **弹性策略 (Resilience)**: 使用 **Polly** 构建重试 (Retry) 与降级 (Fallback) 策略管道。当主线路发生网络异常时自动重试，失败后无缝切换至备用线路。
     *   **响应性体验**: 集成了超时检测逻辑，超过 1 秒未完成的请求将触发状态提示。
 *   **功能**: 支持自动检测源语言，将模组名称或描述翻译为目标语言（默认为中文）。
 
@@ -248,10 +248,10 @@ sequenceDiagram
 
     User->>ModVM: 点击 "查看历史"
     ModVM->>ModHistoryVM: 初始化 (OpenHistoryRequestMessage)
+    ModHistoryVM->>ModHistoryVM: 计算相邻版本差异 (Diff)
     ModHistoryVM->>HistoryRepo: GetHistoryForModAsync(ModID)
     HistoryRepo-->>ModHistoryVM: 返回该 Mod 所有历史版本
     
-    ModHistoryVM->>ModHistoryVM: 计算相邻版本差异 (Diff)
     ModHistoryVM-->>User: 显示历史列表窗口
     
     User->>ModHistoryVM: 选中某版本并点击 "应用"
@@ -275,5 +275,6 @@ sequenceDiagram
 *   **ORM**: Entity Framework Core (SQLite Provider)
 *   **Utils**:
     *   `CommunityToolkit.Mvvm`: MVVM 模式支持
+    *   `Polly`: 弹性网络策略 (Retry & Fallback)
     *   `DiffPlex`: 文本差异比对算法
     *   `Newtonsoft.Json`: JSON 序列化处理

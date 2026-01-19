@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using SMTMS.Core.Common;
+using SMTMS.Core.Primitives;
 using SMTMS.Core.Infrastructure;
 using SMTMS.Core.Interfaces;
 using SMTMS.Core.Models;

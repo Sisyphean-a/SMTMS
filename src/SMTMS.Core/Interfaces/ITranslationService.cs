@@ -1,4 +1,4 @@
-using SMTMS.Core.Common;
+using SMTMS.Core.Primitives;
 
 namespace SMTMS.Core.Interfaces;
 

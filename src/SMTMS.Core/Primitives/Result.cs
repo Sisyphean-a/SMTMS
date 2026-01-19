@@ -1,4 +1,4 @@
-namespace SMTMS.Core.Common;
+namespace SMTMS.Core.Primitives;
 
 /// <summary>
 /// 表示操作结果的基类
@@ -74,4 +74,3 @@ public class BatchResult : Result
     public static BatchResult Failure(int failureCount, List<string> errors)
         => new(false, 0, failureCount, errors, $"全部失败: {failureCount} 个错误");
 }
-

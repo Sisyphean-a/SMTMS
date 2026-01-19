@@ -1,6 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
-using SMTMS.Core.Common;
+using SMTMS.Core.Primitives;
 using SMTMS.Core.Interfaces;
 using SMTMS.Core.Models;
 

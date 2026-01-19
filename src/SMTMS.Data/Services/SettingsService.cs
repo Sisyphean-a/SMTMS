@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SMTMS.Core.Interfaces;
 using SMTMS.Core.Models;
-using SMTMS.Core.Common;
+using SMTMS.Core.Configuration;
 using SMTMS.Data.Context;
 
 namespace SMTMS.Data.Services;

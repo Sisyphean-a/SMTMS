@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations;
-using SMTMS.Core.Common;
+using SMTMS.Core.Configuration;
 
 namespace SMTMS.Core.Models;
 

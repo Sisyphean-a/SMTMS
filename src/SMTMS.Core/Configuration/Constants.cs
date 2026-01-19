@@ -1,4 +1,4 @@
-namespace SMTMS.Core.Common;
+namespace SMTMS.Core.Configuration;
 
 public static class Constants
 {

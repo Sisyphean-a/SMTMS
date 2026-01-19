@@ -1,4 +1,4 @@
-namespace SMTMS.Core.Common;
+namespace SMTMS.Core.Primitives;
 
 /// <summary>
 /// 表示带详细信息的操作结果（用于翻译、同步等复杂操作）
@@ -32,4 +32,3 @@ public class OperationResult
     public static OperationResult Failure(int errorCount, string message, List<string>? details = null)
         => new(false, 0, errorCount, message, details);
 }
-
