@@ -1,5 +1,7 @@
 using SMTMS.Core.Interfaces;
+using SMTMS.Core.Common;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 
 namespace SMTMS.Core.Services;
 
@@ -9,12 +11,17 @@ namespace SMTMS.Core.Services;
 public class GoogleTranslationService : ITranslationApiService
 {
     private readonly HttpClient _httpClient;
-    private static bool? _canConnectToGoogle;
+    private readonly ILogger<GoogleTranslationService> _logger;
+    private bool? _canConnectToGoogle;
+
+    private const string GoogleApiUrlTemplate = "https://translate.googleapis.com/translate_a/single?client=gtx&sl={0}&tl={1}&dt=t&ie=UTF-8&oe=UTF-8&q={2}";
+    private const string FallbackApiUrlTemplate = "https://fanyi.sisyphean.top/single?client=gtx&sl={0}&tl={1}&dt=t&q={2}";
 
     public event EventHandler<string>? OnStatusChanged;
 
-    public GoogleTranslationService()
+    public GoogleTranslationService(ILogger<GoogleTranslationService> logger)
     {
+        _logger = logger;
         _httpClient = new HttpClient();
         _httpClient.Timeout = TimeSpan.FromSeconds(10);
     }
@@ -22,7 +29,7 @@ public class GoogleTranslationService : ITranslationApiService
     /// <summary>
     /// 使用 Google 翻译 API 翻译文本，如果 Google 不可用则自动切换到备用源
     /// </summary>
-    public async Task<string> TranslateAsync(string text, string targetLang, string sourceLang = "auto")
+    public async Task<string> TranslateAsync(string text, string targetLang, string sourceLang = Constants.Translation.DefaultSourceLang)
     {
         if (string.IsNullOrWhiteSpace(text))
             return text;
@@ -63,7 +70,7 @@ public class GoogleTranslationService : ITranslationApiService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[翻译] Google 翻译失败: {ex.Message}，尝试重置状态并使用备用源");
+            _logger.LogWarning(ex, "[翻译] Google 翻译失败，尝试重置状态并使用备用源");
             OnStatusChanged?.Invoke(this, "Google 翻译无响应，正如西西弗斯推石上山... 正在切换至备用线路");
             
             // 如果在使用 Google 时报错，重置状态，并尝试使用备用源
@@ -83,7 +90,7 @@ public class GoogleTranslationService : ITranslationApiService
         // 进行连通性测试
         try
         {
-            Console.WriteLine("[翻译] 正在检测 Google 连通性...");
+            _logger.LogInformation("[翻译] 正在检测 Google 连通性...");
             // 只有在首次检测时，如果时间较长才提示，不过通常 TCP 连接超时是 1s，这里可以不提示，或者提示正在探测
             // OnStatusChanged?.Invoke(this, "正在探测 Google 连通性..."); 
 
@@ -94,19 +101,19 @@ public class GoogleTranslationService : ITranslationApiService
             var completedTask = await Task.WhenAny(connectTask, timeoutTask);
             if (completedTask == connectTask && client.Connected)
             {
-                Console.WriteLine("[翻译] Google 连接成功");
+                _logger.LogInformation("[翻译] Google 连接成功");
                 _canConnectToGoogle = true;
             }
             else
             {
-                Console.WriteLine("[翻译] Google 连接超时或失败");
+                _logger.LogWarning("[翻译] Google 连接超时或失败");
                 OnStatusChanged?.Invoke(this, "无法触达 Google，正在切换至备用翻译网络...");
                 _canConnectToGoogle = false;
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[翻译] Google 连接检测异常: {ex.Message}");
+            _logger.LogError(ex, "[翻译] Google 连接检测异常");
             OnStatusChanged?.Invoke(this, "网络连接异常，将使用备用翻译服务...");
             _canConnectToGoogle = false;
         }
@@ -117,9 +124,9 @@ public class GoogleTranslationService : ITranslationApiService
     private async Task<string> TranslateWithGoogleAsync(string text, string targetLang, string sourceLang)
     {
         // 使用 Uri.EscapeDataString 进行 URL 编码
-        var url = $"https://translate.googleapis.com/translate_a/single?client=gtx&sl={Uri.EscapeDataString(sourceLang)}&tl={Uri.EscapeDataString(targetLang)}&dt=t&ie=UTF-8&oe=UTF-8&q={Uri.EscapeDataString(text)}";
+        var url = string.Format(GoogleApiUrlTemplate, Uri.EscapeDataString(sourceLang), Uri.EscapeDataString(targetLang), Uri.EscapeDataString(text));
 
-        Console.WriteLine($"[翻译-Google] 请求 URL: {url.Substring(0, Math.Min(150, url.Length))}...");
+        _logger.LogDebug("[翻译-Google] 请求 URL: {Url}", url.Substring(0, Math.Min(150, url.Length)));
 
         var response = await _httpClient.GetAsync(url);
 
@@ -173,7 +180,7 @@ public class GoogleTranslationService : ITranslationApiService
             }
         }
 
-        Console.WriteLine($"[翻译-Google] 警告: 无法解析响应，返回原文");
+        _logger.LogWarning("[翻译-Google] 警告: 无法解析响应，返回原文");
         return text;
     }
 
@@ -181,8 +188,8 @@ public class GoogleTranslationService : ITranslationApiService
     {
         try
         {
-            var url = $"https://fanyi.sisyphean.top/single?client=gtx&sl={Uri.EscapeDataString(sourceLang)}&tl={Uri.EscapeDataString(targetLang)}&dt=t&q={Uri.EscapeDataString(text)}";
-            Console.WriteLine($"[翻译-Fallback] 请求 URL: {url.Substring(0, Math.Min(150, url.Length))}...");
+            var url = string.Format(FallbackApiUrlTemplate, Uri.EscapeDataString(sourceLang), Uri.EscapeDataString(targetLang), Uri.EscapeDataString(text));
+            _logger.LogDebug("[翻译-Fallback] 请求 URL: {Url}", url.Substring(0, Math.Min(150, url.Length)));
 
             var response = await _httpClient.GetAsync(url);
             if (!response.IsSuccessStatusCode)
@@ -192,7 +199,7 @@ public class GoogleTranslationService : ITranslationApiService
             }
 
             var json = await response.Content.ReadAsStringAsync();
-            Console.WriteLine($"[翻译-Fallback] 响应: {json.Substring(0, Math.Min(200, json.Length))}...");
+            // Console.WriteLine($"[翻译-Fallback] 响应: {json.Substring(0, Math.Min(200, json.Length))}...");
 
             var doc = JsonDocument.Parse(json);
             if (doc.RootElement.TryGetProperty("translation", out var translationElement))
@@ -200,17 +207,17 @@ public class GoogleTranslationService : ITranslationApiService
                 var translatedText = translationElement.GetString();
                 if (!string.IsNullOrEmpty(translatedText))
                 {
-                    Console.WriteLine($"[翻译-Fallback] 成功: {text} -> {translatedText}");
+                    _logger.LogInformation("[翻译-Fallback] 成功: {Text} -> {TranslatedText}", text, translatedText);
                     return translatedText;
                 }
             }
             
-            Console.WriteLine($"[翻译-Fallback] 警告: 无法解析响应，返回原文");
+            _logger.LogWarning("[翻译-Fallback] 警告: 无法解析响应，返回原文");
             return text;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[翻译-Fallback] 错误: {ex.Message}");
+            _logger.LogError(ex, "[翻译-Fallback] 错误");
             throw; 
         }
     }

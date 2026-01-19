@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using SMTMS.Core.Common;
 
 namespace SMTMS.Core.Models;
 
@@ -18,12 +19,12 @@ public class AppSettings
     /// <summary>
     /// 窗口宽度
     /// </summary>
-    public int WindowWidth { get; set; } = 1200;
+    public int WindowWidth { get; set; } = Constants.UI.DefaultWindowWidth;
 
     /// <summary>
     /// 窗口高度
     /// </summary>
-    public int WindowHeight { get; set; } = 800;
+    public int WindowHeight { get; set; } = Constants.UI.DefaultWindowHeight;
 
     /// <summary>
     /// 启动时自动扫描模组
@@ -38,15 +39,15 @@ public class AppSettings
     /// <summary>
     /// 翻译 API 类型（Google, DeepL 等）
     /// </summary>
-    public string TranslationApiType { get; set; } = "Google";
+    public string TranslationApiType { get; set; } = Constants.Translation.ProviderGoogle;
 
     /// <summary>
     /// 翻译源语言（auto 为自动检测）
     /// </summary>
-    public string TranslationSourceLang { get; set; } = "auto";
+    public string TranslationSourceLang { get; set; } = Constants.Translation.DefaultSourceLang;
 
     /// <summary>
     /// 翻译目标语言
     /// </summary>
-    public string TranslationTargetLang { get; set; } = "zh-CN";
+    public string TranslationTargetLang { get; set; } = Constants.Translation.DefaultTargetLang;
 }

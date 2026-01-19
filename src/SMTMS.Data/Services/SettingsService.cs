@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SMTMS.Core.Interfaces;
 using SMTMS.Core.Models;
+using SMTMS.Core.Common;
 using SMTMS.Data.Context;
 
 namespace SMTMS.Data.Services;
@@ -14,11 +15,11 @@ public class SettingsService(AppDbContext context) : ISettingsService
         {
             // 确保翻译配置有默认值
             if (string.IsNullOrEmpty(settings.TranslationApiType))
-                settings.TranslationApiType = "Google";
+                settings.TranslationApiType = Constants.Translation.ProviderGoogle;
             if (string.IsNullOrEmpty(settings.TranslationSourceLang))
-                settings.TranslationSourceLang = "auto";
+                settings.TranslationSourceLang = Constants.Translation.DefaultSourceLang;
             if (string.IsNullOrEmpty(settings.TranslationTargetLang))
-                settings.TranslationTargetLang = "zh-CN";
+                settings.TranslationTargetLang = Constants.Translation.DefaultTargetLang;
 
             // 如果有空值，保存默认值到数据库
             if (string.IsNullOrEmpty(settings.TranslationApiType) ||
