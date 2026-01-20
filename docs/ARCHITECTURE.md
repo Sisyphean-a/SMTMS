@@ -7,7 +7,7 @@
 <!-- 3. Only update if the Mermaid diagrams or Module Responsibilities have structural shifts. -->
 <!-- 4. If the change is purely internal logic, Do Not Update. -->
 
-本此文档旨在描述 SMTMS (Stardew Mod Translation & Management System) 的系统设计与实现细节。
+本文档旨在描述 SMTMS (Stardew Mod Translation & Management System) 的系统设计与实现细节。
 
 ---
 
@@ -86,7 +86,9 @@ classDiagram
         +ModMetadata : ModMetadata
         +NexusId : string
         +IsNexusIdEditable : bool
+        +TranslateNameAsync()
         +TranslateDescriptionAsync()
+        +OpenNexusPage()
     }
 
     %% Interfaces/Services

@@ -213,7 +213,7 @@ public partial class HistoryViewModel : ObservableObject
         if (updateKeys == null || updateKeys.Length == 0) return null;
         foreach (var key in updateKeys)
         {
-            var match = System.Text.RegularExpressions.Regex.Match(key, @"Nexus:(\d+)", 
+            var match = System.Text.RegularExpressions.Regex.Match(key, @"Nexus:\s*(\d+)", 
                 System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             if (match.Success) return match.Groups[1].Value;
         }

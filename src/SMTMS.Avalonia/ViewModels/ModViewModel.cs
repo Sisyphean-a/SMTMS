@@ -285,7 +285,7 @@ public partial class ModViewModel : ObservableObject
 
         foreach (var key in _manifest.UpdateKeys)
         {
-            var match = Regex.Match(key, @"Nexus:(\d+)", RegexOptions.IgnoreCase);
+            var match = Regex.Match(key, @"Nexus:\s*(\d+)", RegexOptions.IgnoreCase);
             if (match.Success)
             {
                 _nexusIdValue = match.Groups[1].Value;

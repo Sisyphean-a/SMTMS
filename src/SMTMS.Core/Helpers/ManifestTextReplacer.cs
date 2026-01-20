@@ -167,7 +167,7 @@ public static partial class ManifestTextReplacer
 
         // 匹配现有的 UpdateKeys 数组
         var updateKeysRegex = new Regex(@"""UpdateKeys""\s*:\s*\[([^\]]*)\]", RegexOptions.Singleline);
-        var nexusKeyRegex = new Regex(@"""Nexus:\d+""", RegexOptions.IgnoreCase);
+        var nexusKeyRegex = new Regex(@"""Nexus:\s*\d+""", RegexOptions.IgnoreCase);
         
         var match = updateKeysRegex.Match(jsonContent);
         
@@ -204,13 +204,34 @@ public static partial class ManifestTextReplacer
         else
         {
             // UpdateKeys 不存在，在 UniqueID 后面添加
+            // 优化：检查 UniqueID 后是否已经有逗号，避免 JSON 格式错误
             var uniqueIdRegex = new Regex(@"(""UniqueID""\s*:\s*""[^""]*"")(\s*,?)");
             var uniqueIdMatch = uniqueIdRegex.Match(jsonContent);
             
             if (uniqueIdMatch.Success)
             {
+                var hasTrailingComma = uniqueIdMatch.Groups[2].Value.Contains(',');
                 var insertPos = uniqueIdMatch.Index + uniqueIdMatch.Length;
-                var newUpdateKeys = $",\n  \"UpdateKeys\": [ \"Nexus:{nexusId}\" ]";
+                
+                string newUpdateKeys;
+                if (hasTrailingComma)
+                {
+                    // Case: "UniqueID": "...", "Name": "..."
+                    // 已经有逗号了，我们在逗号后面插入，并且需要在新插入的行末尾加逗号
+                    // 结果: "UniqueID": "...",
+                    //       "UpdateKeys": [ "Nexus:xxx" ], 
+                    //       "Name": "..."
+                    newUpdateKeys = $"\n  \"UpdateKeys\": [ \"Nexus:{nexusId}\" ],";
+                }
+                else
+                {
+                    // Case: "UniqueID": "..." (它是最后一个元素)
+                    // 没有逗号，我们需要在前面加逗号
+                    // 结果: "UniqueID": "...",
+                    //       "UpdateKeys": [ "Nexus:xxx" ]
+                    newUpdateKeys = $",\n  \"UpdateKeys\": [ \"Nexus:{nexusId}\" ]";
+                }
+                
                 return jsonContent.Insert(insertPos, newUpdateKeys);
             }
         }

@@ -143,7 +143,7 @@
                 Grid.Column="2"
                 Padding="15">
                 <ScrollViewer>
-                    <StackPanel IsVisible="{Binding HistoryViewModel.SelectedDiffItem, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <StackPanel DataContext="{Binding HistoryViewModel.SelectedDiffItem}" IsVisible="{Binding ., Converter={x:Static ObjectConverters.IsNotNull}}">
                         <TextBlock
                             FontFamily="{StaticResource MonoFont}"
                             FontSize="14"
@@ -157,9 +157,9 @@
                                 FontSize="10"
                                 FontWeight="Bold"
                                 Opacity="0.6"
-                                IsVisible="{Binding HistoryViewModel.SelectedDiffItem.NameChange.HasChange}"
+                                IsVisible="{Binding NameChange.HasChange}"
                                 Text="名称变更" />
-                            <Grid ColumnDefinitions="*,*" IsVisible="{Binding HistoryViewModel.SelectedDiffItem.NameChange.HasChange}">
+                            <Grid ColumnDefinitions="*,*" IsVisible="{Binding NameChange.HasChange}">
                                 <TextBox
                                     Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
                                     BorderThickness="0"
@@ -167,7 +167,7 @@
                                     Grid.Column="0"
                                     IsReadOnly="True"
                                     Margin="0,0,4,0"
-                                    Text="{Binding HistoryViewModel.SelectedDiffItem.NameChange.OldValue}" />
+                                    Text="{Binding NameChange.OldValue}" />
                                 <TextBox
                                     Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
                                     BorderThickness="0"
@@ -175,17 +175,17 @@
                                     Grid.Column="1"
                                     IsReadOnly="True"
                                     Margin="4,0,0,0"
-                                    Text="{Binding HistoryViewModel.SelectedDiffItem.NameChange.NewValue}" />
+                                    Text="{Binding NameChange.NewValue}" />
                             </Grid>
 
                             <TextBlock
                                 FontSize="10"
                                 FontWeight="Bold"
                                 Opacity="0.6"
-                                IsVisible="{Binding HistoryViewModel.SelectedDiffItem.DescriptionChange.HasChange}"
+                                IsVisible="{Binding DescriptionChange.HasChange}"
                                 Margin="0,10,0,0"
                                 Text="描述变更" />
-                            <Grid ColumnDefinitions="*,*" IsVisible="{Binding HistoryViewModel.SelectedDiffItem.DescriptionChange.HasChange}">
+                            <Grid ColumnDefinitions="*,*" IsVisible="{Binding DescriptionChange.HasChange}">
                                 <TextBox
                                     AcceptsReturn="True"
                                     Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
@@ -195,7 +195,7 @@
                                     Height="100"
                                     IsReadOnly="True"
                                     Margin="0,0,4,0"
-                                    Text="{Binding HistoryViewModel.SelectedDiffItem.DescriptionChange.OldValue}"
+                                    Text="{Binding DescriptionChange.OldValue}"
                                     TextWrapping="Wrap" />
                                 <TextBox
                                     AcceptsReturn="True"
@@ -206,7 +206,7 @@
                                     Height="100"
                                     IsReadOnly="True"
                                     Margin="4,0,0,0"
-                                    Text="{Binding HistoryViewModel.SelectedDiffItem.DescriptionChange.NewValue}"
+                                    Text="{Binding DescriptionChange.NewValue}"
                                     TextWrapping="Wrap" />
                             </Grid>
 
@@ -214,10 +214,10 @@
                                 FontSize="10"
                                 FontWeight="Bold"
                                 Opacity="0.6"
-                                IsVisible="{Binding HistoryViewModel.SelectedDiffItem.UpdateKeysChange.HasChange}"
+                                IsVisible="{Binding UpdateKeysChange.HasChange}"
                                 Margin="0,10,0,0"
                                 Text="N网ID变更" />
-                            <Grid ColumnDefinitions="*,*" IsVisible="{Binding HistoryViewModel.SelectedDiffItem.UpdateKeysChange.HasChange}">
+                            <Grid ColumnDefinitions="*,*" IsVisible="{Binding UpdateKeysChange.HasChange}">
                                 <TextBox
                                     Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
                                     BorderThickness="0"
@@ -225,7 +225,7 @@
                                     Grid.Column="0"
                                     IsReadOnly="True"
                                     Margin="0,0,4,0"
-                                    Text="{Binding HistoryViewModel.SelectedDiffItem.UpdateKeysChange.OldValue}" />
+                                    Text="{Binding UpdateKeysChange.OldValue}" />
                                 <TextBox
                                     Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
                                     BorderThickness="0"
@@ -233,7 +233,7 @@
                                     Grid.Column="1"
                                     IsReadOnly="True"
                                     Margin="4,0,0,0"
-                                    Text="{Binding HistoryViewModel.SelectedDiffItem.UpdateKeysChange.NewValue}" />
+                                    Text="{Binding UpdateKeysChange.NewValue}" />
                             </Grid>
                         </StackPanel>
                     </StackPanel>
