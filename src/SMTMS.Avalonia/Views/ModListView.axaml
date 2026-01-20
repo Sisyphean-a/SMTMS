@@ -213,7 +213,7 @@
                                 <TextBox
                                     FontFamily="{StaticResource MonoFont}"
                                     Grid.Column="0"
-                                    IsReadOnly="{Binding IsNexusIdEditable, Converter={StaticResource BoolNegationConverter}}"
+                                    IsEnabled="{Binding IsNexusIdEditable}"
                                     Text="{Binding NexusId}"
                                     Watermark="输入 N网 模组 ID（纯数字）" />
                                 <Button
