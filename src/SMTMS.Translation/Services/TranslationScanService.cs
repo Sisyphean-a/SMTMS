@@ -313,7 +313,21 @@ public class TranslationScanService(
     {
         mod.TranslatedName = manifest.Name;
         mod.TranslatedDescription = manifest.Description;
-        // NexusId 现在直接存储在 manifest.json 的 UpdateKeys 中，不需要额外处理
+        
+        // 解析并保存 NexusId
+        mod.NexusId = null;
+        if (manifest.UpdateKeys != null && manifest.UpdateKeys.Length > 0)
+        {
+            foreach (var key in manifest.UpdateKeys)
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(key, @"Nexus:\s*(\d+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (match.Success)
+                {
+                    mod.NexusId = match.Groups[1].Value;
+                    break;
+                }
+            }
+        }
     }
 
     private void LogModChanges(string uniqueId, List<string> changes)

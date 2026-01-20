@@ -34,6 +34,9 @@ public class ModMetadata
     public string? RelativePath { get; set; } // 相对于 Mods 文件夹的路径
     public bool IsMachineTranslated { get; set; }
     public DateTime? LastTranslationUpdate { get; set; }
+
+    // NexusId 同步状态
+    public string? NexusId { get; set; }
     
     // 内容指纹
     public string? LastFileHash { get; set; }

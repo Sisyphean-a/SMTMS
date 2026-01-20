@@ -159,7 +159,7 @@ SMTMS 不依赖外部 VCS 工具，而是内置了一套基于关系型数据库
 
 该系统保证了用户汉化成果的持久性，使其独立于模组文件本身的更新。
 
-*   **提取 (Scan & Save)**: 解析模组的 `manifest.json`，提取 `Name`, `Description` 等关键字段，更新到数据库的 `ModMetadata` 表中。
+*   **提取 (Scan & Save)**: 解析模组的 `manifest.json`，提取 `Name`, `Description`, `NexusId` 等关键字段，更新到数据库的 `ModMetadata` 表中。
 *   **注入 (Restore)**: 利用 `SMTMS.Core` 中的正则工具类精确匹配并替换 `manifest.json` 中的对应字段值，确保 JSON 格式（包括注释和缩进）不被破坏。
 
 ### 2.3 NexusId 管理系统 (NexusId Management)
@@ -169,7 +169,7 @@ SMTMS 不依赖外部 VCS 工具，而是内置了一套基于关系型数据库
 *   **可编辑性判断**: 
     *   模组**原本自带** NexusId → 只读（防止误修改）
     *   模组**没有** NexusId 或**用户之前添加**的 → 可编辑
-    *   数据库 `ModMetadata.IsNexusIdUserAdded` 字段标记用户添加的 NexusId
+    *   数据库 `ModMetadata` 存储同步的 `NexusId` 及 `IsNexusIdUserAdded` 标记
 *   **历史追踪**: `ModDiffModel.UpdateKeysChange` 字段记录 NexusId 的变更，支持在历史界面查看和回滚。
 *   **UI 交互**: 
     *   输入框根据可编辑性动态切换只读/可编辑状态

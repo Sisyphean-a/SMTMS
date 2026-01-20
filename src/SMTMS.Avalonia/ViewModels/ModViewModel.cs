@@ -270,30 +270,52 @@ public partial class ModViewModel : ObservableObject
     /// <summary>
     /// 初始化时解析 NexusId，直接设置 backing field 避免触发 CheckDirty
     /// </summary>
+    /// <summary>
+    /// 初始化时解析 NexusId，直接设置 backing field 避免触发 CheckDirty
+    /// </summary>
     private void ParseNexusIdInitial()
     {
-        // 检查数据库标记：如果用户之前添加过 NexusId，则不是"内置"的
+        // 1. 设置 DB 值（用于加粗对比）
+        // 如果数据库中有记录，使用数据库中的值；否则如果 metadata 存在（已同步过），则认为 DB 值为 null
+        if (_metadata != null)
+        {
+            _dbNexusId = _metadata.NexusId;
+        }
+
+        // 2. 解析当前文件中的值
         var isUserAdded = _metadata?.IsNexusIdUserAdded ?? false;
         
         if (_manifest.UpdateKeys == null || _manifest.UpdateKeys.Length == 0)
         {
             _hasBuiltInNexusId = false;
             _nexusIdValue = null;
-            _dbNexusId = null;
+            // 如果从未同步过 (_metadata == null)，那么 _dbNexusId 应该跟随当前值 (null)，状态即为 Normal
+            if (_metadata == null) _dbNexusId = null; 
             return;
         }
 
+        bool found = false;
         foreach (var key in _manifest.UpdateKeys)
         {
             var match = Regex.Match(key, @"Nexus:\s*(\d+)", RegexOptions.IgnoreCase);
             if (match.Success)
             {
                 _nexusIdValue = match.Groups[1].Value;
-                _dbNexusId = _nexusIdValue; // 初始时数据库值等于当前值
+                found = true;
+                
+                // 如果从未同步过，_dbNexusId 默认认为是当前值（不加粗）
+                if (_metadata == null) _dbNexusId = _nexusIdValue;
+                
                 // 如果数据库标记为用户添加的，则不是内置的
                 _hasBuiltInNexusId = !isUserAdded;
                 break; 
             }
+        }
+
+        if (!found)
+        {
+            _nexusIdValue = null;
+            if (_metadata == null) _dbNexusId = null;
         }
     }
 
