@@ -30,6 +30,9 @@ public partial class ModListViewModel : ObservableObject
     [ObservableProperty]
     private string _modsDirectory = string.Empty;
 
+    [ObservableProperty]
+    private bool _hasMods;
+
     public AvaloniaList<ModViewModel> Mods { get; } = [];
 
     // Column Visibility
@@ -97,6 +100,7 @@ public partial class ModListViewModel : ObservableObject
             if (manifestList.Count == 0)
             {
                 Mods.Clear(); // 确实没有模组时才清空
+                HasMods = false;
                 WeakReferenceMessenger.Default.Send(new StatusMessage("未找到任何模组", StatusLevel.Warning));
                 return;
             }
@@ -157,6 +161,7 @@ public partial class ModListViewModel : ObservableObject
             Mods.Clear();
             // Sort by Name explicitly
             Mods.AddRange(viewModels.OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase));
+            HasMods = Mods.Count > 0;
 
             // 批量保存所有变更 (后台操作，不需要阻塞 UI)
             if (modsToUpdate.Count != 0)

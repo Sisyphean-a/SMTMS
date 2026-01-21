@@ -20,11 +20,11 @@
 
     <Grid ColumnDefinitions="2*, 4, 1*">
         <!--  Mod List  -->
+        <Panel Grid.Column="0">
         <DataGrid
             AutoGenerateColumns="False"
             BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
             BorderThickness="0,0,1,0"
-            Grid.Column="0"
             GridLinesVisibility="Horizontal"
             HeadersVisibility="Column"
             IsReadOnly="True"
@@ -111,6 +111,36 @@
                     Width="*" />
             </DataGrid.Columns>
         </DataGrid>
+
+            <!-- Empty State -->
+            <StackPanel
+                HorizontalAlignment="Center"
+                IsVisible="{Binding ModListViewModel.HasMods, Converter={StaticResource BoolNegationConverter}}"
+                Spacing="20"
+                VerticalAlignment="Center">
+                <TextBlock
+                    FontSize="48"
+                    HorizontalAlignment="Center"
+                    Text="📭" />
+                <StackPanel Spacing="10">
+                    <TextBlock
+                        FontWeight="Bold"
+                        Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                        HorizontalAlignment="Center"
+                        Text="暂无模组数据" />
+                    <TextBlock
+                        FontSize="12"
+                        Foreground="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                        HorizontalAlignment="Center"
+                        Text="请检查目录设置或点击下方按钮重新扫描" />
+                </StackPanel>
+                <Button
+                    Classes="Solid"
+                    Command="{Binding ModListViewModel.LoadModsCommand}"
+                    Content="扫描模组"
+                    HorizontalAlignment="Center" />
+            </StackPanel>
+        </Panel>
 
         <GridSplitter
             Background="{DynamicResource SystemControlForegroundBaseLowBrush}"
