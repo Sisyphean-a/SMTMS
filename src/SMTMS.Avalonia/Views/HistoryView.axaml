@@ -19,13 +19,16 @@
             <Button
                 Classes="Tertiary"
                 Command="{Binding HistoryViewModel.LoadHistoryCommand}"
-                Content="刷新列表" />
+                Content="刷新列表"
+                ToolTip.Tip="重新加载提交历史记录"
+                AutomationProperties.Name="刷新历史列表" />
 
             <Button
                 Classes="Danger"
                 Command="{Binding HistoryViewModel.RollbackSnapshotCommand}"
                 Content="回滚（重置）"
-                ToolTip.Tip="将当前状态完全回退到选中快照，并删除之后的所有历史记录。" />
+                ToolTip.Tip="将当前状态完全回退到选中快照，并删除之后的所有历史记录。"
+                AutomationProperties.Name="回滚到选中快照" />
         </StackPanel>
 
         <DataGrid
