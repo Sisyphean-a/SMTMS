@@ -226,6 +226,7 @@
                                     Command="{Binding ModListViewModel.SelectedMod.OpenNexusPageCommand}"
                                     Content="链接"
                                     Grid.Column="1"
+                                    IsVisible="{Binding ModListViewModel.SelectedMod.HasNexusUrl}"
                                     Margin="8,0,0,0"
                                     ToolTip.Tip="在浏览器中打开 Nexus Mods 页面" />
                             </Grid>

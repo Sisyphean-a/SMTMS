@@ -5,3 +5,7 @@
 ## 2024-05-24 - Empty State Visual Hierarchy
 **Learning:** Text-only empty states in Detail Panes are easily overlooked. Using large text-based icons (emojis) provides a lightweight "illustration" that anchors the user's attention without requiring asset management.
 **Action:** When designing empty states in Avalonia, use a large `TextBlock` (FontSize ~48) with an emoji or symbol to create immediate visual recognition of the state.
+
+## 2026-01-20 - Empty States in Avalonia Lists
+**Learning:** Avalonia DataGrids do not have a built-in "Empty Content" template.
+**Action:** Wrap the `DataGrid` in a `Panel` and add a sibling `StackPanel` (containing an icon/emoji and helpful text) that is visible when the collection is empty. Use a ViewModel property like `HasItems` to toggle visibility for better performance than binding to `Count`.
