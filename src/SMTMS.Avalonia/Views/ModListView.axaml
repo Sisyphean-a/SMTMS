@@ -81,6 +81,8 @@
                                     IsVisible="{Binding HasNexusUrl}"
                                     Margin="0"
                                     Padding="12,0,0,0"
+                                    ToolTip.Tip="点击访问 Nexus 页面"
+                                    AutomationProperties.Name="访问 Nexus 页面"
                                     VerticalAlignment="Stretch"
                                     VerticalContentAlignment="Center" />
                                 <TextBlock
@@ -158,18 +160,24 @@
                 VerticalAlignment="Stretch">
                 <StackPanel
                     HorizontalAlignment="Center"
-                    Spacing="10"
+                    Spacing="15"
                     VerticalAlignment="Center">
                     <TextBlock
+                        FontSize="48"
+                        HorizontalAlignment="Center"
+                        Opacity="0.5"
+                        Text="📦" />
+                    <TextBlock
+                        FontSize="16"
                         FontWeight="Bold"
                         Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
                         HorizontalAlignment="Center"
                         Text="未选择模组" />
                     <TextBlock
-                        FontSize="12"
+                        FontSize="13"
                         Foreground="{DynamicResource SystemControlForegroundBaseLowBrush}"
                         HorizontalAlignment="Center"
-                        Text="请在左侧列表中选择一个模组以查看详情" />
+                        Text="👈 请在左侧列表中选择一个模组以开始编辑" />
                 </StackPanel>
             </Border>
 
@@ -252,7 +260,9 @@
                                     Content="链接"
                                     Grid.Column="1"
                                     IsVisible="{Binding HasNexusUrl}"
-                                    Margin="8,0,0,0" />
+                                    Margin="8,0,0,0"
+                                    ToolTip.Tip="在浏览器中打开 Nexus 页面"
+                                    AutomationProperties.Name="打开 Nexus 页面" />
                             </Grid>
                         </StackPanel>
 
@@ -295,17 +305,23 @@
                             <Button
                                 Classes="Tertiary"
                                 Command="{Binding ShowHistoryCommand}"
-                                Content="查看历史" />
+                                Content="查看历史"
+                                ToolTip.Tip="查看该模组的历史变更记录"
+                                AutomationProperties.Name="查看历史" />
                             <Button
                                 Classes="Warning"
                                 Command="{Binding DiscardChangesCommand}"
                                 Content="放弃变更"
                                 IsVisible="{Binding IsDirty}" 
-                                Theme="{DynamicResource TertiaryButton}"/>
+                                Theme="{DynamicResource TertiaryButton}"
+                                ToolTip.Tip="撤销所有未保存的更改，恢复到原始状态"
+                                AutomationProperties.Name="放弃更改" />
                             <Button
                                 Classes="Solid"
                                 Command="{Binding #Root.DataContext.ModListViewModel.SaveModCommand}"
-                                Content="保存更改" />
+                                Content="保存更改"
+                                ToolTip.Tip="保存对当前模组的修改"
+                                AutomationProperties.Name="保存更改" />
                         </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
