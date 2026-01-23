@@ -72,9 +72,31 @@ public partial class MainViewModel : ObservableObject
 
         // 订阅状态消息
         WeakReferenceMessenger.Default.Register<StatusMessage>(this, OnStatusMessageReceived);
+        
+        // 订阅目录变更消息（来自设置界面）
+        WeakReferenceMessenger.Default.Register<ModsDirectoryChangedMessage>(this, OnModsDirectoryChangedMessage);
 
         // 初始化
         _ = InitializeAsync();
+    }
+
+    private bool _isUpdatingFromMessage;
+    
+    private void OnModsDirectoryChangedMessage(object recipient, ModsDirectoryChangedMessage message)
+    {
+        // 避免循环：只有当值不同且不是我们自己发送的消息时才更新
+        if (ModsDirectory != message.NewDirectory && !_isUpdatingFromMessage)
+        {
+            _isUpdatingFromMessage = true;
+            try
+            {
+                ModsDirectory = message.NewDirectory;
+            }
+            finally
+            {
+                _isUpdatingFromMessage = false;
+            }
+        }
     }
 
     private void OnStatusMessageReceived(object recipient, StatusMessage message)

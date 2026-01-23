@@ -69,6 +69,12 @@ public class ModDiffModel
     public FieldChange? VersionChange { get; set; }
 
     /// <summary>
+    /// UpdateKeys 变更（用于显示 NexusId 变更）
+    /// </summary>
+    [Key(10)]
+    public FieldChange? UpdateKeysChange { get; set; }
+
+    /// <summary>
     /// 是否有任何变更
     /// </summary>
     [IgnoreMember]
@@ -88,6 +94,7 @@ public class ModDiffModel
             if (DescriptionChange?.HasChange == true) changes.Add("描述");
             if (AuthorChange?.HasChange == true) changes.Add("作者");
             if (VersionChange?.HasChange == true) changes.Add("版本");
+            if (UpdateKeysChange?.HasChange == true) changes.Add("N网ID");
             return $"{ChangeCount} 项变更: {string.Join(", ", changes)}";
         }
     }

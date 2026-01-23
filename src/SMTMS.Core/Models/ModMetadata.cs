@@ -8,6 +8,13 @@ public class ModMetadata
     public string UniqueID { get; set; } = string.Empty;
 
     public string? UserCategory { get; set; }
+
+    // NexusId 标记字段
+    /// <summary>
+    /// 标记此模组的 NexusId 是否是用户手动添加的（而非模组自带）
+    /// 用于在同步时判断是否需要保留用户的修改
+    /// </summary>
+    public bool IsNexusIdUserAdded { get; set; }
     
     // 来自 Nexus 的缓存数据
     public string? NexusSummary { get; set; }
@@ -27,6 +34,9 @@ public class ModMetadata
     public string? RelativePath { get; set; } // 相对于 Mods 文件夹的路径
     public bool IsMachineTranslated { get; set; }
     public DateTime? LastTranslationUpdate { get; set; }
+
+    // NexusId 同步状态
+    public string? NexusId { get; set; }
     
     // 内容指纹
     public string? LastFileHash { get; set; }

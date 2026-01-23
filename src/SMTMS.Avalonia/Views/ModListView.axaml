@@ -20,11 +20,11 @@
 
     <Grid ColumnDefinitions="2*, 4, 1*">
         <!--  Mod List  -->
+        <Panel Grid.Column="0">
         <DataGrid
             AutoGenerateColumns="False"
             BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
             BorderThickness="0,0,1,0"
-            Grid.Column="0"
             GridLinesVisibility="Horizontal"
             HeadersVisibility="Column"
             IsReadOnly="True"
@@ -57,11 +57,11 @@
                 <DataGridTextColumn
                     Binding="{Binding Name}"
                     Header="名称"
-                    IsVisible="{Binding DataContext.ModListViewModel.ShowNameColumn, ElementName=ModsGrid}"
+                    IsVisible="{Binding #Root.DataContext.ModListViewModel.ShowNameColumn}"
                     Width="200" />
                 <DataGridTemplateColumn
                     Header="版本"
-                    IsVisible="{Binding DataContext.ModListViewModel.ShowVersionColumn, ElementName=ModsGrid}"
+                    IsVisible="{Binding #Root.DataContext.ModListViewModel.ShowVersionColumn}"
                     SortMemberPath="Version"
                     Width="100">
                     <DataGridTemplateColumn.CellTemplate>
@@ -81,7 +81,8 @@
                                     IsVisible="{Binding HasNexusUrl}"
                                     Margin="0"
                                     Padding="12,0,0,0"
-                                    ToolTip.Tip="点击访问 Nexus Mods 页面"
+                                    ToolTip.Tip="点击访问 Nexus 页面"
+                                    AutomationProperties.Name="访问 Nexus 页面"
                                     VerticalAlignment="Stretch"
                                     VerticalContentAlignment="Center" />
                                 <TextBlock
@@ -102,16 +103,46 @@
                     FontFamily="{StaticResource MonoFont}"
                     FontSize="11"
                     Header="唯一 ID"
-                    IsVisible="{Binding DataContext.ModListViewModel.ShowIdColumn, ElementName=ModsGrid}"
+                    IsVisible="{Binding #Root.DataContext.ModListViewModel.ShowIdColumn}"
                     Width="250" />
 
                 <DataGridTextColumn
                     Binding="{Binding Description}"
                     Header="描述"
-                    IsVisible="{Binding DataContext.ModListViewModel.ShowDescriptionColumn, ElementName=ModsGrid}"
+                    IsVisible="{Binding #Root.DataContext.ModListViewModel.ShowDescriptionColumn}"
                     Width="*" />
             </DataGrid.Columns>
         </DataGrid>
+
+            <!-- Empty State -->
+            <StackPanel
+                HorizontalAlignment="Center"
+                IsVisible="{Binding ModListViewModel.HasMods, Converter={StaticResource BoolNegationConverter}}"
+                Spacing="20"
+                VerticalAlignment="Center">
+                <TextBlock
+                    FontSize="48"
+                    HorizontalAlignment="Center"
+                    Text="📭" />
+                <StackPanel Spacing="10">
+                    <TextBlock
+                        FontWeight="Bold"
+                        Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                        HorizontalAlignment="Center"
+                        Text="暂无模组数据" />
+                    <TextBlock
+                        FontSize="12"
+                        Foreground="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                        HorizontalAlignment="Center"
+                        Text="请检查目录设置或点击下方按钮重新扫描" />
+                </StackPanel>
+                <Button
+                    Classes="Solid"
+                    Command="{Binding ModListViewModel.LoadModsCommand}"
+                    Content="扫描模组"
+                    HorizontalAlignment="Center" />
+            </StackPanel>
+        </Panel>
 
         <GridSplitter
             Background="{DynamicResource SystemControlForegroundBaseLowBrush}"
@@ -154,7 +185,9 @@
                 Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
                 BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
                 BorderThickness="0"
-                IsVisible="{Binding ModListViewModel.SelectedMod, Converter={x:Static ObjectConverters.IsNotNull}}"
+                IsVisible="{Binding #Root.DataContext.ModListViewModel.SelectedMod, Converter={x:Static ObjectConverters.IsNotNull}}"
+                DataContext="{Binding ModListViewModel.SelectedMod}"
+                x:CompileBindings="False"
                 Padding="20">
 
                 <Grid RowDefinitions="Auto, *">
@@ -178,15 +211,15 @@
                             <Grid ColumnDefinitions="*, Auto">
                                 <TextBox
                                     Grid.Column="0"
-                                    Text="{Binding ModListViewModel.SelectedMod.Name}" />
+                                    Text="{Binding Name}" />
                                 <Button
                                     Grid.Column="1"
                                     Classes="Tertiary"
-                                    Command="{Binding ModListViewModel.SelectedMod.TranslateNameCommand}"
+                                    Command="{Binding TranslateNameCommand}"
                                     Content="🌐"
                                     FontSize="16"
                                     Height="32"
-                                    IsEnabled="{Binding ModListViewModel.SelectedMod.IsTranslatingName, Converter={StaticResource BoolNegationConverter}}"
+                                    IsEnabled="{Binding IsTranslatingName, Converter={StaticResource BoolNegationConverter}}"
                                     Margin="8,0,0,0"
                                     Padding="4"
                                     ToolTip.Tip="翻译名称"
@@ -205,10 +238,10 @@
                                 FontFamily="{StaticResource MonoFont}"
                                 IsReadOnly="True"
                                 Opacity="0.7"
-                                Text="{Binding ModListViewModel.SelectedMod.UniqueID}" />
+                                Text="{Binding UniqueID}" />
                         </StackPanel>
 
-                        <StackPanel IsVisible="{Binding ModListViewModel.SelectedMod.NexusId, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Spacing="6">
+                        <StackPanel Spacing="6">
                             <TextBlock
                                 FontSize="10"
                                 FontWeight="Bold"
@@ -218,17 +251,18 @@
                                 <TextBox
                                     FontFamily="{StaticResource MonoFont}"
                                     Grid.Column="0"
-                                    IsReadOnly="True"
-                                    Opacity="0.7"
-                                    Text="{Binding ModListViewModel.SelectedMod.NexusId}" />
+                                    IsEnabled="{Binding IsNexusIdEditable}"
+                                    Text="{Binding NexusId}"
+                                    Watermark="输入 N网 模组 ID（纯数字）" />
                                 <Button
                                     Classes="Tertiary"
-                                    Command="{Binding ModListViewModel.SelectedMod.OpenNexusPageCommand}"
+                                    Command="{Binding OpenNexusPageCommand}"
                                     Content="链接"
                                     Grid.Column="1"
-                                    IsVisible="{Binding ModListViewModel.SelectedMod.HasNexusUrl}"
+                                    IsVisible="{Binding HasNexusUrl}"
                                     Margin="8,0,0,0"
-                                    ToolTip.Tip="在浏览器中打开 Nexus Mods 页面" />
+                                    ToolTip.Tip="在浏览器中打开 Nexus 页面"
+                                    AutomationProperties.Name="打开 Nexus 页面" />
                             </Grid>
                         </StackPanel>
 
@@ -243,17 +277,17 @@
                                     AcceptsReturn="True"
                                     Grid.Column="0"
                                     Height="120"
-                                    Text="{Binding ModListViewModel.SelectedMod.Description}"
+                                    Text="{Binding Description}"
                                     TextWrapping="Wrap"
                                     VerticalContentAlignment="Top" />
                                 <Button
                                     Grid.Column="1"
                                     Classes="Tertiary"
-                                    Command="{Binding ModListViewModel.SelectedMod.TranslateDescriptionCommand}"
+                                    Command="{Binding TranslateDescriptionCommand}"
                                     Content="🌐"
                                     FontSize="16"
                                     Height="32"
-                                    IsEnabled="{Binding ModListViewModel.SelectedMod.IsTranslatingDescription, Converter={StaticResource BoolNegationConverter}}"
+                                    IsEnabled="{Binding IsTranslatingDescription, Converter={StaticResource BoolNegationConverter}}"
                                     Margin="8,0,0,0"
                                     Padding="4"
                                     ToolTip.Tip="翻译描述"
@@ -270,18 +304,24 @@
                             Spacing="15">
                             <Button
                                 Classes="Tertiary"
-                                Command="{Binding ModListViewModel.SelectedMod.ShowHistoryCommand}"
-                                Content="查看历史" />
+                                Command="{Binding ShowHistoryCommand}"
+                                Content="查看历史"
+                                ToolTip.Tip="查看该模组的历史变更记录"
+                                AutomationProperties.Name="查看历史" />
                             <Button
                                 Classes="Warning"
-                                Command="{Binding ModListViewModel.SelectedMod.DiscardChangesCommand}"
+                                Command="{Binding DiscardChangesCommand}"
                                 Content="放弃变更"
-                                IsVisible="{Binding ModListViewModel.SelectedMod.IsDirty}" 
-                                Theme="{DynamicResource TertiaryButton}"/>
+                                IsVisible="{Binding IsDirty}" 
+                                Theme="{DynamicResource TertiaryButton}"
+                                ToolTip.Tip="撤销所有未保存的更改，恢复到原始状态"
+                                AutomationProperties.Name="放弃更改" />
                             <Button
                                 Classes="Solid"
-                                Command="{Binding ModListViewModel.SaveModCommand}"
-                                Content="保存更改" />
+                                Command="{Binding #Root.DataContext.ModListViewModel.SaveModCommand}"
+                                Content="保存更改"
+                                ToolTip.Tip="保存对当前模组的修改"
+                                AutomationProperties.Name="保存更改" />
                         </StackPanel>
                     </StackPanel>
                 </ScrollViewer>

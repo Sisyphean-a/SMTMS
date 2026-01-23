@@ -7,7 +7,7 @@
 <!-- 3. Only update if the Mermaid diagrams or Module Responsibilities have structural shifts. -->
 <!-- 4. If the change is purely internal logic, Do Not Update. -->
 
-本此文档旨在描述 SMTMS (Stardew Mod Translation & Management System) 的系统设计与实现细节。
+本文档旨在描述 SMTMS (Stardew Mod Translation & Management System) 的系统设计与实现细节。
 
 ---
 
@@ -84,7 +84,11 @@ classDiagram
     class ModViewModel {
         +Manifest : ModManifest
         +ModMetadata : ModMetadata
+        +NexusId : string
+        +IsNexusIdEditable : bool
+        +TranslateNameAsync()
         +TranslateDescriptionAsync()
+        +OpenNexusPage()
     }
 
     %% Interfaces/Services
@@ -96,7 +100,7 @@ classDiagram
     class IModService {
         <<interface>>
         +ScanModsAsync()
-        +UpdateModManifestAsync()
+        +UpdateModManifestAsync(name, desc, nexusId)
     }
     class IHistoryRepository {
         <<interface>>
@@ -155,16 +159,30 @@ SMTMS 不依赖外部 VCS 工具，而是内置了一套基于关系型数据库
 
 该系统保证了用户汉化成果的持久性，使其独立于模组文件本身的更新。
 
-*   **提取 (Scan & Save)**: 解析模组的 `manifest.json`，提取 `Name`, `Description` 等关键字段，更新到数据库的 `ModMetadata` 表中。
+*   **提取 (Scan & Save)**: 解析模组的 `manifest.json`，提取 `Name`, `Description`, `NexusId` 等关键字段，更新到数据库的 `ModMetadata` 表中。
 *   **注入 (Restore)**: 利用 `SMTMS.Core` 中的正则工具类精确匹配并替换 `manifest.json` 中的对应字段值，确保 JSON 格式（包括注释和缩进）不被破坏。
 
-### 2.3 配置管理系统 (Configuration System)
+### 2.3 NexusId 管理系统 (NexusId Management)
+该系统允许用户为模组添加或编辑 Nexus Mods ID，并将其持久化到 manifest.json 文件中。
+
+*   **数据存储**: NexusId 直接写入 `manifest.json` 的 `UpdateKeys` 数组（格式：`"Nexus:12345"`），与 Name/Description 保持一致的存储策略。
+*   **可编辑性判断**: 
+    *   模组**原本自带** NexusId → 只读（防止误修改）
+    *   模组**没有** NexusId 或**用户之前添加**的 → 可编辑
+    *   数据库 `ModMetadata` 存储同步的 `NexusId` 及 `IsNexusIdUserAdded` 标记
+*   **历史追踪**: `ModDiffModel.UpdateKeysChange` 字段记录 NexusId 的变更，支持在历史界面查看和回滚。
+*   **UI 交互**: 
+    *   输入框根据可编辑性动态切换只读/可编辑状态
+    *   "链接"按钮仅在有 NexusId 时显示，点击打开 Nexus Mods 页面
+    *   修改后显示加粗斜体（未保存）→ 保存后显示加粗（已保存未同步）→ 同步后恢复正常
+
+### 2.4 配置管理系统 (Configuration System)
 负责应用程序的全局设置管理，支持持久化存储。
 
 *   **`AppSettings`**: 配置模型，包含 Mods 路径、窗口尺寸、主题设置 (Dark/Light)、自动扫描开关、翻译 API 配置等。
 *   **`ISettingsService`**: 提供配置的读写接口。`MainViewModel` 在初始化时通过此服务加载用户首选项。
 
-### 2.4 外部翻译集成 (External Translation Integration)
+### 2.5 外部翻译集成 (External Translation Integration)
 系统集成了在线翻译服务，辅助用户快速翻译模组信息，并具备自动故障转移能力。
 
 *   **`ITranslationApiService`**: 定义通用的翻译接口，包含异步翻译方法及状态通知事件 (`OnStatusChanged`)。

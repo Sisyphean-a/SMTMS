@@ -22,6 +22,18 @@ public partial class ModViewModel : ObservableObject
     private string _originalAuthor;
     private string _originalVersion;
     private string _originalDescription;
+    private string? _originalNexusId; // 用于 IsDirty 检测的原始值
+    private string? _dbNexusId; // 数据库同步时的 NexusId 值，用于加粗判断
+    
+    // 模组**初始**是否自带 NexusId（不是用户添加的）
+    // 这个值在模组加载时确定，不会因为用户添加 NexusId 而改变
+    private bool _hasBuiltInNexusId;
+    
+    /// <summary>
+    /// 是否允许编辑 NexusId
+    /// 规则：如果模组原本没有自带 NexusId（或者是用户之前添加的），则可编辑
+    /// </summary>
+    public bool IsNexusIdEditable => !_hasBuiltInNexusId;
     
     // 是否为新增模组
     private bool _isNew;
@@ -38,7 +50,11 @@ public partial class ModViewModel : ObservableObject
         _originalVersion = _manifest.Version;
         _originalDescription = _manifest.Description;
         
-        ParseNexusId();
+        // 解析 NexusId 并设置原始值（直接设置 backing field 避免触发 CheckDirty）
+        ParseNexusIdInitial();
+        
+        // 设置原始 NexusId 值
+        _originalNexusId = _nexusIdValue;
         
         UpdateStatus();
 
@@ -103,7 +119,11 @@ public partial class ModViewModel : ObservableObject
         IsDirty = _manifest.Name != _originalName ||
                   _manifest.Author != _originalAuthor ||
                   _manifest.Version != _originalVersion ||
-                  _manifest.Description != _originalDescription;
+                  _manifest.Description != _originalDescription ||
+                  NexusId != _originalNexusId;
+        
+        // 更新 RowStatus 以反映脏状态变化
+        UpdateStatus();
     }
 
     public void ResetDirtyState()
@@ -112,6 +132,7 @@ public partial class ModViewModel : ObservableObject
         _originalAuthor = _manifest.Author;
         _originalVersion = _manifest.Version;
         _originalDescription = _manifest.Description;
+        _originalNexusId = NexusId;
         IsDirty = false;
     }
     
@@ -137,18 +158,22 @@ public partial class ModViewModel : ObservableObject
 
         var nameMatch = string.IsNullOrEmpty(_metadata?.TranslatedName) || _metadata?.TranslatedName == Name;
         var descMatch = string.IsNullOrEmpty(_metadata?.TranslatedDescription) || _metadata?.TranslatedDescription == Description;
+        
+        // NexusId 比较：当前值与数据库同步时的值对比（用于加粗判断）
+        var nexusIdMatch = NexusId == _dbNexusId;
 
-        if (nameMatch && descMatch)
+        // 如果有未保存的本地编辑（IsDirty），或者与数据库/原始值不匹配，都显示为 Changed 状态
+        if (IsDirty || !(nameMatch && descMatch && nexusIdMatch))
+        {
+            TranslationStatus = IsDirty ? "Unsaved Changes" : "Changed (Local differs from DB)";
+            HasLocalChanges = true;
+            RowStatus = 1; // Changed
+        }
+        else
         {
             TranslationStatus = "Synced";
             HasLocalChanges = false;
             RowStatus = 0; // Normal
-        }
-        else
-        {
-            TranslationStatus = "Changed (Local differs from DB)";
-            HasLocalChanges = true;
-            RowStatus = 1; // Changed
         }
     }
 
@@ -225,28 +250,72 @@ public partial class ModViewModel : ObservableObject
         WeakReferenceMessenger.Default.Send(new OpenHistoryRequestMessage(UniqueID));
     }
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasNexusUrl))]
-    private string? _nexusId;
+    private string? _nexusIdValue;
+    
+    public string? NexusId
+    {
+        get => _nexusIdValue;
+        set
+        {
+            if (_nexusIdValue == value) return;
+            _nexusIdValue = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasNexusUrl));
+            CheckDirty();
+        }
+    }
 
     public bool HasNexusUrl => !string.IsNullOrEmpty(NexusId);
 
-    private void ParseNexusId()
+    /// <summary>
+    /// 初始化时解析 NexusId，直接设置 backing field 避免触发 CheckDirty
+    /// </summary>
+    /// <summary>
+    /// 初始化时解析 NexusId，直接设置 backing field 避免触发 CheckDirty
+    /// </summary>
+    private void ParseNexusIdInitial()
     {
+        // 1. 设置 DB 值（用于加粗对比）
+        // 如果数据库中有记录，使用数据库中的值；否则如果 metadata 存在（已同步过），则认为 DB 值为 null
+        if (_metadata != null)
+        {
+            _dbNexusId = _metadata.NexusId;
+        }
+
+        // 2. 解析当前文件中的值
+        var isUserAdded = _metadata?.IsNexusIdUserAdded ?? false;
+        
         if (_manifest.UpdateKeys == null || _manifest.UpdateKeys.Length == 0)
         {
-            NexusId = null;
+            _hasBuiltInNexusId = false;
+            _nexusIdValue = null;
+            // 如果从未同步过 (_metadata == null)，那么 _dbNexusId 应该跟随当前值 (null)，状态即为 Normal
+            if (_metadata == null) _dbNexusId = null; 
             return;
         }
 
+        bool found = false;
         foreach (var key in _manifest.UpdateKeys)
         {
-            var match = Regex.Match(key, @"Nexus:(\d+)", RegexOptions.IgnoreCase);
+            var match = Regex.Match(key, @"Nexus:\s*(\d+)", RegexOptions.IgnoreCase);
             if (match.Success)
             {
-                NexusId = match.Groups[1].Value;
+                _nexusIdValue = match.Groups[1].Value;
+                found = true;
+                
+                // 如果从未同步过，_dbNexusId 默认认为是当前值（不加粗）
+                if (_metadata == null) _dbNexusId = _nexusIdValue;
+                
+                // 如果数据库标记为用户添加的，则不是内置的
+                _hasBuiltInNexusId = !isUserAdded;
                 break; 
             }
+        }
+
+        if (!found)
+        {
+            _nexusIdValue = null;
+            if (_metadata == null) _dbNexusId = null;
         }
     }
 
@@ -372,6 +441,7 @@ public partial class ModViewModel : ObservableObject
         if (Author != _originalAuthor) Author = _originalAuthor;
         if (Version != _originalVersion) Version = _originalVersion;
         if (Description != _originalDescription) Description = _originalDescription;
+        if (NexusId != _originalNexusId) NexusId = _originalNexusId;
         
         // 重置脏状态
         ResetDirtyState();

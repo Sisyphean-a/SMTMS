@@ -187,12 +187,18 @@ public partial class HistoryViewModel : ObservableObject
         model.DescriptionChange = new FieldChange { FieldName = "Description", OldValue = oldM?.Description, NewValue = newM?.Description };
         model.AuthorChange = new FieldChange { FieldName = "Author", OldValue = oldM?.Author, NewValue = newM?.Author };
         model.VersionChange = new FieldChange { FieldName = "Version", OldValue = oldM?.Version, NewValue = newM?.Version };
+        
+        // 提取 NexusId 进行比较
+        var oldNexusId = ExtractNexusId(oldM?.UpdateKeys);
+        var newNexusId = ExtractNexusId(newM?.UpdateKeys);
+        model.UpdateKeysChange = new FieldChange { FieldName = "N网ID", OldValue = oldNexusId, NewValue = newNexusId };
 
         int changes = 0;
         if (model.NameChange.HasChange) changes++;
         if (model.DescriptionChange.HasChange) changes++;
         if (model.AuthorChange.HasChange) changes++;
         if (model.VersionChange.HasChange) changes++;
+        if (model.UpdateKeysChange.HasChange) changes++;
 
         model.ChangeCount = changes;
         if (oldM == null && newM != null) model.ChangeType = "Added";
@@ -200,6 +206,18 @@ public partial class HistoryViewModel : ObservableObject
         else model.ChangeType = "Modified";
 
         return model;
+    }
+
+    private static string? ExtractNexusId(string[]? updateKeys)
+    {
+        if (updateKeys == null || updateKeys.Length == 0) return null;
+        foreach (var key in updateKeys)
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(key, @"Nexus:\s*(\d+)", 
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (match.Success) return match.Groups[1].Value;
+        }
+        return null;
     }
 
     private async Task LoadDiffAsync(ModDiffModel diffItem)
