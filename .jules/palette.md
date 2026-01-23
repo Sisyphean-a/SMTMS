@@ -20,3 +20,7 @@
 ## 2026-01-21 - Tooltips on Non-Obvious Interactive Elements
 **Learning:** Users may not realize that certain text elements (like version numbers in a grid) are clickable links.
 **Action:** When making text elements interactive (e.g., acting as hyperlinks), explicitly add `ToolTip.Tip` to explain the action (e.g., "Click to visit Nexus page") to provide immediate visual feedback and clarity.
+
+## 2026-01-21 - Input Field Accessibility
+**Learning:** Visual labels (TextBlocks) are insufficient for screen readers. Explicit association via `AutomationProperties.Name` is required on input controls (like `TextBox`).
+**Action:** Always add `AutomationProperties.Name` to input fields, matching their visual label. Use `Watermark` to provide additional context where helpful.

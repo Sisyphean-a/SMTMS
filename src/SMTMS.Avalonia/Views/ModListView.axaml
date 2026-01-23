@@ -211,7 +211,9 @@
                             <Grid ColumnDefinitions="*, Auto">
                                 <TextBox
                                     Grid.Column="0"
-                                    Text="{Binding Name}" />
+                                    Text="{Binding Name}"
+                                    Watermark="输入模组名称"
+                                    AutomationProperties.Name="模组名称" />
                                 <Button
                                     Grid.Column="1"
                                     Classes="Tertiary"
@@ -238,7 +240,8 @@
                                 FontFamily="{StaticResource MonoFont}"
                                 IsReadOnly="True"
                                 Opacity="0.7"
-                                Text="{Binding UniqueID}" />
+                                Text="{Binding UniqueID}"
+                                AutomationProperties.Name="唯一 ID" />
                         </StackPanel>
 
                         <StackPanel Spacing="6">
@@ -253,7 +256,8 @@
                                     Grid.Column="0"
                                     IsEnabled="{Binding IsNexusIdEditable}"
                                     Text="{Binding NexusId}"
-                                    Watermark="输入 N网 模组 ID（纯数字）" />
+                                    Watermark="输入 N网 模组 ID（纯数字）"
+                                    AutomationProperties.Name="N网 ID" />
                                 <Button
                                     Classes="Tertiary"
                                     Command="{Binding OpenNexusPageCommand}"
@@ -279,7 +283,9 @@
                                     Height="120"
                                     Text="{Binding Description}"
                                     TextWrapping="Wrap"
-                                    VerticalContentAlignment="Top" />
+                                    VerticalContentAlignment="Top"
+                                    Watermark="输入模组描述"
+                                    AutomationProperties.Name="模组描述" />
                                 <Button
                                     Grid.Column="1"
                                     Classes="Tertiary"
