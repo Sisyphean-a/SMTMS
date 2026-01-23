@@ -78,62 +78,103 @@
             ResizeDirection="Rows" />
 
         <Grid ColumnDefinitions="3*, 4, 3*" Grid.Row="3">
-            <DataGrid
-                AutoGenerateColumns="False"
-                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
-                BorderThickness="0,0,1,0"
-                Grid.Column="0"
-                GridLinesVisibility="Horizontal"
-                HeadersVisibility="Column"
-                IsReadOnly="True"
-                ItemsSource="{Binding HistoryViewModel.ModDiffChanges}"
-                RowBackground="Transparent"
-                SelectedItem="{Binding HistoryViewModel.SelectedDiffItem}">
-                <DataGrid.Styles>
-                    <Style Selector="DataGridColumnHeader">
-                        <Setter Property="FontSize" Value="11" />
-                    </Style>
-                </DataGrid.Styles>
-                <DataGrid.Columns>
-                    <DataGridTextColumn
-                        Binding="{Binding ModName}"
-                        Header="模组名称"
-                        Width="200" />
-                    <DataGridTextColumn
-                        Binding="{Binding FolderName}"
-                        FontFamily="{StaticResource MonoFont}"
-                        Header="文件夹"
-                        Width="150" />
-                    <DataGridTemplateColumn Header="变更详情" Width="*">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <StackPanel Margin="8,4">
-                                    <TextBlock FontSize="12" IsVisible="{Binding NameChange.HasChange}" Opacity="0.8">
-                                        <Run Text="名称: " />
-                                        <Run Foreground="{StaticResource GeekBlueBrush}" Text="{Binding NameChange.ChangeSummary}" />
-                                    </TextBlock>
-                                    <TextBlock FontSize="12" IsVisible="{Binding DescriptionChange.HasChange}" Opacity="0.8">
-                                        <Run Text="描述: " />
-                                        <Run Foreground="{StaticResource GeekBlueBrush}" Text="{Binding DescriptionChange.ChangeSummary}" />
-                                    </TextBlock>
-                                    <TextBlock FontSize="12" IsVisible="{Binding AuthorChange.HasChange}" Opacity="0.8">
-                                        <Run Text="作者: " />
-                                        <Run Foreground="{StaticResource GeekBlueBrush}" Text="{Binding AuthorChange.ChangeSummary}" />
-                                    </TextBlock>
-                                    <TextBlock FontSize="12" IsVisible="{Binding VersionChange.HasChange}" Opacity="0.8">
-                                        <Run Text="版本: " />
-                                        <Run Foreground="{StaticResource GeekBlueBrush}" Text="{Binding VersionChange.ChangeSummary}" />
-                                    </TextBlock>
-                                    <TextBlock FontSize="12" IsVisible="{Binding UpdateKeysChange.HasChange}" Opacity="0.8">
-                                        <Run Text="N网ID: " />
-                                        <Run Foreground="{StaticResource GeekBlueBrush}" Text="{Binding UpdateKeysChange.ChangeSummary}" />
-                                    </TextBlock>
-                                </StackPanel>
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-                </DataGrid.Columns>
-            </DataGrid>
+            <Panel Grid.Column="0">
+                <!--  Empty State: No Snapshot Selected  -->
+                <StackPanel
+                    HorizontalAlignment="Center"
+                    IsVisible="{Binding HistoryViewModel.SelectedSnapshot, Converter={x:Static ObjectConverters.IsNull}}"
+                    Spacing="10"
+                    VerticalAlignment="Center">
+                    <TextBlock
+                        FontSize="32"
+                        HorizontalAlignment="Center"
+                        Text="👈" />
+                    <StackPanel Spacing="5">
+                        <TextBlock
+                            FontWeight="Bold"
+                            Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                            HorizontalAlignment="Center"
+                            Text="未选择快照" />
+                        <TextBlock
+                            FontSize="12"
+                            Foreground="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                            HorizontalAlignment="Center"
+                            Text="请在上方列表中选择一个历史快照" />
+                    </StackPanel>
+                </StackPanel>
+
+                <DataGrid
+                    AutoGenerateColumns="False"
+                    BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                    BorderThickness="0,0,1,0"
+                    GridLinesVisibility="Horizontal"
+                    HeadersVisibility="Column"
+                    IsReadOnly="True"
+                    IsVisible="{Binding HistoryViewModel.SelectedSnapshot, Converter={x:Static ObjectConverters.IsNotNull}}"
+                    ItemsSource="{Binding HistoryViewModel.ModDiffChanges}"
+                    RowBackground="Transparent"
+                    SelectedItem="{Binding HistoryViewModel.SelectedDiffItem}">
+                    <DataGrid.Styles>
+                        <Style Selector="DataGridColumnHeader">
+                            <Setter Property="FontSize" Value="11" />
+                        </Style>
+                    </DataGrid.Styles>
+                    <DataGrid.Columns>
+                        <DataGridTextColumn
+                            Binding="{Binding ModName}"
+                            Header="模组名称"
+                            Width="200" />
+                        <DataGridTextColumn
+                            Binding="{Binding FolderName}"
+                            FontFamily="{StaticResource MonoFont}"
+                            Header="文件夹"
+                            Width="150" />
+                        <DataGridTemplateColumn Header="变更详情" Width="*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="8,4">
+                                        <TextBlock
+                                            FontSize="12"
+                                            IsVisible="{Binding NameChange.HasChange}"
+                                            Opacity="0.8">
+                                            <Run Text="名称: " />
+                                            <Run Foreground="{StaticResource GeekBlueBrush}" Text="{Binding NameChange.ChangeSummary}" />
+                                        </TextBlock>
+                                        <TextBlock
+                                            FontSize="12"
+                                            IsVisible="{Binding DescriptionChange.HasChange}"
+                                            Opacity="0.8">
+                                            <Run Text="描述: " />
+                                            <Run Foreground="{StaticResource GeekBlueBrush}" Text="{Binding DescriptionChange.ChangeSummary}" />
+                                        </TextBlock>
+                                        <TextBlock
+                                            FontSize="12"
+                                            IsVisible="{Binding AuthorChange.HasChange}"
+                                            Opacity="0.8">
+                                            <Run Text="作者: " />
+                                            <Run Foreground="{StaticResource GeekBlueBrush}" Text="{Binding AuthorChange.ChangeSummary}" />
+                                        </TextBlock>
+                                        <TextBlock
+                                            FontSize="12"
+                                            IsVisible="{Binding VersionChange.HasChange}"
+                                            Opacity="0.8">
+                                            <Run Text="版本: " />
+                                            <Run Foreground="{StaticResource GeekBlueBrush}" Text="{Binding VersionChange.ChangeSummary}" />
+                                        </TextBlock>
+                                        <TextBlock
+                                            FontSize="12"
+                                            IsVisible="{Binding UpdateKeysChange.HasChange}"
+                                            Opacity="0.8">
+                                            <Run Text="N网ID: " />
+                                            <Run Foreground="{StaticResource GeekBlueBrush}" Text="{Binding UpdateKeysChange.ChangeSummary}" />
+                                        </TextBlock>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Panel>
 
             <GridSplitter
                 Background="{DynamicResource SystemControlForegroundBaseLowBrush}"
@@ -145,102 +186,128 @@
                 BorderThickness="0"
                 Grid.Column="2"
                 Padding="15">
-                <ScrollViewer>
-                    <StackPanel DataContext="{Binding HistoryViewModel.SelectedDiffItem}" IsVisible="{Binding ., Converter={x:Static ObjectConverters.IsNotNull}}">
+                <Panel>
+                    <!--  Empty State: No Diff Item Selected  -->
+                    <StackPanel
+                        HorizontalAlignment="Center"
+                        IsVisible="{Binding HistoryViewModel.SelectedDiffItem, Converter={x:Static ObjectConverters.IsNull}}"
+                        Spacing="10"
+                        VerticalAlignment="Center">
                         <TextBlock
-                            FontFamily="{StaticResource MonoFont}"
-                            FontSize="14"
-                            FontWeight="Bold"
-                            Foreground="{StaticResource GeekBlueBrush}"
-                            Margin="0,0,0,15"
-                            Text="差异分析器" />
-
-                        <StackPanel Spacing="10">
+                            FontSize="32"
+                            HorizontalAlignment="Center"
+                            Text="📝" />
+                        <StackPanel Spacing="5">
                             <TextBlock
-                                FontSize="10"
                                 FontWeight="Bold"
-                                Opacity="0.6"
-                                IsVisible="{Binding NameChange.HasChange}"
-                                Text="名称变更" />
-                            <Grid ColumnDefinitions="*,*" IsVisible="{Binding NameChange.HasChange}">
-                                <TextBox
-                                    Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
-                                    BorderThickness="0"
-                                    Foreground="{DynamicResource SystemControlErrorTextForegroundBrush}"
-                                    Grid.Column="0"
-                                    IsReadOnly="True"
-                                    Margin="0,0,4,0"
-                                    Text="{Binding NameChange.OldValue}" />
-                                <TextBox
-                                    Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
-                                    BorderThickness="0"
-                                    Foreground="{DynamicResource SystemControlHighlightAccentBrush}"
-                                    Grid.Column="1"
-                                    IsReadOnly="True"
-                                    Margin="4,0,0,0"
-                                    Text="{Binding NameChange.NewValue}" />
-                            </Grid>
-
+                                Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                HorizontalAlignment="Center"
+                                Text="未选择文件" />
                             <TextBlock
-                                FontSize="10"
-                                FontWeight="Bold"
-                                Opacity="0.6"
-                                IsVisible="{Binding DescriptionChange.HasChange}"
-                                Margin="0,10,0,0"
-                                Text="描述变更" />
-                            <Grid ColumnDefinitions="*,*" IsVisible="{Binding DescriptionChange.HasChange}">
-                                <TextBox
-                                    AcceptsReturn="True"
-                                    Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
-                                    BorderThickness="0"
-                                    Foreground="{DynamicResource SystemControlErrorTextForegroundBrush}"
-                                    Grid.Column="0"
-                                    Height="100"
-                                    IsReadOnly="True"
-                                    Margin="0,0,4,0"
-                                    Text="{Binding DescriptionChange.OldValue}"
-                                    TextWrapping="Wrap" />
-                                <TextBox
-                                    AcceptsReturn="True"
-                                    Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
-                                    BorderThickness="0"
-                                    Foreground="{DynamicResource SystemControlHighlightAccentBrush}"
-                                    Grid.Column="1"
-                                    Height="100"
-                                    IsReadOnly="True"
-                                    Margin="4,0,0,0"
-                                    Text="{Binding DescriptionChange.NewValue}"
-                                    TextWrapping="Wrap" />
-                            </Grid>
-
-                            <TextBlock
-                                FontSize="10"
-                                FontWeight="Bold"
-                                Opacity="0.6"
-                                IsVisible="{Binding UpdateKeysChange.HasChange}"
-                                Margin="0,10,0,0"
-                                Text="N网ID变更" />
-                            <Grid ColumnDefinitions="*,*" IsVisible="{Binding UpdateKeysChange.HasChange}">
-                                <TextBox
-                                    Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
-                                    BorderThickness="0"
-                                    Foreground="{DynamicResource SystemControlErrorTextForegroundBrush}"
-                                    Grid.Column="0"
-                                    IsReadOnly="True"
-                                    Margin="0,0,4,0"
-                                    Text="{Binding UpdateKeysChange.OldValue}" />
-                                <TextBox
-                                    Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
-                                    BorderThickness="0"
-                                    Foreground="{DynamicResource SystemControlHighlightAccentBrush}"
-                                    Grid.Column="1"
-                                    IsReadOnly="True"
-                                    Margin="4,0,0,0"
-                                    Text="{Binding UpdateKeysChange.NewValue}" />
-                            </Grid>
+                                FontSize="12"
+                                Foreground="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                                HorizontalAlignment="Center"
+                                Text="请在左侧选择一个文件查看详情" />
                         </StackPanel>
                     </StackPanel>
-                </ScrollViewer>
+
+                    <ScrollViewer IsVisible="{Binding HistoryViewModel.SelectedDiffItem, Converter={x:Static ObjectConverters.IsNotNull}}">
+                        <StackPanel DataContext="{Binding HistoryViewModel.SelectedDiffItem}">
+                            <TextBlock
+                                FontFamily="{StaticResource MonoFont}"
+                                FontSize="14"
+                                FontWeight="Bold"
+                                Foreground="{StaticResource GeekBlueBrush}"
+                                Margin="0,0,0,15"
+                                Text="差异分析器" />
+
+                            <StackPanel Spacing="10">
+                                <TextBlock
+                                    FontSize="10"
+                                    FontWeight="Bold"
+                                    IsVisible="{Binding NameChange.HasChange}"
+                                    Opacity="0.6"
+                                    Text="名称变更" />
+                                <Grid ColumnDefinitions="*,*" IsVisible="{Binding NameChange.HasChange}">
+                                    <TextBox
+                                        Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
+                                        BorderThickness="0"
+                                        Foreground="{DynamicResource SystemControlErrorTextForegroundBrush}"
+                                        Grid.Column="0"
+                                        IsReadOnly="True"
+                                        Margin="0,0,4,0"
+                                        Text="{Binding NameChange.OldValue}" />
+                                    <TextBox
+                                        Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
+                                        BorderThickness="0"
+                                        Foreground="{DynamicResource SystemControlHighlightAccentBrush}"
+                                        Grid.Column="1"
+                                        IsReadOnly="True"
+                                        Margin="4,0,0,0"
+                                        Text="{Binding NameChange.NewValue}" />
+                                </Grid>
+
+                                <TextBlock
+                                    FontSize="10"
+                                    FontWeight="Bold"
+                                    IsVisible="{Binding DescriptionChange.HasChange}"
+                                    Margin="0,10,0,0"
+                                    Opacity="0.6"
+                                    Text="描述变更" />
+                                <Grid ColumnDefinitions="*,*" IsVisible="{Binding DescriptionChange.HasChange}">
+                                    <TextBox
+                                        AcceptsReturn="True"
+                                        Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
+                                        BorderThickness="0"
+                                        Foreground="{DynamicResource SystemControlErrorTextForegroundBrush}"
+                                        Grid.Column="0"
+                                        Height="100"
+                                        IsReadOnly="True"
+                                        Margin="0,0,4,0"
+                                        Text="{Binding DescriptionChange.OldValue}"
+                                        TextWrapping="Wrap" />
+                                    <TextBox
+                                        AcceptsReturn="True"
+                                        Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
+                                        BorderThickness="0"
+                                        Foreground="{DynamicResource SystemControlHighlightAccentBrush}"
+                                        Grid.Column="1"
+                                        Height="100"
+                                        IsReadOnly="True"
+                                        Margin="4,0,0,0"
+                                        Text="{Binding DescriptionChange.NewValue}"
+                                        TextWrapping="Wrap" />
+                                </Grid>
+
+                                <TextBlock
+                                    FontSize="10"
+                                    FontWeight="Bold"
+                                    IsVisible="{Binding UpdateKeysChange.HasChange}"
+                                    Margin="0,10,0,0"
+                                    Opacity="0.6"
+                                    Text="N网ID变更" />
+                                <Grid ColumnDefinitions="*,*" IsVisible="{Binding UpdateKeysChange.HasChange}">
+                                    <TextBox
+                                        Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
+                                        BorderThickness="0"
+                                        Foreground="{DynamicResource SystemControlErrorTextForegroundBrush}"
+                                        Grid.Column="0"
+                                        IsReadOnly="True"
+                                        Margin="0,0,4,0"
+                                        Text="{Binding UpdateKeysChange.OldValue}" />
+                                    <TextBox
+                                        Background="{DynamicResource SystemControlBackgroundBaseLowBrush}"
+                                        BorderThickness="0"
+                                        Foreground="{DynamicResource SystemControlHighlightAccentBrush}"
+                                        Grid.Column="1"
+                                        IsReadOnly="True"
+                                        Margin="4,0,0,0"
+                                        Text="{Binding UpdateKeysChange.NewValue}" />
+                                </Grid>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Panel>
             </Border>
 
             <Border
