@@ -12,53 +12,84 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="using:SMTMS.Avalonia.ViewModels"
+    xmlns:cv="using:SMTMS.Avalonia.Converters"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Window.Resources>
+        <cv:BoolNegationConverter x:Key="BoolNegationConverter"/>
+    </Window.Resources>
 
     <Grid Margin="15" RowDefinitions="*, Auto">
         <!--  History List  -->
-        <DataGrid
-            AutoGenerateColumns="False"
-            BorderBrush="#E1E3E6"
-            BorderThickness="1"
-            Grid.Row="0"
-            GridLinesVisibility="Horizontal"
-            HeadersVisibility="Column"
-            IsReadOnly="True"
-            ItemsSource="{Binding HistoryItems}"
-            RowBackground="Transparent"
-            SelectedItem="{Binding SelectedHistoryItem}">
-            <DataGrid.Styles>
-                <Style Selector="DataGridColumnHeader">
-                    <Setter Property="Background" Value="#FAFAFA" />
-                    <Setter Property="Foreground" Value="#999999" />
-                    <Setter Property="FontSize" Value="11" />
-                </Style>
-            </DataGrid.Styles>
-            <DataGrid.Columns>
-                <DataGridTextColumn
-                    Binding="{Binding SnapshotTime}"
-                    FontFamily="{StaticResource MonoFont}"
-                    Header="快照时间"
-                    Width="180" />
-                <DataGridTextColumn
-                    Binding="{Binding DisplayName}"
-                    Header="名称"
-                    Width="*" />
-                <DataGridTextColumn
-                    Binding="{Binding DisplayDescription}"
-                    Header="描述"
-                    Width="2*" />
-                <DataGridTextColumn
-                    Binding="{Binding DisplayAuthor}"
-                    Header="作者"
-                    Width="120" />
-                <DataGridTextColumn
-                    Binding="{Binding DisplayVersion}"
-                    FontFamily="{StaticResource MonoFont}"
-                    Header="版本"
-                    Width="100" />
-            </DataGrid.Columns>
-        </DataGrid>
+        <Panel Grid.Row="0">
+            <!-- Empty State -->
+            <StackPanel
+                HorizontalAlignment="Center"
+                IsVisible="{Binding HasHistory, Converter={StaticResource BoolNegationConverter}}"
+                Spacing="20"
+                VerticalAlignment="Center">
+                <TextBlock
+                    FontSize="48"
+                    HorizontalAlignment="Center"
+                    Text="🍃" />
+                <StackPanel Spacing="10">
+                    <TextBlock
+                        FontWeight="Bold"
+                        Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                        HorizontalAlignment="Center"
+                        Text="无历史记录" />
+                    <TextBlock
+                        FontSize="12"
+                        Foreground="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                        HorizontalAlignment="Center"
+                        Text="该模组尚未进行过任何同步" />
+                </StackPanel>
+            </StackPanel>
+
+            <DataGrid
+                AutoGenerateColumns="False"
+                BorderBrush="#E1E3E6"
+                BorderThickness="1"
+                GridLinesVisibility="Horizontal"
+                HeadersVisibility="Column"
+                IsReadOnly="True"
+                IsVisible="{Binding HasHistory}"
+                ItemsSource="{Binding HistoryItems}"
+                RowBackground="Transparent"
+                SelectedItem="{Binding SelectedHistoryItem}">
+                <DataGrid.Styles>
+                    <Style Selector="DataGridColumnHeader">
+                        <Setter Property="Background" Value="#FAFAFA" />
+                        <Setter Property="Foreground" Value="#999999" />
+                        <Setter Property="FontSize" Value="11" />
+                    </Style>
+                </DataGrid.Styles>
+                <DataGrid.Columns>
+                    <DataGridTextColumn
+                        Binding="{Binding SnapshotTime}"
+                        FontFamily="{StaticResource MonoFont}"
+                        Header="快照时间"
+                        Width="180" />
+                    <DataGridTextColumn
+                        Binding="{Binding DisplayName}"
+                        Header="名称"
+                        Width="*" />
+                    <DataGridTextColumn
+                        Binding="{Binding DisplayDescription}"
+                        Header="描述"
+                        Width="2*" />
+                    <DataGridTextColumn
+                        Binding="{Binding DisplayAuthor}"
+                        Header="作者"
+                        Width="120" />
+                    <DataGridTextColumn
+                        Binding="{Binding DisplayVersion}"
+                        FontFamily="{StaticResource MonoFont}"
+                        Header="版本"
+                        Width="100" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </Panel>
 
         <!--  Bottom Actions  -->
         <StackPanel

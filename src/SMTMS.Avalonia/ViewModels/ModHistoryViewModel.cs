@@ -25,6 +25,9 @@ public partial class ModHistoryViewModel : ObservableObject
     [ObservableProperty]
     private ModHistoryItemViewModel? _selectedHistoryItem;
 
+    [ObservableProperty]
+    private bool _hasHistory;
+
     public ObservableCollection<ModHistoryItemViewModel> HistoryItems { get; } = [];
     
     // 点击“应用”时调用的 Action
@@ -71,6 +74,7 @@ public partial class ModHistoryViewModel : ObservableObject
             {
                 HistoryItems.Clear();
                 foreach (var vm in viewModels) HistoryItems.Add(vm);
+                HasHistory = HistoryItems.Count > 0;
             });
         }
         catch (Exception ex)
