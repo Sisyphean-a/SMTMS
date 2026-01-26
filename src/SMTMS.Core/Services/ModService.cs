@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using SMTMS.Core.Interfaces;
 using SMTMS.Core.Infrastructure;
@@ -5,7 +6,7 @@ using SMTMS.Core.Models;
 
 namespace SMTMS.Core.Services;
 
-public class ModService(IFileSystem fileSystem) : IModService
+public class ModService(IFileSystem fileSystem, ILogger<ModService> logger) : IModService
 {
     private readonly JsonSerializerSettings _jsonSettings = new()
     {
@@ -16,6 +17,7 @@ public class ModService(IFileSystem fileSystem) : IModService
         DateParseHandling = DateParseHandling.None,
     };
     private readonly IFileSystem _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+    private readonly ILogger<ModService> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
     // 处理 SMAPI 清单中常见的注释
 
@@ -61,10 +63,9 @@ public class ModService(IFileSystem fileSystem) : IModService
             }
             return manifest;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // TODO: 记录错误或返回特定的错误结果
-            // 目前返回 null 表示解析失败
+            _logger.LogError(ex, "Failed to parse manifest file: {ManifestPath}", manifestPath);
             return null;
         }
     }
