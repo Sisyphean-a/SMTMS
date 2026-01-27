@@ -20,3 +20,7 @@
 ## 2026-01-21 - Tooltips on Non-Obvious Interactive Elements
 **Learning:** Users may not realize that certain text elements (like version numbers in a grid) are clickable links.
 **Action:** When making text elements interactive (e.g., acting as hyperlinks), explicitly add `ToolTip.Tip` to explain the action (e.g., "Click to visit Nexus page") to provide immediate visual feedback and clarity.
+
+## 2026-02-17 - Button Action Clarity
+**Learning:** Important action buttons (like Sync/Restore) can be ambiguous. Adding explicit tooltips explaining the outcome (e.g., "Creates a snapshot") reduces user anxiety.
+**Action:** Always add descriptive `ToolTip.Tip` to buttons that perform complex or destructive data operations.

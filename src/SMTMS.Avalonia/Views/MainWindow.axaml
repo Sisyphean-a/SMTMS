@@ -31,7 +31,9 @@
                     <Button
                         Classes="Solid"
                         Command="{Binding ModListViewModel.LoadModsCommand}"
-                        Content="扫描模组" />
+                        Content="扫描模组"
+                        ToolTip.Tip="扫描指定目录下的所有模组文件"
+                        AutomationProperties.Name="扫描模组文件" />
                 </StackPanel>
 
                 <TextBlock
@@ -51,11 +53,15 @@
                     <Button
                         Classes="Tertiary"
                         Command="{Binding SyncToDatabaseCommand}"
-                        Content="同步数据" />
+                        Content="同步数据"
+                        ToolTip.Tip="保存所有变更并创建新的历史快照"
+                        AutomationProperties.Name="同步数据到数据库" />
                     <Button
                         Classes="Tertiary"
                         Command="{Binding RestoreFromDatabaseCommand}"
-                        Content="恢复数据" />
+                        Content="恢复数据"
+                        ToolTip.Tip="将数据库中的翻译数据注入回模组文件"
+                        AutomationProperties.Name="从数据库恢复数据" />
                 </StackPanel>
             </Grid>
         </Border>

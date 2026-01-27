@@ -110,6 +110,8 @@
                             Content="初始化"
                             HorizontalAlignment="Left"
                             Theme="{DynamicResource TertiaryButton}"
+                            ToolTip.Tip="警告：此操作将清空所有数据并重置数据库"
+                            AutomationProperties.Name="初始化数据库"
                             Width="120" />
                     </StackPanel>
                 </StackPanel>
