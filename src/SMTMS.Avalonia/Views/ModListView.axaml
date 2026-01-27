@@ -18,6 +18,21 @@
         <cv:BoolToFontStyleConverter x:Key="BoolToFontStyleConverter"/>
     </UserControl.Resources>
 
+    <UserControl.Styles>
+        <Style Selector="TextBlock.Spinning">
+            <Style.Animations>
+                <Animation Duration="0:0:1" IterationCount="Infinite">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="RotateTransform.Angle" Value="0" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="RotateTransform.Angle" Value="360" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+    </UserControl.Styles>
+
     <Grid ColumnDefinitions="2*, 4, 1*">
         <!--  Mod List  -->
         <Panel Grid.Column="0">
@@ -216,7 +231,6 @@
                                     Grid.Column="1"
                                     Classes="Tertiary"
                                     Command="{Binding TranslateNameCommand}"
-                                    Content="🌐"
                                     FontSize="16"
                                     Height="32"
                                     IsEnabled="{Binding IsTranslatingName, Converter={StaticResource BoolNegationConverter}}"
@@ -224,7 +238,19 @@
                                     Padding="4"
                                     ToolTip.Tip="翻译名称"
                                     AutomationProperties.Name="翻译名称"
-                                    Width="40" />
+                                    Width="40">
+                                    <Panel>
+                                        <TextBlock Text="🌐" IsVisible="{Binding IsTranslatingName, Converter={StaticResource BoolNegationConverter}}" />
+                                        <TextBlock Text="🔄"
+                                                   Classes="Spinning"
+                                                   IsVisible="{Binding IsTranslatingName}"
+                                                   RenderTransformOrigin="50%,50%">
+                                            <TextBlock.RenderTransform>
+                                                <RotateTransform />
+                                            </TextBlock.RenderTransform>
+                                        </TextBlock>
+                                    </Panel>
+                                </Button>
                             </Grid>
                         </StackPanel>
 
@@ -284,7 +310,6 @@
                                     Grid.Column="1"
                                     Classes="Tertiary"
                                     Command="{Binding TranslateDescriptionCommand}"
-                                    Content="🌐"
                                     FontSize="16"
                                     Height="32"
                                     IsEnabled="{Binding IsTranslatingDescription, Converter={StaticResource BoolNegationConverter}}"
@@ -293,7 +318,19 @@
                                     ToolTip.Tip="翻译描述"
                                     AutomationProperties.Name="翻译描述"
                                     VerticalAlignment="Top"
-                                    Width="40" />
+                                    Width="40">
+                                    <Panel>
+                                        <TextBlock Text="🌐" IsVisible="{Binding IsTranslatingDescription, Converter={StaticResource BoolNegationConverter}}" />
+                                        <TextBlock Text="🔄"
+                                                   Classes="Spinning"
+                                                   IsVisible="{Binding IsTranslatingDescription}"
+                                                   RenderTransformOrigin="50%,50%">
+                                            <TextBlock.RenderTransform>
+                                                <RotateTransform />
+                                            </TextBlock.RenderTransform>
+                                        </TextBlock>
+                                    </Panel>
+                                </Button>
                             </Grid>
                         </StackPanel>
 
