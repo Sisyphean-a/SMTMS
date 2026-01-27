@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Moq;
 using SMTMS.Core.Services;
 using SMTMS.Tests.Mocks;
 
@@ -5,12 +7,24 @@ namespace SMTMS.Tests.Services;
 
 public class ModServiceTests
 {
+    private readonly Mock<ILogger<ModService>> _loggerMock;
+
+    public ModServiceTests()
+    {
+        _loggerMock = new Mock<ILogger<ModService>>();
+    }
+
+    private ModService CreateService(InMemoryFileSystem fileSystem)
+    {
+        return new ModService(fileSystem, _loggerMock.Object);
+    }
+
     [Fact]
     public async Task ScanModsAsync_EmptyDirectory_ReturnsEmptyList()
     {
         // 准备
         var fileSystem = new InMemoryFileSystem();
-        var service = new ModService(fileSystem);
+        var service = CreateService(fileSystem);
 
         // 执行
         var result = await service.ScanModsAsync("/mods");
@@ -38,7 +52,7 @@ public class ModServiceTests
                                     """;
         
         await fileSystem.WriteAllTextAsync("/mods/TestMod/manifest.json", manifestJson);
-        var service = new ModService(fileSystem);
+        var service = CreateService(fileSystem);
 
         // Act
         var result = await service.ScanModsAsync("/mods");
@@ -64,7 +78,7 @@ public class ModServiceTests
         await fileSystem.WriteAllTextAsync("/mods/Mod2/manifest.json", 
             """{"Name": "Mod 2", "UniqueID": "Author.Mod2", "Version": "1.0.0"}""");
         
-        var service = new ModService(fileSystem);
+        var service = CreateService(fileSystem);
 
         // Act
         var result = await service.ScanModsAsync("/mods");
@@ -88,7 +102,7 @@ public class ModServiceTests
                                     """;
         
         await fileSystem.WriteAllTextAsync("/manifest.json", manifestJson);
-        var service = new ModService(fileSystem);
+        var service = CreateService(fileSystem);
 
         // Act
         var manifest = await service.ReadManifestAsync("/manifest.json");
@@ -104,7 +118,7 @@ public class ModServiceTests
     {
         // Arrange
         var fileSystem = new InMemoryFileSystem();
-        var service = new ModService(fileSystem);
+        var service = CreateService(fileSystem);
 
         // Act
         var manifest = await service.ReadManifestAsync("/nonexistent.json");
@@ -118,7 +132,7 @@ public class ModServiceTests
     {
         // Arrange
         var fileSystem = new InMemoryFileSystem();
-        var service = new ModService(fileSystem);
+        var service = CreateService(fileSystem);
         var manifest = new Core.Models.ModManifest
         {
             Name = "Test Mod",
@@ -137,18 +151,28 @@ public class ModServiceTests
     }
 
     [Fact]
-    public async Task ReadManifestAsync_InvalidJson_ReturnsNull()
+    public async Task ReadManifestAsync_InvalidJson_ReturnsNull_AndLogsError()
     {
         // Arrange
         var fileSystem = new InMemoryFileSystem();
         await fileSystem.WriteAllTextAsync("/invalid.json", "{ invalid json }");
-        var service = new ModService(fileSystem);
+        var service = CreateService(fileSystem);
 
         // Act
         var manifest = await service.ReadManifestAsync("/invalid.json");
 
         // Assert
         Assert.Null(manifest);
+
+        // Verify logger was called
+        _loggerMock.Verify(
+            x => x.Log(
+                LogLevel.Error,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => true),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
     }
 
     [Fact]
@@ -163,7 +187,7 @@ public class ModServiceTests
                                     }
                                     """;
         await fileSystem.WriteAllTextAsync("/manifest.json", manifestJson);
-        var service = new ModService(fileSystem);
+        var service = CreateService(fileSystem);
 
         // Act
         await service.UpdateModManifestAsync("/manifest.json", "New Name", "New Description");
@@ -185,7 +209,7 @@ public class ModServiceTests
                                     }
                                     """;
         await fileSystem.WriteAllTextAsync("/manifest.json", manifestJson);
-        var service = new ModService(fileSystem);
+        var service = CreateService(fileSystem);
 
         // Act
         await service.UpdateModManifestAsync("/manifest.json", "Original Name", null);
@@ -200,11 +224,10 @@ public class ModServiceTests
     {
         // Arrange
         var fileSystem = new InMemoryFileSystem();
-        var service = new ModService(fileSystem);
+        var service = CreateService(fileSystem);
 
         // Act & Assert
         await Assert.ThrowsAsync<FileNotFoundException>(() => 
             service.UpdateModManifestAsync("/nonexistent.json", "Name", "Desc"));
     }
 }
-
