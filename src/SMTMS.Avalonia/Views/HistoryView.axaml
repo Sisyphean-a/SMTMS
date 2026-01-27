@@ -8,7 +8,12 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="using:SMTMS.Avalonia.ViewModels"
+    xmlns:cv="using:SMTMS.Avalonia.Converters"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <UserControl.Resources>
+        <cv:BoolNegationConverter x:Key="BoolNegationConverter"/>
+    </UserControl.Resources>
 
     <Grid RowDefinitions="Auto, *, 4, 300">
         <StackPanel
@@ -31,44 +36,69 @@
                 AutomationProperties.Name="回滚到选中快照" />
         </StackPanel>
 
-        <DataGrid
-            AutoGenerateColumns="False"
-            BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
-            BorderThickness="0,1,0,1"
-            Grid.Row="1"
-            GridLinesVisibility="Horizontal"
-            HeadersVisibility="Column"
-            IsReadOnly="True"
-            ItemsSource="{Binding HistoryViewModel.SnapshotHistory}"
-            RowBackground="Transparent"
-            SelectedItem="{Binding HistoryViewModel.SelectedSnapshot}">
-            <DataGrid.Styles>
-                <Style Selector="DataGridColumnHeader">
-                    <Setter Property="FontSize" Value="11" />
-                </Style>
-            </DataGrid.Styles>
-            <DataGrid.Columns>
-                <DataGridTextColumn
-                    Binding="{Binding Id}"
-                    FontFamily="{StaticResource MonoFont}"
-                    Header="ID"
-                    Width="60" />
-                <DataGridTextColumn
-                    Binding="{Binding Message}"
-                    Header="提交信息"
-                    Width="*" />
-                <DataGridTextColumn
-                    Binding="{Binding TotalMods}"
-                    FontFamily="{StaticResource MonoFont}"
-                    Header="模组数"
-                    Width="80" />
-                <DataGridTextColumn
-                    Binding="{Binding Timestamp}"
-                    FontFamily="{StaticResource MonoFont}"
-                    Header="时间戳"
-                    Width="180" />
-            </DataGrid.Columns>
-        </DataGrid>
+        <Panel Grid.Row="1">
+            <DataGrid
+                AutoGenerateColumns="False"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                BorderThickness="0,1,0,1"
+                GridLinesVisibility="Horizontal"
+                HeadersVisibility="Column"
+                IsReadOnly="True"
+                ItemsSource="{Binding HistoryViewModel.SnapshotHistory}"
+                RowBackground="Transparent"
+                SelectedItem="{Binding HistoryViewModel.SelectedSnapshot}">
+                <DataGrid.Styles>
+                    <Style Selector="DataGridColumnHeader">
+                        <Setter Property="FontSize" Value="11" />
+                    </Style>
+                </DataGrid.Styles>
+                <DataGrid.Columns>
+                    <DataGridTextColumn
+                        Binding="{Binding Id}"
+                        FontFamily="{StaticResource MonoFont}"
+                        Header="ID"
+                        Width="60" />
+                    <DataGridTextColumn
+                        Binding="{Binding Message}"
+                        Header="提交信息"
+                        Width="*" />
+                    <DataGridTextColumn
+                        Binding="{Binding TotalMods}"
+                        FontFamily="{StaticResource MonoFont}"
+                        Header="模组数"
+                        Width="80" />
+                    <DataGridTextColumn
+                        Binding="{Binding Timestamp}"
+                        FontFamily="{StaticResource MonoFont}"
+                        Header="时间戳"
+                        Width="180" />
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <!-- Empty State -->
+            <StackPanel
+                HorizontalAlignment="Center"
+                IsVisible="{Binding HistoryViewModel.HasSnapshots, Converter={StaticResource BoolNegationConverter}}"
+                Spacing="20"
+                VerticalAlignment="Center">
+                <TextBlock
+                    FontSize="48"
+                    HorizontalAlignment="Center"
+                    Text="📭" />
+                <StackPanel Spacing="10">
+                    <TextBlock
+                        FontWeight="Bold"
+                        Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                        HorizontalAlignment="Center"
+                        Text="暂无历史记录" />
+                    <TextBlock
+                        FontSize="12"
+                        Foreground="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                        HorizontalAlignment="Center"
+                        Text="请先在主页进行模组同步操作" />
+                </StackPanel>
+            </StackPanel>
+        </Panel>
 
         <GridSplitter
             Background="{DynamicResource SystemControlForegroundBaseLowBrush}"
