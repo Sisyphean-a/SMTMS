@@ -24,3 +24,7 @@
 ## 2026-02-17 - Button Action Clarity
 **Learning:** Important action buttons (like Sync/Restore) can be ambiguous. Adding explicit tooltips explaining the outcome (e.g., "Creates a snapshot") reduces user anxiety.
 **Action:** Always add descriptive `ToolTip.Tip` to buttons that perform complex or destructive data operations.
+
+## 2026-01-29 - Indeterminate Loading States
+**Learning:** Animated emojis (e.g., rotating gear) provide a lightweight, code-only alternative to image assets for loading indicators.
+**Action:** Use `RotateTransform` animations in XAML Styles to create performant spinners from text elements when asset management is constrained.
