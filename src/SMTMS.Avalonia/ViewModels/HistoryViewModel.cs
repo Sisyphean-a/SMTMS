@@ -39,6 +39,12 @@ public partial class HistoryViewModel : ObservableObject
     [ObservableProperty]
     private string _diffLoadingMessage = "";
 
+    [ObservableProperty]
+    private bool _hasSnapshots;
+
+    [ObservableProperty]
+    private bool _hasDiffs;
+
     public ObservableCollection<HistorySnapshot> SnapshotHistory { get; } = [];
     
     // UI Diff Model (Updated to match MainWindow.xaml binding)
@@ -74,6 +80,7 @@ public partial class HistoryViewModel : ObservableObject
                 {
                     SnapshotHistory.Clear();
                     foreach (var s in snapshots) SnapshotHistory.Add(s);
+                    HasSnapshots = SnapshotHistory.Count > 0;
                     WeakReferenceMessenger.Default.Send(new StatusMessage($"已加载 {snapshots.Count} 个历史快照", StatusLevel.Info));
                 });
             });
@@ -90,6 +97,7 @@ public partial class HistoryViewModel : ObservableObject
         // 清空选中的 History Item
         SelectedDiffItem = null;
         ModDiffChanges.Clear();
+        HasDiffs = false;
 
         if (value != null)
         {
@@ -147,6 +155,7 @@ public partial class HistoryViewModel : ObservableObject
             {
                 ModDiffChanges.Clear();
                 foreach (var d in diffModels) ModDiffChanges.Add(d);
+                HasDiffs = ModDiffChanges.Count > 0;
             });
         }
         catch (Exception ex)
