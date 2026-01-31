@@ -15,6 +15,13 @@
     xmlns:vm="using:SMTMS.Avalonia.ViewModels"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
+    <Window.KeyBindings>
+        <KeyBinding Gesture="Ctrl+R" Command="{Binding ModListViewModel.LoadModsCommand}" />
+        <KeyBinding Gesture="Ctrl+Shift+S" Command="{Binding SyncToDatabaseCommand}" />
+        <KeyBinding Gesture="Ctrl+Shift+R" Command="{Binding RestoreFromDatabaseCommand}" />
+        <KeyBinding Gesture="Ctrl+S" Command="{Binding ModListViewModel.SaveModCommand}" />
+    </Window.KeyBindings>
+
     <Grid RowDefinitions="Auto, *">
         <!--  Toolbar  -->
         <Border
@@ -32,7 +39,7 @@
                         Classes="Solid"
                         Command="{Binding ModListViewModel.LoadModsCommand}"
                         Content="扫描模组"
-                        ToolTip.Tip="扫描指定目录下的所有模组文件"
+                        ToolTip.Tip="扫描指定目录下的所有模组文件 (Ctrl+R)"
                         AutomationProperties.Name="扫描模组文件" />
                 </StackPanel>
 
@@ -54,13 +61,13 @@
                         Classes="Tertiary"
                         Command="{Binding SyncToDatabaseCommand}"
                         Content="同步数据"
-                        ToolTip.Tip="保存所有变更并创建新的历史快照"
+                        ToolTip.Tip="保存所有变更并创建新的历史快照 (Ctrl+Shift+S)"
                         AutomationProperties.Name="同步数据到数据库" />
                     <Button
                         Classes="Tertiary"
                         Command="{Binding RestoreFromDatabaseCommand}"
                         Content="恢复数据"
-                        ToolTip.Tip="将数据库中的翻译数据注入回模组文件"
+                        ToolTip.Tip="将数据库中的翻译数据注入回模组文件 (Ctrl+Shift+R)"
                         AutomationProperties.Name="从数据库恢复数据" />
                 </StackPanel>
             </Grid>
