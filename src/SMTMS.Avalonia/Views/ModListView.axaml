@@ -357,7 +357,7 @@
                                 Classes="Solid"
                                 Command="{Binding #Root.DataContext.ModListViewModel.SaveModCommand}"
                                 Content="保存更改"
-                                ToolTip.Tip="保存对当前模组的修改"
+                                ToolTip.Tip="保存对当前模组的修改 (Ctrl+S)"
                                 AutomationProperties.Name="保存更改" />
                         </StackPanel>
                     </StackPanel>
