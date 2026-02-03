@@ -68,15 +68,15 @@
 
         <!--  Tabs  -->
         <TabControl Grid.Row="1" Margin="10">
-            <TabItem Header="模组列表">
+            <TabItem Header="📦 模组列表" AutomationProperties.Name="模组列表">
                 <views:ModListView />
             </TabItem>
 
-            <TabItem Header="历史记录">
+            <TabItem Header="📜 历史记录" AutomationProperties.Name="历史记录">
                 <views:HistoryView />
             </TabItem>
 
-            <TabItem Header="设置">
+            <TabItem Header="⚙️ 设置" AutomationProperties.Name="设置">
                 <views:SettingsView DataContext="{Binding SettingsViewModel}" />
             </TabItem>
         </TabControl>
