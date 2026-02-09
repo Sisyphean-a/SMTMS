@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Input;
+using System;
 
 namespace SMTMS.Avalonia.Views;
 
@@ -14,7 +15,14 @@ public partial class CommitMessageWindow : Window
         InitializeComponent();
     }
 
-    private void Confirm_Click(object? sender, RoutedEventArgs e)
+    protected override void OnOpened(EventArgs e)
+    {
+        base.OnOpened(e);
+        var messageInput = this.FindControl<TextBox>("MessageInput");
+        messageInput?.Focus();
+    }
+
+    private void Confirm()
     {
         var messageInput = this.FindControl<TextBox>("MessageInput");
         CommitMessage = messageInput?.Text ?? string.Empty;
@@ -22,9 +30,26 @@ public partial class CommitMessageWindow : Window
         Close();
     }
 
+    private void Confirm_Click(object? sender, RoutedEventArgs e)
+    {
+        Confirm();
+    }
+
     private void Cancel_Click(object? sender, RoutedEventArgs e)
     {
         Close();
+    }
+
+    private void OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            Close();
+        }
+        else if (e.Key == Key.Enter && (e.KeyModifiers & KeyModifiers.Control) != 0)
+        {
+            Confirm();
+        }
     }
 
     private void OnBorderPointerPressed(object? sender, PointerPressedEventArgs e)
