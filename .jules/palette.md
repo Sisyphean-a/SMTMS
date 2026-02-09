@@ -24,3 +24,7 @@
 ## 2026-02-17 - Button Action Clarity
 **Learning:** Important action buttons (like Sync/Restore) can be ambiguous. Adding explicit tooltips explaining the outcome (e.g., "Creates a snapshot") reduces user anxiety.
 **Action:** Always add descriptive `ToolTip.Tip` to buttons that perform complex or destructive data operations.
+
+## 2026-02-18 - Keyboard Efficiency in Modals
+**Learning:** Modal dialogs for data entry (like commit messages) disrupt flow. Supporting `Ctrl+Enter` to submit and `Esc` to cancel allows users to complete the task without leaving the keyboard.
+**Action:** Implement `KeyDown` handlers on modal windows to support standard shortcuts, and expose these shortcuts in button tooltips.
