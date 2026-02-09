@@ -14,6 +14,21 @@
     xmlns:vm="using:SMTMS.Avalonia.ViewModels"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
+    <Window.Styles>
+        <Style Selector="TextBlock.Spinning">
+            <Style.Animations>
+                <Animation Duration="0:0:1" IterationCount="Infinite">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="RotateTransform.Angle" Value="0" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="RotateTransform.Angle" Value="360" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+    </Window.Styles>
+
     <Grid Margin="15" RowDefinitions="*, Auto">
         <!--  History List  -->
         <DataGrid
@@ -73,12 +88,19 @@
                 Foreground="#999999"
                 Text="[请选择一个版本以恢复元数据]"
                 VerticalAlignment="Center" />
-            <Button Command="{Binding CloseCommand}" Content="关闭" Classes="Tertiary"/>
+            <Button
+                Classes="Tertiary"
+                Command="{Binding CloseCommand}"
+                Content="关闭"
+                ToolTip.Tip="关闭窗口"
+                AutomationProperties.Name="关闭窗口" />
             <Button
                 Classes="Solid"
                 Command="{Binding ApplyCommand}"
                 Content="应用选中版本"
-                IsEnabled="{Binding SelectedHistoryItem, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                IsEnabled="{Binding SelectedHistoryItem, Converter={x:Static ObjectConverters.IsNotNull}}"
+                ToolTip.Tip="将选中的历史版本应用到当前模组"
+                AutomationProperties.Name="应用选中版本" />
         </StackPanel>
 
         <!--  Loading Overlay  -->
@@ -87,13 +109,27 @@
             Grid.Row="0"
             Grid.RowSpan="2"
             IsVisible="{Binding IsLoading}">
-            <TextBlock
-                FontFamily="{StaticResource MonoFont}"
-                FontSize="20"
-                Foreground="{StaticResource GeekBlueBrush}"
+            <StackPanel
                 HorizontalAlignment="Center"
-                Text="[正在获取历史记录...]"
-                VerticalAlignment="Center" />
+                Spacing="15"
+                VerticalAlignment="Center">
+                <TextBlock
+                    Classes="Spinning"
+                    FontSize="48"
+                    HorizontalAlignment="Center"
+                    RenderTransformOrigin="50%,50%"
+                    Text="⏳">
+                    <TextBlock.RenderTransform>
+                        <RotateTransform />
+                    </TextBlock.RenderTransform>
+                </TextBlock>
+                <TextBlock
+                    FontFamily="{StaticResource MonoFont}"
+                    FontSize="16"
+                    Foreground="{StaticResource GeekBlueBrush}"
+                    HorizontalAlignment="Center"
+                    Text="正在获取历史记录..." />
+            </StackPanel>
         </Border>
     </Grid>
 </Window>
