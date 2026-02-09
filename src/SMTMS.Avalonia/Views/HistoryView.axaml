@@ -11,6 +11,21 @@
     xmlns:cv="using:SMTMS.Avalonia.Converters"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
+    <UserControl.Styles>
+        <Style Selector="TextBlock.Spinning">
+            <Style.Animations>
+                <Animation Duration="0:0:1" IterationCount="Infinite">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="RotateTransform.Angle" Value="0" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="RotateTransform.Angle" Value="360" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+    </UserControl.Styles>
+
     <UserControl.Resources>
         <cv:BoolNegationConverter x:Key="BoolNegationConverter"/>
     </UserControl.Resources>
@@ -373,17 +388,31 @@
             </Border>
 
             <Border
-                Background="#80000000"
+                Background="#80FFFFFF"
                 Grid.Column="0"
                 Grid.ColumnSpan="3"
                 IsVisible="{Binding HistoryViewModel.IsLoadingDiff}">
-                <TextBlock
-                    FontFamily="{StaticResource MonoFont}"
-                    FontSize="20"
-                    Foreground="{StaticResource GeekBlueBrush}"
+                <StackPanel
                     HorizontalAlignment="Center"
-                    Text="[正在执行差异分析...]"
-                    VerticalAlignment="Center" />
+                    Spacing="20"
+                    VerticalAlignment="Center">
+                    <TextBlock
+                        Classes="Spinning"
+                        FontSize="48"
+                        HorizontalAlignment="Center"
+                        RenderTransformOrigin="50%,50%"
+                        Text="⚙️">
+                        <TextBlock.RenderTransform>
+                            <RotateTransform />
+                        </TextBlock.RenderTransform>
+                    </TextBlock>
+                    <TextBlock
+                        FontFamily="{StaticResource MonoFont}"
+                        FontSize="16"
+                        Foreground="{StaticResource GeekBlueBrush}"
+                        HorizontalAlignment="Center"
+                        Text="正在执行差异分析..." />
+                </StackPanel>
             </Border>
         </Grid>
     </Grid>
