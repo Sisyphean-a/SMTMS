@@ -24,7 +24,3 @@
 ## 2026-02-17 - Button Action Clarity
 **Learning:** Important action buttons (like Sync/Restore) can be ambiguous. Adding explicit tooltips explaining the outcome (e.g., "Creates a snapshot") reduces user anxiety.
 **Action:** Always add descriptive `ToolTip.Tip` to buttons that perform complex or destructive data operations.
-
-## 2026-02-18 - Visual Loading States
-**Learning:** Text-only loading messages (e.g., "[Loading...]") are functional but lack the immediate visual cue of activity.
-**Action:** Replace text-only loading indicators with a spinning icon (using `RotateTransform` animation) and descriptive text to provide clear, active feedback to the user.

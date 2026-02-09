@@ -10,21 +10,6 @@
     xmlns:vm="using:SMTMS.Avalonia.ViewModels"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <UserControl.Styles>
-        <Style Selector="TextBlock.Spinning">
-            <Style.Animations>
-                <Animation Duration="0:0:1" IterationCount="Infinite">
-                    <KeyFrame Cue="0%">
-                        <Setter Property="RotateTransform.Angle" Value="0" />
-                    </KeyFrame>
-                    <KeyFrame Cue="100%">
-                        <Setter Property="RotateTransform.Angle" Value="360" />
-                    </KeyFrame>
-                </Animation>
-            </Style.Animations>
-        </Style>
-    </UserControl.Styles>
-
     <Grid RowDefinitions="Auto, *, 4, 300">
         <StackPanel
             Grid.Row="0"
@@ -330,24 +315,13 @@
                 Grid.Column="0"
                 Grid.ColumnSpan="3"
                 IsVisible="{Binding HistoryViewModel.IsLoadingDiff}">
-                <StackPanel HorizontalAlignment="Center" Spacing="15" VerticalAlignment="Center">
-                    <TextBlock Classes="Spinning"
-                               FontSize="32"
-                               Foreground="{StaticResource GeekBlueBrush}"
-                               HorizontalAlignment="Center"
-                               RenderTransformOrigin="50%,50%"
-                               Text="🔄">
-                        <TextBlock.RenderTransform>
-                            <RotateTransform />
-                        </TextBlock.RenderTransform>
-                    </TextBlock>
-                    <TextBlock
-                        FontFamily="{StaticResource MonoFont}"
-                        FontSize="16"
-                        Foreground="{StaticResource GeekBlueBrush}"
-                        HorizontalAlignment="Center"
-                        Text="正在执行差异分析..." />
-                </StackPanel>
+                <TextBlock
+                    FontFamily="{StaticResource MonoFont}"
+                    FontSize="20"
+                    Foreground="{StaticResource GeekBlueBrush}"
+                    HorizontalAlignment="Center"
+                    Text="[正在执行差异分析...]"
+                    VerticalAlignment="Center" />
             </Border>
         </Grid>
     </Grid>
