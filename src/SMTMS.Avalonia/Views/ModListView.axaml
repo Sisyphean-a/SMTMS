@@ -69,6 +69,22 @@
                 </Style>
             </DataGrid.Styles>
             <DataGrid.Columns>
+                <DataGridTemplateColumn
+                    Header="Open"
+                    Width="72">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="vm:ModViewModel">
+                            <Button
+                                Command="{Binding #Root.DataContext.ModListViewModel.OpenModFolderCommand}"
+                                CommandParameter="{Binding}"
+                                Content="Open"
+                                HorizontalAlignment="Center"
+                                Padding="8,2"
+                                ToolTip.Tip="打开模组文件夹"
+                                AutomationProperties.Name="打开模组目录" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
                 <DataGridTextColumn
                     Binding="{Binding Name}"
                     Header="名称"

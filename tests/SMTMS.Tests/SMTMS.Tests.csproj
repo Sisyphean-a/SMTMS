@@ -25,6 +25,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\SMTMS.Avalonia\SMTMS.Avalonia.csproj" />
     <ProjectReference Include="..\..\src\SMTMS.Core\SMTMS.Core.csproj" />
     <ProjectReference Include="..\..\src\SMTMS.Translation\SMTMS.Translation.csproj" />
     <ProjectReference Include="..\..\src\SMTMS.NexusClient\SMTMS.NexusClient.csproj" />

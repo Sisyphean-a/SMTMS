@@ -5,6 +5,7 @@ using Avalonia.Collections;
 using System.IO;
 using SMTMS.Core.Interfaces;
 using SMTMS.Avalonia.Messages;
+using SMTMS.Avalonia.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
@@ -23,6 +24,7 @@ public partial class ModListViewModel : ObservableObject
     private readonly IModService _modService;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<ModListViewModel> _logger;
+    private readonly IPathOpener _pathOpener;
 
     [ObservableProperty]
     private ModViewModel? _selectedMod;
@@ -48,11 +50,13 @@ public partial class ModListViewModel : ObservableObject
     public ModListViewModel(
         IModService modService,
         IServiceScopeFactory scopeFactory,
-        ILogger<ModListViewModel> logger)
+        ILogger<ModListViewModel> logger,
+        IPathOpener pathOpener)
     {
         _modService = modService;
         _scopeFactory = scopeFactory;
         _logger = logger;
+        _pathOpener = pathOpener;
 
         // 订阅消息
         WeakReferenceMessenger.Default.Register<ModsDirectoryChangedMessage>(this, OnModsDirectoryChanged);
@@ -240,6 +244,39 @@ public partial class ModListViewModel : ObservableObject
         {
             _logger.LogError(ex, "保存模组时发生错误");
             WeakReferenceMessenger.Default.Send(new StatusMessage($"保存错误: {ex.Message}", StatusLevel.Error));
+        }
+    }
+
+    [RelayCommand]
+    public void OpenModFolder(ModViewModel? mod)
+    {
+        if (mod?.ManifestPath is not { Length: > 0 } manifestPath)
+        {
+            WeakReferenceMessenger.Default.Send(new StatusMessage("打开目录失败: 文件路径无效", StatusLevel.Error));
+            return;
+        }
+
+        var folderPath = Path.GetDirectoryName(manifestPath);
+        if (string.IsNullOrWhiteSpace(folderPath))
+        {
+            WeakReferenceMessenger.Default.Send(new StatusMessage("打开目录失败: 无法解析模组目录", StatusLevel.Error));
+            return;
+        }
+
+        if (!Directory.Exists(folderPath))
+        {
+            WeakReferenceMessenger.Default.Send(new StatusMessage($"打开目录失败: 目录不存在 {folderPath}", StatusLevel.Error));
+            return;
+        }
+
+        try
+        {
+            _pathOpener.Open(folderPath);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "打开模组目录失败: {FolderPath}", folderPath);
+            WeakReferenceMessenger.Default.Send(new StatusMessage($"打开目录失败: {ex.Message}", StatusLevel.Error));
         }
     }
 }

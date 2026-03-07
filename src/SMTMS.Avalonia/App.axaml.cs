@@ -82,6 +82,7 @@ public partial class App : Application
                 // UI Core Services
                 services.AddSingleton<IFolderPickerService, AvaloniaFolderPickerService>();
                 services.AddSingleton<ICommitMessageService, AvaloniaCommitMessageService>();
+                services.AddSingleton<IPathOpener, ShellPathOpener>();
 
                 // ViewModels
                 services.AddSingleton<ModListViewModel>();
