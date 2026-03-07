@@ -16,6 +16,8 @@ public class TranslationScanService(
     ILogger<TranslationScanService> logger,
     IFileSystem fileSystem)
 {
+    private const char Utf8BomCharacter = '\uFEFF';
+
     private readonly ILogger<TranslationScanService> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     private readonly IFileSystem _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
 
@@ -396,9 +398,7 @@ public class TranslationScanService(
                 var contentBytes = await _fileSystem.ReadAllBytesAsync(file, cancellationToken);
                 var hash = Convert.ToBase64String(MD5.HashData(contentBytes));
 
-                // Optimization: Decode content here to avoid reading file again later
-                // Assuming manifest.json is UTF8
-                var contentString = Encoding.UTF8.GetString(contentBytes);
+                var contentString = DecodeUtf8Content(contentBytes);
 
                 return (file, hash, (string?)contentString, true);
             }
@@ -408,5 +408,13 @@ public class TranslationScanService(
             }
         }).ToArray();
         return await Task.WhenAll(fileHashTasks);
+    }
+
+    private static string DecodeUtf8Content(byte[] contentBytes)
+    {
+        var content = Encoding.UTF8.GetString(contentBytes);
+        return content.Length > 0 && content[0] == Utf8BomCharacter
+            ? content[1..]
+            : content;
     }
 }

@@ -5,6 +5,7 @@ using SMTMS.Core.Interfaces;
 using SMTMS.Core.Models;
 using SMTMS.Tests.Mocks;
 using SMTMS.Translation.Services;
+using System.Text;
 
 namespace SMTMS.Tests.Services;
 
@@ -92,6 +93,43 @@ public class TranslationServiceTests
         Assert.NotNull(mod);
         Assert.Equal("测试模组", mod.TranslatedName);
         Assert.Equal("这是一个测试模组", mod.TranslatedDescription);
+    }
+
+    [Fact]
+    public async Task SaveTranslationsToDbAsync_ManifestWithUtf8Bom_SavesTranslation()
+    {
+        _fileSystem.CreateDirectory("/mods");
+        _fileSystem.CreateDirectory("/mods/TestMod");
+
+        const string manifestJson = """
+                                    {
+                                        "Name": "带 BOM 的模组",
+                                        "Author": "Test Author",
+                                        "Version": "1.0.0",
+                                        "Description": "这是一个带 UTF-8 BOM 的测试模组",
+                                        "UniqueID": "TestAuthor.BomMod"
+                                    }
+                                    """;
+
+        var manifestBytes = Encoding.UTF8.GetPreamble()
+            .Concat(Encoding.UTF8.GetBytes(manifestJson))
+            .ToArray();
+
+        await _fileSystem.WriteAllBytesAsync("/mods/TestMod/manifest.json", manifestBytes);
+
+        var result = await _service.SaveTranslationsToDbAsync("/mods");
+
+        Assert.True(result.IsSuccess, $"Expected success but got: {result.Message}. Details: {string.Join(", ", result.Details)}");
+        Assert.Equal(1, result.SuccessCount);
+
+        var mod = await _modRepository.GetModAsync("TestAuthor.BomMod");
+        Assert.NotNull(mod);
+        Assert.NotNull(mod.CurrentJson);
+
+        var currentJson = mod.CurrentJson;
+        Assert.Equal("带 BOM 的模组", mod.TranslatedName);
+        Assert.Equal(manifestJson, currentJson);
+        Assert.DoesNotContain('\uFEFF', currentJson);
     }
 
     [Fact]
