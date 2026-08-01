@@ -28,15 +28,12 @@ public class ModService(IFileSystem fileSystem, ILogger<ModService> logger) : IM
             return new List<ModManifest>();
         }
 
-        // SMAPI mods are usually in subfolders of Mods/
-        // 我们在每个子文件夹中寻找 manifest.json
-        var subDirectories = _fileSystem.GetDirectories(modsDirectory);
+        var manifestFiles = _fileSystem.GetFiles(
+            modsDirectory,
+            "manifest.json",
+            SearchOption.AllDirectories);
 
-        // 并行读取所有 manifest.json 文件
-        // ⚡ Performance: Removed redundant FileExists check here.
-        // ReadManifestAsync already checks for existence, so we avoid a double I/O call.
-        var tasks = subDirectories
-            .Select(dir => _fileSystem.Combine(dir, "manifest.json"))
+        var tasks = manifestFiles
             .Select(ReadManifestAsync)
             .ToList();
 

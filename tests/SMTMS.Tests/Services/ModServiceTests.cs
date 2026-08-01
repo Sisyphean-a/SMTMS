@@ -65,6 +65,25 @@ public class ModServiceTests
     }
 
     [Fact]
+    public async Task ScanModsAsync_NestedManifest_ReturnsMod()
+    {
+        var fileSystem = new InMemoryFileSystem();
+        fileSystem.CreateDirectory("/mods");
+        fileSystem.CreateDirectory("/mods/DownloadPackage");
+        fileSystem.CreateDirectory("/mods/DownloadPackage/NestedMod");
+        await fileSystem.WriteAllTextAsync(
+            "/mods/DownloadPackage/NestedMod/manifest.json",
+            """{"Name":"Nested Mod","UniqueID":"Author.NestedMod","Version":"1.0.0"}""");
+        var service = CreateService(fileSystem);
+
+        var result = (await service.ScanModsAsync("/mods")).ToList();
+
+        var mod = Assert.Single(result);
+        Assert.Equal("Author.NestedMod", mod.UniqueID);
+        Assert.Equal("/mods/DownloadPackage/NestedMod/manifest.json", mod.ManifestPath);
+    }
+
+    [Fact]
     public async Task ScanModsAsync_MultipleMods_ReturnsAllMods()
     {
         // Arrange

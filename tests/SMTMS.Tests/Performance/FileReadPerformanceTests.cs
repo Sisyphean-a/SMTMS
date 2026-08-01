@@ -43,9 +43,7 @@ public class FileReadPerformanceTests
                          """;
 
         _fileSystemMock.Setup(fs => fs.DirectoryExists(modDir)).Returns(true);
-        _fileSystemMock.Setup(fs => fs.GetDirectories(modDir, It.IsAny<string>(), It.IsAny<SearchOption>())).Returns(new[] { $"/mods/{modName}" });
-        _fileSystemMock.Setup(fs => fs.Combine($"/mods/{modName}", "manifest.json")).Returns(manifestPath);
-        _fileSystemMock.Setup(fs => fs.FileExists(manifestPath)).Returns(true);
+        _fileSystemMock.Setup(fs => fs.GetFiles(modDir, "manifest.json", SearchOption.AllDirectories)).Returns([manifestPath]);
         _fileSystemMock.Setup(fs => fs.GetRelativePath(modDir, manifestPath)).Returns($"{modName}/manifest.json");
         _fileSystemMock.Setup(fs => fs.GetFileName(manifestPath)).Returns("manifest.json");
 

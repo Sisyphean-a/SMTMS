@@ -119,22 +119,14 @@ public class TranslationScanService(
     {
         var sw = System.Diagnostics.Stopwatch.StartNew();
         
-        // 与 ModService 逻辑匹配：仅扫描一级子目录下的 manifest.json
-        // 这确保了你在 UI (ModService) 中看到的内容与同步到数据库 (ScanService) 的内容一致
-        string[] modFiles = [];
-        
-        if (_fileSystem.DirectoryExists(modDirectory))
-        {
-            var subDirectories = _fileSystem.GetDirectories(modDirectory);
-            modFiles = subDirectories
-                .Select(dir => _fileSystem.Combine(dir, "manifest.json"))
-                .Where(path => _fileSystem.FileExists(path))
-                .ToArray();
-        }
+        var modFiles = _fileSystem.GetFiles(
+            modDirectory,
+            "manifest.json",
+            SearchOption.AllDirectories);
 
         sw.Stop();
         
-        _logger.LogInformation("扫描文件完成 ({Elapsed}ms): 找到 {Count} 个 manifest.json 文件 (Shallow Scan)", 
+        _logger.LogInformation("扫描文件完成 ({Elapsed}ms): 找到 {Count} 个 manifest.json 文件",
             sw.ElapsedMilliseconds, modFiles.Length);
         
         return await Task.FromResult((modFiles, sw.ElapsedMilliseconds));

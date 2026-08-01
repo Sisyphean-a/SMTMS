@@ -197,7 +197,7 @@ public class TranslationServiceTests
     }
 
     [Fact]
-    public async Task SaveTranslationsToDbAsync_NestedMod_Ignored()
+    public async Task SaveTranslationsToDbAsync_NestedMod_SavesTranslation()
     {
         // Arrange
         _fileSystem.CreateDirectory("/mods");
@@ -213,20 +213,16 @@ public class TranslationServiceTests
                                     }
                                     """;
 
-        // Write manifest deep in the structure
         await _fileSystem.WriteAllTextAsync("/mods/Group/NestedMod/manifest.json", manifestJson);
 
-        // Act
-        // 当前逻辑：ScanManifestFilesAsync 仅扫描 /mods 的一级子目录。
         var result = await _service.SaveTranslationsToDbAsync("/mods");
 
-        // Assert
-        // Expect 0 success because it should not find the nested mod
         Assert.True(result.IsSuccess);
-        Assert.Equal(0, result.SuccessCount); 
-        
+        Assert.Equal(1, result.SuccessCount);
+
         var mod = await _modRepository.GetModAsync("TestAuthor.NestedMod");
-        Assert.Null(mod);
+        Assert.NotNull(mod);
+        Assert.Equal("Group/NestedMod/manifest.json", mod.RelativePath);
     }
 
     [Fact]

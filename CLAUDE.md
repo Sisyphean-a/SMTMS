@@ -148,7 +148,7 @@ Key messages:
 ### Sync to Database
 1. User clicks "Sync to Database" → shows commit message dialog
 2. `TranslationScanService.SaveTranslationsToDbAsync()`:
-   - Scans manifest files (one level deep)
+   - Recursively scans manifest files at any depth under the Mods directory
    - Computes MD5 hashes for change detection
    - Skips unchanged files
    - Creates/updates `ModMetadata` records
